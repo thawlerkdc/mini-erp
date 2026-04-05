@@ -84,6 +84,17 @@ header .brand-subtitle {
   align-items: center;
   gap: 12px;
 }
+.account-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .language-dropdown {
   position: relative;
 }
@@ -340,6 +351,11 @@ button,
 
 .field-group button.secondary {
   padding: 10px;
+}
+.form-helper {
+  margin: 0 0 16px;
+  color: #475569;
+  line-height: 1.5;
 }
 .sale-items .sale-row:last-child {
   margin-bottom: 0;

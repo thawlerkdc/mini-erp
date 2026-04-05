@@ -1,27 +1,58 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="login-card">
-    <form method="post" action="{{ url_for('login') }}">
-      <label for="username">{{ t('username_label') }}</label>
-      <input id="username" name="username" type="text" required>
+  <div class="login-layout">
+    <div class="login-card">
+      <form method="post" action="{{ url_for('login') }}">
+        <label for="username">{{ t('username_label') }}</label>
+        <input id="username" name="username" type="text" required>
 
-      <label for="password">{{ t('password_label') }}</label>
-      <input id="password" name="password" type="password" required>
+        <label for="password">{{ t('password_label') }}</label>
+        <input id="password" name="password" type="password" required>
 
-      <button type="submit">{{ t('login_title') }}</button>
-    </form>
-    
-    <div class="login-footer">
-      <p>
-        <a href="{{ url_for('forgot_password') }}" class="forgot-password-link">
-          {{ t('forgot_password_label') }}
-        </a>
-      </p>
+        <button type="submit">{{ t('login_title') }}</button>
+      </form>
+      
+      <div class="login-footer">
+        <p>
+          <a href="{{ url_for('forgot_password') }}" class="forgot-password-link">
+            {{ t('forgot_password_label') }}
+          </a>
+        </p>
+      </div>
+    </div>
+
+    <div class="login-card signup-card">
+      <h3>Criar conta principal</h3>
+      <form method="post" action="{{ url_for('criar_conta_principal') }}">
+        <label for="account_name">Empresa</label>
+        <input id="account_name" name="account_name" type="text" placeholder="Ex: Padaria Central" required>
+
+        <label for="owner_name">Responsável</label>
+        <input id="owner_name" name="owner_name" type="text" placeholder="Ex: Maria Souza" required>
+
+        <label for="signup_username">Usuário principal</label>
+        <input id="signup_username" name="username" type="text" placeholder="Ex: padaria.central" required>
+
+        <label for="signup_email">E-mail</label>
+        <input id="signup_email" name="email" type="email" placeholder="Ex: contato@empresa.com">
+
+        <label for="signup_password">Senha</label>
+        <input id="signup_password" name="password" type="password" required>
+
+        <button type="submit" class="btn-add">Criar conta</button>
+      </form>
     </div>
   </div>
 
   <style>
+    .login-layout {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+
     .login-footer {
       text-align: center;
       margin-top: 20px;
@@ -38,6 +69,11 @@
     .forgot-password-link:hover {
       text-decoration: underline;
       color: #0056b3;
+    }
+
+    .signup-card h3 {
+      margin-top: 0;
+      margin-bottom: 18px;
     }
   </style>
 {% endblock %}

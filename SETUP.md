@@ -75,19 +75,30 @@ python backup_scheduler.py
 ## 📊 Banco de Dados
 
 ### Localização
-- Arquivo principal: `kdc_systems.db`
-- Backups: `backups/kdc_systems_backup_YYYYMMDD_HHMMSS.db`
-- Arquivo WAL: `kdc_systems.db-wal`
+- Banco de autenticação: `DATA_DIR/auth.db`
+- Bancos operacionais por conta: `DATA_DIR/tenants/tenant_<id>.db`
+- Backups: `DATA_DIR/backups/` e `DATA_DIR/tenants/backups/`
 
 ### Dados Persistem?
-✅ **SIM! Seus dados são salvos automaticamente e persistem entre reinicializações!**
+✅ **SIM, desde que em produção o Render use disco persistente e a variável `DATA_DIR` aponte para ele.**
 
 O problema anterior era:
-- ❌ Arquivo corrompido (não perda automática de dados)
-- ❌ Falta de backup
-- ❌ Sem recuperação de falhas
+- ❌ Banco SQLite salvo dentro do filesystem efêmero do deploy
+- ❌ Sem separação entre clientes/contas principais
 
 Agora tudo está resolvido! ✅
+
+### Configuração no Render
+1. Crie um Persistent Disk no serviço web.
+2. Monte esse disco, por exemplo, em `/var/data`.
+3. Configure a variável de ambiente `DATA_DIR=/var/data`.
+4. Faça novo deploy.
+
+### Modelo Multiempresa
+1. Conta principal: dono da empresa/cliente.
+2. Usuários dependentes: operadores da mesma conta principal.
+3. Cada conta principal possui banco operacional próprio.
+4. Os dados de uma conta não ficam visíveis para outra.
 
 ---
 
@@ -181,12 +192,14 @@ pip install -r requirements.txt
 ### Estrutura de Backup
 ```
 Mini ERP/
-├── kdc_systems.db              # Banco principal
+├── auth.db
 ├── backups/
-│   ├── kdc_systems_backup_20260404_120000.db
-│   ├── kdc_systems_backup_20260404_114500.db
+├── tenants/
+│   ├── tenant_1.db
+│   ├── tenant_2.db
+│   ├── backups/
 │   └── ...
-└── backup.log                  # Log de backups
+└── backup.log
 ```
 
 ### Ciclo de Vida

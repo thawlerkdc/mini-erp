@@ -16,7 +16,9 @@
         {% if session.get('user') %}
           <nav>
             <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">{{ t('menu_dashboard') }}</a>
-            <a href="{{ url_for('cadastro', entity='usuarios') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'usuarios' %}active{% endif %}">{{ t('menu_users') }}</a>
+            {% if session.get('role') == 'owner' %}
+              <a href="{{ url_for('cadastro', entity='usuarios') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'usuarios' %}active{% endif %}">{{ t('menu_users') }}</a>
+            {% endif %}
             <a href="{{ url_for('cadastro', entity='produtos') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'produtos' %}active{% endif %}">{{ t('menu_products') }}</a>
             <a href="{{ url_for('cadastro', entity='clientes') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'clientes' %}active{% endif %}">{{ t('menu_clients') }}</a>
             <a href="{{ url_for('cadastro', entity='fornecedores') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'fornecedores' %}active{% endif %}">{{ t('menu_suppliers') }}</a>
@@ -27,6 +29,7 @@
             <a href="{{ url_for('manual') }}" class="nav-link {% if request.endpoint == 'manual' %}active{% endif %}">{{ t('menu_manual') }}</a>
           </nav>
           <div class="actions">
+            <span class="account-badge">{{ session.get('account_name') }}{% if session.get('role') == 'owner' %} · principal{% else %} · dependente{% endif %}</span>
             <div class="language-dropdown">
               <button type="button">{{ t('select_language') }}</button>
               <div class="language-dropdown-menu">

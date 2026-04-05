@@ -4,5 +4,9 @@ __pycache__/
 *.pyo
 *.pyd
 kdc_systems.db
+*.db-wal
+*.db-shm
+data/
+backups/*.db
 instance/
 .env

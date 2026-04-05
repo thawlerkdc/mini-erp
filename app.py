@@ -1,5 +1,15 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-from models import init_db, get_db_connection, seed_admin
+from models import (
+    authenticate_user,
+    create_account_with_owner,
+    get_auth_db_path,
+    get_db_connection,
+    get_tenant_db_path,
+    init_auth_db,
+    init_tenant_db,
+    migrate_legacy_database,
+    seed_admin,
+)
 from pathlib import Path
 from datetime import datetime
 import re
@@ -11,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = "kdc_systems_secret_key"
-app.config["DATABASE"] = str(Path(__file__).resolve().parent / "kdc_systems.db")
+app.config["AUTH_DATABASE"] = str(get_auth_db_path())
+app.config["LEGACY_DATABASE"] = str(Path(__file__).resolve().parent / "kdc_systems.db")
 
 LANGUAGES = {
     "pt": "Português",
@@ -717,16 +728,39 @@ def inject_translations():
     }
 
 
-# Inicializa o banco de dados no carregamento do aplicativo.
-#init_db(app.config["DATABASE"])
-#seed_admin(app.config["DATABASE"])
-from pathlib import Path
+init_auth_db(app.config["AUTH_DATABASE"])
+migrate_legacy_database(app.config["LEGACY_DATABASE"])
+seed_admin(app.config["AUTH_DATABASE"])
 
-db_path = Path(app.config["DATABASE"])
 
-if not db_path.exists():
-    init_db(app.config["DATABASE"])
-    seed_admin(app.config["DATABASE"])
+def get_auth_connection():
+    return get_db_connection(app.config["AUTH_DATABASE"])
+
+
+def get_current_account_id():
+    return session.get("account_id")
+
+
+def get_current_user_id():
+    return session.get("user_id")
+
+
+def get_current_user_role():
+    return session.get("role")
+
+
+def get_tenant_connection(account_id=None):
+    account_id = account_id or get_current_account_id()
+    tenant_db_path = get_tenant_db_path(account_id)
+    init_tenant_db(tenant_db_path)
+    return get_db_connection(tenant_db_path)
+
+
+def require_owner_access():
+    if get_current_user_role() != "owner":
+        flash("Somente o usuário principal pode gerenciar usuários desta conta.", "error")
+        return False
+    return True
 
 
 @app.route("/set_language/<lang_code>")
@@ -743,14 +777,42 @@ def login():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
-        conn = get_db_connection(app.config["DATABASE"])
-        user = conn.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password)).fetchone()
-        conn.close()
+        user = authenticate_user(username, password)
         if user:
-            session["user"] = username
+            session["user"] = user["username"]
+            session["user_id"] = user["id"]
+            session["user_name"] = user["name"] or user["username"]
+            session["account_id"] = user["account_id"]
+            session["account_name"] = user["account_name"]
+            session["role"] = user["role"]
             return redirect(url_for("dashboard"))
         flash(translate("invalid_login"), "error")
     return render_template("login.html", title=translate("login_title"))
+
+
+@app.route("/criar-conta", methods=["POST"])
+def criar_conta_principal():
+    account_name = (request.form.get("account_name") or "").strip()
+    owner_name = (request.form.get("owner_name") or "").strip()
+    username = (request.form.get("username") or "").strip()
+    password = request.form.get("password") or ""
+    email = (request.form.get("email") or "").strip() or None
+
+    if not all([account_name, owner_name, username, password]):
+        flash("Preencha empresa, responsável, usuário e senha para criar a conta principal.", "error")
+        return redirect(url_for("login"))
+
+    if " " in username:
+        flash("O login da conta principal não pode conter espaços.", "error")
+        return redirect(url_for("login"))
+
+    try:
+        create_account_with_owner(account_name, owner_name, username, password, email)
+        flash("Conta principal criada com sucesso. Agora faça o login.", "success")
+    except sqlite3.IntegrityError:
+        flash("Este login já está em uso. Escolha outro usuário principal.", "error")
+
+    return redirect(url_for("login"))
 
 
 @app.route("/dashboard")
@@ -758,8 +820,7 @@ def dashboard():
     if not session.get("user"):
         return redirect(url_for("login"))
     
-    # Get some stats for the dashboard
-    conn = get_db_connection(app.config["DATABASE"])
+    conn = get_tenant_connection()
     total_clients = conn.execute("SELECT COUNT(*) FROM clients").fetchone()[0]
     total_products = conn.execute("SELECT COUNT(*) FROM products").fetchone()[0]
     total_sales = conn.execute("SELECT COUNT(*) FROM sales").fetchone()[0]
@@ -768,7 +829,7 @@ def dashboard():
     return render_template(
         "dashboard.html",
         title=translate("dashboard_title"),
-        user=session.get("user"),
+        user=session.get("user_name") or session.get("user"),
         welcome_text=translate("dashboard_welcome_text"),
         total_clients=total_clients,
         total_products=total_products,
@@ -790,7 +851,7 @@ def forgot_password():
         email = request.form.get("email")
         
         if username and email:
-            conn = get_db_connection(app.config["DATABASE"])
+            conn = get_auth_connection()
             user = conn.execute(
                 "SELECT id, name FROM users WHERE username = ? AND email = ?", 
                 (username, email)
@@ -831,18 +892,23 @@ def cadastro(entity):
     if not session.get("user"):
         return redirect(url_for("login"))
     entity = entity.lower()
-    conn = get_db_connection(app.config["DATABASE"])
+    if entity == "usuarios" and not require_owner_access():
+        return redirect(url_for("dashboard"))
+
+    conn = get_auth_connection() if entity == "usuarios" else get_tenant_connection()
     rows = []
-    categories = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
-    units = conn.execute("SELECT * FROM units ORDER BY name").fetchall()
-    suppliers = conn.execute("SELECT * FROM suppliers ORDER BY name").fetchall()
+    categories = conn.execute("SELECT * FROM categories ORDER BY name").fetchall() if entity != "usuarios" else []
+    units = conn.execute("SELECT * FROM units ORDER BY name").fetchall() if entity != "usuarios" else []
+    suppliers = conn.execute("SELECT * FROM suppliers ORDER BY name").fetchall() if entity != "usuarios" else []
     edit_id = request.args.get("edit_id") or request.form.get("edit_id")
     edit_data = None
+    account_id = get_current_account_id()
+    current_user_id = get_current_user_id()
 
     # Carregar dados para edição se edit_id estiver presente
     if edit_id:
         if entity == "usuarios":
-            edit_data = dict(conn.execute("SELECT * FROM users WHERE id = ?", (edit_id,)).fetchone() or {})
+            edit_data = dict(conn.execute("SELECT * FROM users WHERE id = ? AND account_id = ?", (edit_id, account_id)).fetchone() or {})
         elif entity == "produtos":
             edit_data = dict(conn.execute("SELECT * FROM products WHERE id = ?", (edit_id,)).fetchone() or {})
         elif entity == "clientes":
@@ -860,7 +926,7 @@ def cadastro(entity):
             if request.form.get("delete_id"):
                 delete_id = request.form.get("delete_id")
                 if entity == "usuarios":
-                    conn.execute("DELETE FROM users WHERE id = ?", (delete_id,))
+                    conn.execute("DELETE FROM users WHERE id = ? AND account_id = ? AND role != 'owner'", (delete_id, account_id))
                     conn.commit()
                     flash("Registro deletado com sucesso", "success")
                 elif entity == "produtos":
@@ -902,7 +968,7 @@ def cadastro(entity):
                 reset_id = request.form.get("reset_id")
                 reset_password = request.form.get("reset_password")
                 if reset_id and reset_password:
-                    conn.execute("UPDATE users SET password = ? WHERE id = ?", (reset_password, reset_id))
+                    conn.execute("UPDATE users SET password = ? WHERE id = ? AND account_id = ?", (reset_password, reset_id, account_id))
                     conn.commit()
                     flash(translate("record_saved"), "success")
             
@@ -924,13 +990,13 @@ def cadastro(entity):
                             # Update
                             if password:
                                 conn.execute(
-                                    "UPDATE users SET name = ?, password = ?, email = ? WHERE id = ?",
-                                    (name, password, email, edit_id_form)
+                                    "UPDATE users SET name = ?, password = ?, email = ? WHERE id = ? AND account_id = ?",
+                                    (name, password, email, edit_id_form, account_id)
                                 )
                             else:
                                 conn.execute(
-                                    "UPDATE users SET name = ?, email = ? WHERE id = ?",
-                                    (name, email, edit_id_form)
+                                    "UPDATE users SET name = ?, email = ? WHERE id = ? AND account_id = ?",
+                                    (name, email, edit_id_form, account_id)
                                 )
                         else:
                             # Insert
@@ -938,8 +1004,8 @@ def cadastro(entity):
                                 flash("Senha é obrigatória para novo usuário", "error")
                             else:
                                 conn.execute(
-                                    "INSERT INTO users (name, username, password, email) VALUES (?, ?, ?, ?)",
-                                    (name, username, password, email)
+                                    "INSERT INTO users (account_id, name, username, password, email, role, parent_user_id, is_admin, created_at) VALUES (?, ?, ?, ?, ?, 'operator', ?, 0, ?)",
+                                    (account_id, name, username, password, email, current_user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                                 )
                         if not (edit_id_form and not password):
                             conn.commit()
@@ -1166,7 +1232,7 @@ def cadastro(entity):
 
     # GET - Buscar dados
     if entity == "usuarios":
-        rows = conn.execute("SELECT * FROM users ORDER BY username").fetchall()
+        rows = conn.execute("SELECT * FROM users WHERE account_id = ? ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, username", (account_id,)).fetchall()
     elif entity == "produtos":
         rows = conn.execute(
             "SELECT p.*, c.name AS category_name, u.name AS unit_name, s.name AS supplier_name FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN units u ON p.unit_id = u.id LEFT JOIN suppliers s ON p.supplier_id = s.id ORDER BY p.name"
@@ -1204,7 +1270,7 @@ def cadastro(entity):
 def vendas():
     if not session.get("user"):
         return redirect(url_for("login"))
-    conn = get_db_connection(app.config["DATABASE"])
+    conn = get_tenant_connection()
     products = conn.execute(
         "SELECT p.*, u.name AS unit_name FROM products p LEFT JOIN units u ON p.unit_id = u.id ORDER BY (SELECT IFNULL(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name"
     ).fetchall()
@@ -1320,7 +1386,7 @@ def vendas():
 def fechar_caixa():
     if not session.get("user"):
         return redirect(url_for("login"))
-    conn = get_db_connection(app.config["DATABASE"])
+    conn = get_tenant_connection()
     products = conn.execute(
         "SELECT p.*, u.name AS unit_name FROM products p LEFT JOIN units u ON p.unit_id = u.id ORDER BY (SELECT IFNULL(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name"
     ).fetchall()
@@ -1329,7 +1395,9 @@ def fechar_caixa():
     cash_total = conn.execute(
         "SELECT IFNULL(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = ?", (f"{today}%", "Dinheiro")
     ).fetchone()[0]
-    user = conn.execute("SELECT email FROM users WHERE username = ?", (session["user"],)).fetchone()
+    auth_conn = get_auth_connection()
+    user = auth_conn.execute("SELECT email FROM users WHERE id = ?", (get_current_user_id(),)).fetchone()
+    auth_conn.close()
     email = user["email"] if user else None
     conn.close()
     cash_summary = f"{translate('cash_total_message')} {cash_total:.2f}. "
@@ -1351,7 +1419,7 @@ def fechar_caixa():
 def relatorios():
     if not session.get("user"):
         return redirect(url_for("login"))
-    conn = get_db_connection(app.config["DATABASE"])
+    conn = get_tenant_connection()
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
     section = request.args.get("section")
