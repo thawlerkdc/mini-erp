@@ -253,26 +253,6 @@
     </div>
   {% endif %}
 
-  {% if not section %}
-    <div class="report-grid">
-      <div class="report-card summary-card">
-        <h3>{{ t('stock_report') }}</h3>
-        <p>{{ t('highest_stock') }}: {{ highest_stock[0] if highest_stock else '-' }} {% if highest_stock %}({{ t('stock_current_quantity') }}: {{ highest_stock[1] }}){% endif %}</p>
-        <p>{{ t('lowest_stock') }}: {{ lowest_stock[0] if lowest_stock else '-' }} {% if lowest_stock %}({{ t('stock_current_quantity') }}: {{ lowest_stock[1] }}){% endif %}</p>
-      </div>
-      <div class="report-card summary-card">
-        <h3>{{ t('near_min_stock') }}</h3>
-        <ol>
-          {% for item in near_min_stock %}
-            <li>{{ item['name'] }} — {{ t('stock_current_quantity') }}: {{ item['stock'] }} / {{ t('stock_min_label') }}: {{ item['stock_min'] }}</li>
-          {% else %}
-            <li>{{ t('no_records_found') }}</li>
-          {% endfor %}
-        </ol>
-      </div>
-    </div>
-  {% endif %}
-
   <style>
     .report-filter-card {
       margin-bottom: 20px;
