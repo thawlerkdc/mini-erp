@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+    from flask import Flask, render_template, request, redirect, url_for, session, flash
 from models import init_db, get_db_connection, seed_admin
 from pathlib import Path
 from datetime import datetime
@@ -717,8 +717,15 @@ def inject_translations():
 
 
 # Inicializa o banco de dados no carregamento do aplicativo.
-init_db(app.config["DATABASE"])
-seed_admin(app.config["DATABASE"])
+#init_db(app.config["DATABASE"])
+#seed_admin(app.config["DATABASE"])
+from pathlib import Path
+
+db_path = Path(app.config["DATABASE"])
+
+if not db_path.exists():
+    init_db(app.config["DATABASE"])
+    seed_admin(app.config["DATABASE"])
 
 
 @app.route("/set_language/<lang_code>")

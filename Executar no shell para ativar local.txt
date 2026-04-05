@@ -1,0 +1,3 @@
+cd "C:\Users\thawl\Projetos\Mini ERP"
+venv\Scripts\activate
+python run.py
