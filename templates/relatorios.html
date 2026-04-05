@@ -204,10 +204,58 @@
       margin-bottom: 20px;
     }
 
+    .report-card {
+      border-radius: 18px;
+      padding: 18px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 180px;
+      text-decoration: none;
+      color: #0f172a;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .report-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 45%);
+      pointer-events: none;
+    }
+
+    .report-card-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 12px;
+      width: fit-content;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 23, 42, 0.18);
+      background: rgba(255, 255, 255, 0.75);
+      color: #0f172a;
+      font-weight: 700;
+      font-size: 0.86rem;
+      letter-spacing: 0.01em;
+      text-decoration: none;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .report-card:hover .report-card-button,
+    .option-card:hover .report-card-button {
+      transform: translateX(2px);
+      background: rgba(255, 255, 255, 0.92);
+    }
+
     .option-card {
       background: #fff;
       border: 1px solid #cbd5e1;
-      border-radius: 12px;
+      border-radius: 18px;
       padding: 16px;
       display: flex;
       flex-direction: column;
@@ -260,8 +308,9 @@
     .report-card h3,
     .option-card h4 {
       margin: 0;
-      font-size: 1.05rem;
+      font-size: 1.12rem;
       color: #0f172a;
+      text-decoration: none;
     }
 
     .report-card p,
@@ -269,6 +318,7 @@
       margin: 0;
       color: #334155;
       line-height: 1.5;
+      text-decoration: none;
     }
 
     .report-card.fornecedores {
@@ -366,6 +416,18 @@
     .report-result-card th {
       background: #f8fafc;
       color: #0f172a;
+    }
+
+    @media (max-width: 640px) {
+      .report-card,
+      .option-card {
+        min-height: unset;
+        border-radius: 16px;
+      }
+
+      .report-card-button {
+        width: 100%;
+      }
     }
   </style>
 
