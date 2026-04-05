@@ -1290,6 +1290,11 @@ def vendas():
         if payment_method == "Pix":
             pix_code = f"PIX-{int(total * 100)}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
+        # Recarrega os produtos para refletir o estoque atualizado na nova venda.
+        products = conn.execute(
+            "SELECT p.*, u.name AS unit_name FROM products p LEFT JOIN units u ON p.unit_id = u.id ORDER BY (SELECT IFNULL(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name"
+        ).fetchall()
+
         conn.close()
         return render_template(
             "vendas.html",

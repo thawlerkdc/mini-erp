@@ -90,9 +90,9 @@
           {% endfor %}
         </select>
         <label>{{ t('cost_label') }}</label>
-        <input type="number" name="cost" step="0.01" value="{{ edit_data.get('cost', '0.00') if edit_data else '0.00' }}" required>
+        <input type="number" name="cost" step="0.01" placeholder="0.00" value="{{ edit_data.get('cost', '0.00') if edit_data else '' }}" required>
         <label>{{ t('price_label') }}</label>
-        <input type="number" name="price" step="0.01" value="{{ edit_data.get('price', '0.00') if edit_data else '0.00' }}" required>
+        <input type="number" name="price" step="0.01" placeholder="0.00" value="{{ edit_data.get('price', '0.00') if edit_data else '' }}" required>
         <label>{{ t('stock_label') }}</label>
         <input type="number" name="stock" value="{{ edit_data.get('stock', '0') if edit_data else '0' }}" required>
         <label>{{ t('stock_min_label') }}</label>
