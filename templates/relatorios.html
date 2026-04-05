@@ -98,8 +98,8 @@
         <tbody>
           {% for row in report_rows %}
             <tr>
-              {% for cell in row %}
-                <td>{{ cell }}</td>
+              {% for _ in report_headers %}
+                <td>{{ row[loop.index0] }}</td>
               {% endfor %}
             </tr>
           {% else %}
