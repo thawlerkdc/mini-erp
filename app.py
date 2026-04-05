@@ -2,27 +2,22 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from models import (
     authenticate_user,
     create_account_with_owner,
-    get_auth_db_path,
     get_db_connection,
-    get_tenant_db_path,
     init_auth_db,
     init_tenant_db,
     migrate_legacy_database,
     seed_admin,
 )
-from pathlib import Path
 from datetime import datetime
 import re
 import json
 import logging
-import sqlite3
+import psycopg
 
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = "kdc_systems_secret_key"
-app.config["AUTH_DATABASE"] = str(get_auth_db_path())
-app.config["LEGACY_DATABASE"] = str(Path(__file__).resolve().parent / "kdc_systems.db")
 
 LANGUAGES = {
     "pt": "Português",
@@ -728,13 +723,14 @@ def inject_translations():
     }
 
 
-init_auth_db(app.config["AUTH_DATABASE"])
-migrate_legacy_database(app.config["LEGACY_DATABASE"])
-seed_admin(app.config["AUTH_DATABASE"])
+init_auth_db()
+init_tenant_db()
+migrate_legacy_database()
+seed_admin()
 
 
 def get_auth_connection():
-    return get_db_connection(app.config["AUTH_DATABASE"])
+    return get_db_connection()
 
 
 def get_current_account_id():
@@ -750,10 +746,7 @@ def get_current_user_role():
 
 
 def get_tenant_connection(account_id=None):
-    account_id = account_id or get_current_account_id()
-    tenant_db_path = get_tenant_db_path(account_id)
-    init_tenant_db(tenant_db_path)
-    return get_db_connection(tenant_db_path)
+    return get_db_connection()
 
 
 def require_owner_access():
@@ -809,7 +802,7 @@ def criar_conta_principal():
     try:
         create_account_with_owner(account_name, owner_name, username, password, email)
         flash("Conta principal criada com sucesso. Agora faça o login.", "success")
-    except sqlite3.IntegrityError:
+    except psycopg.IntegrityError:
         flash("Este login já está em uso. Escolha outro usuário principal.", "error")
 
     return redirect(url_for("login"))
@@ -820,10 +813,11 @@ def dashboard():
     if not session.get("user"):
         return redirect(url_for("login"))
     
+    account_id = get_current_account_id()
     conn = get_tenant_connection()
-    total_clients = conn.execute("SELECT COUNT(*) FROM clients").fetchone()[0]
-    total_products = conn.execute("SELECT COUNT(*) FROM products").fetchone()[0]
-    total_sales = conn.execute("SELECT COUNT(*) FROM sales").fetchone()[0]
+    total_clients = conn.execute("SELECT COUNT(*) FROM clients WHERE account_id = %s", (account_id,)).fetchone()[0]
+    total_products = conn.execute("SELECT COUNT(*) FROM products WHERE account_id = %s", (account_id,)).fetchone()[0]
+    total_sales = conn.execute("SELECT COUNT(*) FROM sales WHERE account_id = %s", (account_id,)).fetchone()[0]
     conn.close()
     
     return render_template(
@@ -853,7 +847,7 @@ def forgot_password():
         if username and email:
             conn = get_auth_connection()
             user = conn.execute(
-                "SELECT id, name FROM users WHERE username = ? AND email = ?", 
+                "SELECT id, name FROM users WHERE username = %s AND email = %s",
                 (username, email)
             ).fetchone()
             conn.close()
@@ -891,95 +885,90 @@ def get_entity_title(entity):
 def cadastro(entity):
     if not session.get("user"):
         return redirect(url_for("login"))
+
     entity = entity.lower()
     if entity == "usuarios" and not require_owner_access():
         return redirect(url_for("dashboard"))
 
     conn = get_auth_connection() if entity == "usuarios" else get_tenant_connection()
-    rows = []
-    categories = conn.execute("SELECT * FROM categories ORDER BY name").fetchall() if entity != "usuarios" else []
-    units = conn.execute("SELECT * FROM units ORDER BY name").fetchall() if entity != "usuarios" else []
-    suppliers = conn.execute("SELECT * FROM suppliers ORDER BY name").fetchall() if entity != "usuarios" else []
-    edit_id = request.args.get("edit_id") or request.form.get("edit_id")
-    edit_data = None
     account_id = get_current_account_id()
     current_user_id = get_current_user_id()
+    rows = []
+    categories = conn.execute("SELECT * FROM categories WHERE account_id = %s ORDER BY name", (account_id,)).fetchall() if entity != "usuarios" else []
+    units = conn.execute("SELECT * FROM units WHERE account_id = %s ORDER BY name", (account_id,)).fetchall() if entity != "usuarios" else []
+    suppliers = conn.execute("SELECT * FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall() if entity != "usuarios" else []
+    edit_id = request.args.get("edit_id") or request.form.get("edit_id")
+    edit_data = None
 
-    # Carregar dados para edição se edit_id estiver presente
     if edit_id:
         if entity == "usuarios":
-            edit_data = dict(conn.execute("SELECT * FROM users WHERE id = ? AND account_id = ?", (edit_id, account_id)).fetchone() or {})
+            edit_data = dict(conn.execute("SELECT * FROM users WHERE id = %s AND account_id = %s", (edit_id, account_id)).fetchone() or {})
         elif entity == "produtos":
-            edit_data = dict(conn.execute("SELECT * FROM products WHERE id = ?", (edit_id,)).fetchone() or {})
+            edit_data = dict(conn.execute("SELECT * FROM products WHERE id = %s AND account_id = %s", (edit_id, account_id)).fetchone() or {})
         elif entity == "clientes":
-            edit_data = dict(conn.execute("SELECT * FROM clients WHERE id = ?", (edit_id,)).fetchone() or {})
+            edit_data = dict(conn.execute("SELECT * FROM clients WHERE id = %s AND account_id = %s", (edit_id, account_id)).fetchone() or {})
         elif entity == "fornecedores":
-            edit_data = dict(conn.execute("SELECT * FROM suppliers WHERE id = ?", (edit_id,)).fetchone() or {})
+            edit_data = dict(conn.execute("SELECT * FROM suppliers WHERE id = %s AND account_id = %s", (edit_id, account_id)).fetchone() or {})
         elif entity == "categorias":
-            edit_data = dict(conn.execute("SELECT * FROM categories WHERE id = ?", (edit_id,)).fetchone() or {})
+            edit_data = dict(conn.execute("SELECT * FROM categories WHERE id = %s AND account_id = %s", (edit_id, account_id)).fetchone() or {})
         elif entity == "unidades":
-            edit_data = dict(conn.execute("SELECT * FROM units WHERE id = ?", (edit_id,)).fetchone() or {})
+            edit_data = dict(conn.execute("SELECT * FROM units WHERE id = %s AND account_id = %s", (edit_id, account_id)).fetchone() or {})
 
     if request.method == "POST":
         try:
-            # Verificar se é delete
             if request.form.get("delete_id"):
                 delete_id = request.form.get("delete_id")
                 if entity == "usuarios":
-                    conn.execute("DELETE FROM users WHERE id = ? AND account_id = ? AND role != 'owner'", (delete_id, account_id))
+                    conn.execute("DELETE FROM users WHERE id = %s AND account_id = %s AND role != 'owner'", (delete_id, account_id))
                     conn.commit()
                     flash("Registro deletado com sucesso", "success")
                 elif entity == "produtos":
-                    conn.execute("DELETE FROM products WHERE id = ?", (delete_id,))
+                    conn.execute("DELETE FROM products WHERE id = %s AND account_id = %s", (delete_id, account_id))
                     conn.commit()
                     flash("Registro deletado com sucesso", "success")
                 elif entity == "clientes":
-                    conn.execute("DELETE FROM clients WHERE id = ?", (delete_id,))
+                    conn.execute("DELETE FROM clients WHERE id = %s AND account_id = %s", (delete_id, account_id))
                     conn.commit()
                     flash("Registro deletado com sucesso", "success")
                 elif entity == "fornecedores":
-                    conn.execute("DELETE FROM suppliers WHERE id = ?", (delete_id,))
+                    conn.execute("DELETE FROM suppliers WHERE id = %s AND account_id = %s", (delete_id, account_id))
                     conn.commit()
                     flash("Registro deletado com sucesso", "success")
                 elif entity == "categorias":
-                    # Verificar se a categoria está sendo usada
-                    used_in_products = conn.execute("SELECT COUNT(*) FROM products WHERE category_id = ?", (delete_id,)).fetchone()[0]
-                    used_in_suppliers = conn.execute("SELECT COUNT(*) FROM suppliers WHERE category_id = ?", (delete_id,)).fetchone()[0]
+                    used_in_products = conn.execute("SELECT COUNT(*) FROM products WHERE category_id = %s AND account_id = %s", (delete_id, account_id)).fetchone()[0]
+                    used_in_suppliers = conn.execute("SELECT COUNT(*) FROM suppliers WHERE category_id = %s AND account_id = %s", (delete_id, account_id)).fetchone()[0]
                     if used_in_products > 0 or used_in_suppliers > 0:
                         flash("Não é possível deletar esta categoria pois está sendo usada", "error")
                     else:
-                        conn.execute("DELETE FROM categories WHERE id = ?", (delete_id,))
+                        conn.execute("DELETE FROM categories WHERE id = %s AND account_id = %s", (delete_id, account_id))
                         conn.commit()
                         flash("Registro deletado com sucesso", "success")
                 elif entity == "unidades":
-                    # Verificar se a unidade está sendo usada
-                    used_in_products = conn.execute("SELECT COUNT(*) FROM products WHERE unit_id = ?", (delete_id,)).fetchone()[0]
+                    used_in_products = conn.execute("SELECT COUNT(*) FROM products WHERE unit_id = %s AND account_id = %s", (delete_id, account_id)).fetchone()[0]
                     if used_in_products > 0:
                         flash("Não é possível deletar esta unidade pois está sendo usada", "error")
                     else:
-                        conn.execute("DELETE FROM units WHERE id = ?", (delete_id,))
+                        conn.execute("DELETE FROM units WHERE id = %s AND account_id = %s", (delete_id, account_id))
                         conn.commit()
                         flash("Registro deletado com sucesso", "success")
                 conn.close()
                 return redirect(url_for("cadastro", entity=entity))
-            
-            # Verificar se é reset de senha (usuários)
+
             if entity == "usuarios" and request.form.get("action") == "reset":
                 reset_id = request.form.get("reset_id")
                 reset_password = request.form.get("reset_password")
                 if reset_id and reset_password:
-                    conn.execute("UPDATE users SET password = ? WHERE id = ? AND account_id = ?", (reset_password, reset_id, account_id))
+                    conn.execute("UPDATE users SET password = %s WHERE id = %s AND account_id = %s", (reset_password, reset_id, account_id))
                     conn.commit()
                     flash(translate("record_saved"), "success")
-            
-            # Insert ou Update
+
             elif entity == "usuarios":
                 name = request.form.get("name")
                 username = request.form.get("username")
                 password = request.form.get("password")
                 email = request.form.get("email")
                 edit_id_form = request.form.get("edit_id")
-                
+
                 if not (name and username):
                     flash("Nome e Login são obrigatórios", "error")
                 elif " " in username:
@@ -987,42 +976,42 @@ def cadastro(entity):
                 else:
                     try:
                         if edit_id_form:
-                            # Update
                             if password:
                                 conn.execute(
-                                    "UPDATE users SET name = ?, password = ?, email = ? WHERE id = ? AND account_id = ?",
-                                    (name, password, email, edit_id_form, account_id)
+                                    "UPDATE users SET name = %s, password = %s, email = %s WHERE id = %s AND account_id = %s",
+                                    (name, password, email, edit_id_form, account_id),
                                 )
                             else:
                                 conn.execute(
-                                    "UPDATE users SET name = ?, email = ? WHERE id = ? AND account_id = ?",
-                                    (name, email, edit_id_form, account_id)
+                                    "UPDATE users SET name = %s, email = %s WHERE id = %s AND account_id = %s",
+                                    (name, email, edit_id_form, account_id),
                                 )
                         else:
-                            # Insert
                             if not password:
                                 flash("Senha é obrigatória para novo usuário", "error")
                             else:
                                 conn.execute(
-                                    "INSERT INTO users (account_id, name, username, password, email, role, parent_user_id, is_admin, created_at) VALUES (?, ?, ?, ?, ?, 'operator', ?, 0, ?)",
-                                    (account_id, name, username, password, email, current_user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                                    "INSERT INTO users (account_id, name, username, password, email, role, parent_user_id, is_admin, created_at) VALUES (%s, %s, %s, %s, %s, 'operator', %s, 0, %s)",
+                                    (account_id, name, username, password, email, current_user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
                                 )
                         if not (edit_id_form and not password):
                             conn.commit()
                             flash(translate("record_saved"), "success")
                             conn.close()
                             return redirect(url_for("cadastro", entity=entity))
-                    except sqlite3.IntegrityError:
+                    except psycopg.IntegrityError:
+                        conn.rollback()
                         flash("Este login já existe", "error")
-                        
+
             elif entity == "produtos":
                 new_category_name = request.form.get("new_category_name")
                 if new_category_name:
                     try:
-                        conn.execute("INSERT INTO categories (name) VALUES (?)", (new_category_name.strip(),))
+                        conn.execute("INSERT INTO categories (account_id, name) VALUES (%s, %s)", (account_id, new_category_name.strip()))
                         conn.commit()
                         flash(translate("record_saved"), "success")
-                    except sqlite3.IntegrityError:
+                    except psycopg.IntegrityError:
+                        conn.rollback()
                         flash("Esta categoria já existe", "error")
                     conn.close()
                     return redirect(url_for("cadastro", entity=entity))
@@ -1030,10 +1019,11 @@ def cadastro(entity):
                 new_unit_name = request.form.get("new_unit_name")
                 if new_unit_name:
                     try:
-                        conn.execute("INSERT INTO units (name) VALUES (?)", (new_unit_name.strip(),))
+                        conn.execute("INSERT INTO units (account_id, name) VALUES (%s, %s)", (account_id, new_unit_name.strip()))
                         conn.commit()
                         flash(translate("record_saved"), "success")
-                    except sqlite3.IntegrityError:
+                    except psycopg.IntegrityError:
+                        conn.rollback()
                         flash("Esta unidade já existe", "error")
                     conn.close()
                     return redirect(url_for("cadastro", entity=entity))
@@ -1048,205 +1038,163 @@ def cadastro(entity):
                 stock_min = int(request.form.get("stock_min") or 0)
                 expiration_date = request.form.get("expiration_date") or None
                 edit_id_form = request.form.get("edit_id")
-                
+
                 if name and category_id and unit_id:
                     if edit_id_form:
-                        # Update
                         conn.execute(
-                            "UPDATE products SET name = ?, category_id = ?, unit_id = ?, supplier_id = ?, cost = ?, price = ?, stock = ?, stock_min = ?, expiration_date = ? WHERE id = ?",
-                            (name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date, edit_id_form)
+                            "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
+                            (name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date, edit_id_form, account_id),
                         )
                     else:
-                        # Insert
                         conn.execute(
-                            "INSERT INTO products (name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            (name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date)
+                            "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date),
                         )
                     conn.commit()
                     flash(translate("record_saved"), "success")
                     conn.close()
                     return redirect(url_for("cadastro", entity=entity))
-                else:
-                    flash("Preencha todos os campos obrigatórios", "error")
-                    
+                flash("Preencha todos os campos obrigatórios", "error")
+
             elif entity == "clientes":
                 name = request.form.get("name")
-                cpf = request.form.get("cpf") or ""
+                cpf = re.sub(r"\D", "", request.form.get("cpf") or "")[:11]
                 street = request.form.get("street")
                 number = request.form.get("number")
                 complement = request.form.get("complement")
                 neighborhood = request.form.get("neighborhood")
                 city = request.form.get("city")
-                state = request.form.get("state") or ""
+                state = re.sub(r"[^A-Za-z]", "", request.form.get("state") or "").upper()[:2]
                 country = request.form.get("country")
-                postal_code = request.form.get("postal_code") or ""
+                postal_code = re.sub(r"\D", "", request.form.get("postal_code") or "")[:8]
                 edit_id_form = request.form.get("edit_id")
-                cpf = re.sub(r"\D", "", cpf)[:11]
-                postal_code = re.sub(r"\D", "", postal_code)[:8]
-                state = re.sub(r"[^A-Za-z]", "", state).upper()[:2]
-                
+
                 if name:
                     if edit_id_form:
-                        # Update
                         conn.execute(
-                            "UPDATE clients SET name = ?, cpf = ?, street = ?, number = ?, complement = ?, neighborhood = ?, city = ?, state = ?, country = ?, postal_code = ? WHERE id = ?",
-                            (name, cpf, street, number, complement, neighborhood, city, state, country, postal_code, edit_id_form)
+                            "UPDATE clients SET name = %s, cpf = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s WHERE id = %s AND account_id = %s",
+                            (name, cpf, street, number, complement, neighborhood, city, state, country, postal_code, edit_id_form, account_id),
                         )
                     else:
-                        # Insert
                         conn.execute(
-                            "INSERT INTO clients (name, cpf, street, number, complement, neighborhood, city, state, country, postal_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            (name, cpf, street, number, complement, neighborhood, city, state, country, postal_code)
+                            "INSERT INTO clients (account_id, name, cpf, street, number, complement, neighborhood, city, state, country, postal_code) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (account_id, name, cpf, street, number, complement, neighborhood, city, state, country, postal_code),
                         )
                     conn.commit()
                     flash(translate("record_saved"), "success")
                     conn.close()
                     return redirect(url_for("cadastro", entity=entity))
-                else:
-                    flash("Nome é obrigatório", "error")
-                    
+                flash("Nome é obrigatório", "error")
+
             elif entity == "fornecedores":
                 new_category_name = request.form.get("new_category_name")
                 if new_category_name:
                     try:
-                        conn.execute("INSERT INTO categories (name) VALUES (?)", (new_category_name.strip(),))
+                        conn.execute("INSERT INTO categories (account_id, name) VALUES (%s, %s)", (account_id, new_category_name.strip()))
                         conn.commit()
                         flash(translate("record_saved"), "success")
-                    except sqlite3.IntegrityError:
+                    except psycopg.IntegrityError:
+                        conn.rollback()
                         flash("Esta categoria já existe", "error")
                     conn.close()
                     return redirect(url_for("cadastro", entity=entity))
 
                 name = request.form.get("name")
-                cnpj = request.form.get("cnpj") or ""
+                cnpj = re.sub(r"\D", "", request.form.get("cnpj") or "")[:14]
                 street = request.form.get("street")
                 number = request.form.get("number")
                 complement = request.form.get("complement")
                 neighborhood = request.form.get("neighborhood")
                 city = request.form.get("city")
-                state = request.form.get("state") or ""
+                state = re.sub(r"[^A-Za-z]", "", request.form.get("state") or "").upper()[:2]
                 country = request.form.get("country")
-                postal_code = request.form.get("postal_code") or ""
+                postal_code = re.sub(r"\D", "", request.form.get("postal_code") or "")[:8]
                 category_id = request.form.get("category_id")
                 edit_id_form = request.form.get("edit_id")
-                cnpj = re.sub(r"\D", "", cnpj)[:14]
-                postal_code = re.sub(r"\D", "", postal_code)[:8]
-                state = re.sub(r"[^A-Za-z]", "", state).upper()[:2]
-                
+
                 if name and category_id:
                     if edit_id_form:
-                        # Update
                         conn.execute(
-                            "UPDATE suppliers SET name = ?, cnpj = ?, street = ?, number = ?, complement = ?, neighborhood = ?, city = ?, state = ?, country = ?, postal_code = ?, category_id = ? WHERE id = ?",
-                            (name, cnpj, street, number, complement, neighborhood, city, state, country, postal_code, category_id, edit_id_form)
+                            "UPDATE suppliers SET name = %s, cnpj = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, category_id = %s WHERE id = %s AND account_id = %s",
+                            (name, cnpj, street, number, complement, neighborhood, city, state, country, postal_code, category_id, edit_id_form, account_id),
                         )
                     else:
-                        # Insert
                         conn.execute(
-                            "INSERT INTO suppliers (name, cnpj, street, number, complement, neighborhood, city, state, country, postal_code, category_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            (name, cnpj, street, number, complement, neighborhood, city, state, country, postal_code, category_id)
+                            "INSERT INTO suppliers (account_id, name, cnpj, street, number, complement, neighborhood, city, state, country, postal_code, category_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (account_id, name, cnpj, street, number, complement, neighborhood, city, state, country, postal_code, category_id),
                         )
                     conn.commit()
                     flash(translate("record_saved"), "success")
                     conn.close()
                     return redirect(url_for("cadastro", entity=entity))
-                else:
-                    flash("Nome e Categoria são obrigatórios", "error")
-                    
+                flash("Nome e Categoria são obrigatórios", "error")
+
             elif entity == "categorias":
                 name = request.form.get("name")
                 edit_id_form = request.form.get("edit_id")
-                
                 if name:
-                    if edit_id_form:
-                        # Update
-                        try:
-                            conn.execute("UPDATE categories SET name = ? WHERE id = ?", (name, edit_id_form))
-                            conn.commit()
-                        except sqlite3.IntegrityError:
-                            flash("Esta categoria já existe", "error")
-                            conn.close()
-                            return render_template(
-                                "cadastro.html",
-                                title=get_entity_title(entity),
-                                entity=entity,
-                                rows=[],
-                                categories=categories,
-                                units=units,
-                                edit_id=edit_id_form,
-                                edit_data=edit_data,
-                            )
-                    else:
-                        # Insert
-                        try:
-                            conn.execute("INSERT INTO categories (name) VALUES (?)", (name,))
-                            conn.commit()
-                        except sqlite3.IntegrityError:
-                            flash("Esta categoria já existe", "error")
-                    if not (edit_id_form and conn):
+                    try:
+                        if edit_id_form:
+                            conn.execute("UPDATE categories SET name = %s WHERE id = %s AND account_id = %s", (name, edit_id_form, account_id))
+                        else:
+                            conn.execute("INSERT INTO categories (account_id, name) VALUES (%s, %s)", (account_id, name))
+                        conn.commit()
                         flash(translate("record_saved"), "success")
-                    conn.close()
-                    return redirect(url_for("cadastro", entity=entity))
+                        conn.close()
+                        return redirect(url_for("cadastro", entity=entity))
+                    except psycopg.IntegrityError:
+                        conn.rollback()
+                        flash("Esta categoria já existe", "error")
                 else:
                     flash("Nome é obrigatório", "error")
-                    
+
             elif entity == "unidades":
                 name = request.form.get("name")
                 edit_id_form = request.form.get("edit_id")
-                
                 if name:
-                    if edit_id_form:
-                        # Update
-                        try:
-                            conn.execute("UPDATE units SET name = ? WHERE id = ?", (name, edit_id_form))
-                            conn.commit()
-                        except sqlite3.IntegrityError:
-                            flash("Esta unidade já existe", "error")
-                            conn.close()
-                            return render_template(
-                                "cadastro.html",
-                                title=get_entity_title(entity),
-                                entity=entity,
-                                rows=[],
-                                categories=categories,
-                                units=units,
-                                edit_id=edit_id_form,
-                                edit_data=edit_data,
-                            )
-                    else:
-                        # Insert
-                        try:
-                            conn.execute("INSERT INTO units (name) VALUES (?)", (name,))
-                            conn.commit()
-                        except sqlite3.IntegrityError:
-                            flash("Esta unidade já existe", "error")
-                    if not (edit_id_form and conn):
+                    try:
+                        if edit_id_form:
+                            conn.execute("UPDATE units SET name = %s WHERE id = %s AND account_id = %s", (name, edit_id_form, account_id))
+                        else:
+                            conn.execute("INSERT INTO units (account_id, name) VALUES (%s, %s)", (account_id, name))
+                        conn.commit()
                         flash(translate("record_saved"), "success")
-                    conn.close()
-                    return redirect(url_for("cadastro", entity=entity))
+                        conn.close()
+                        return redirect(url_for("cadastro", entity=entity))
+                    except psycopg.IntegrityError:
+                        conn.rollback()
+                        flash("Esta unidade já existe", "error")
                 else:
                     flash("Nome é obrigatório", "error")
-        except Exception as e:
-            logger.error(f"Erro ao processar cadastro: {e}")
+
+        except Exception as error:
+            conn.rollback()
+            logger.error(f"Erro ao processar cadastro: {error}")
             flash(translate("error_required_fields"), "error")
 
-    # GET - Buscar dados
     if entity == "usuarios":
-        rows = conn.execute("SELECT * FROM users WHERE account_id = ? ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, username", (account_id,)).fetchall()
+        rows = conn.execute("SELECT * FROM users WHERE account_id = %s ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, username", (account_id,)).fetchall()
     elif entity == "produtos":
         rows = conn.execute(
-            "SELECT p.*, c.name AS category_name, u.name AS unit_name, s.name AS supplier_name FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN units u ON p.unit_id = u.id LEFT JOIN suppliers s ON p.supplier_id = s.id ORDER BY p.name"
+            "SELECT p.*, c.name AS category_name, u.name AS unit_name, s.name AS supplier_name "
+            "FROM products p "
+            "LEFT JOIN categories c ON p.category_id = c.id "
+            "LEFT JOIN units u ON p.unit_id = u.id "
+            "LEFT JOIN suppliers s ON p.supplier_id = s.id "
+            "WHERE p.account_id = %s ORDER BY p.name",
+            (account_id,),
         ).fetchall()
     elif entity == "clientes":
-        rows = conn.execute("SELECT * FROM clients ORDER BY name").fetchall()
+        rows = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     elif entity == "fornecedores":
         rows = conn.execute(
-            "SELECT s.*, c.name AS category_name FROM suppliers s LEFT JOIN categories c ON s.category_id = c.id ORDER BY s.name"
+            "SELECT s.*, c.name AS category_name FROM suppliers s LEFT JOIN categories c ON s.category_id = c.id WHERE s.account_id = %s ORDER BY s.name",
+            (account_id,),
         ).fetchall()
     elif entity == "categorias":
-        rows = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
+        rows = conn.execute("SELECT * FROM categories WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     elif entity == "unidades":
-        rows = conn.execute("SELECT * FROM units ORDER BY name").fetchall()
+        rows = conn.execute("SELECT * FROM units WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     else:
         conn.close()
         flash(translate("error_required_fields"), "error")
@@ -1270,11 +1218,17 @@ def cadastro(entity):
 def vendas():
     if not session.get("user"):
         return redirect(url_for("login"))
+    account_id = get_current_account_id()
     conn = get_tenant_connection()
     products = conn.execute(
-        "SELECT p.*, u.name AS unit_name FROM products p LEFT JOIN units u ON p.unit_id = u.id ORDER BY (SELECT IFNULL(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name"
+        "SELECT p.*, u.name AS unit_name "
+        "FROM products p "
+        "LEFT JOIN units u ON p.unit_id = u.id "
+        "WHERE p.account_id = %s "
+        "ORDER BY (SELECT COALESCE(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name",
+        (account_id,),
     ).fetchall()
-    clients = conn.execute("SELECT * FROM clients ORDER BY name").fetchall()
+    clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     pix_code = None
     cash_summary = None
 
@@ -1295,7 +1249,7 @@ def vendas():
         for pid, qty, price in zip(product_ids, quantities, unit_prices):
             if not pid:
                 continue
-            product = conn.execute("SELECT * FROM products WHERE id = ?", (pid,)).fetchone()
+            product = conn.execute("SELECT * FROM products WHERE id = %s AND account_id = %s", (pid, account_id)).fetchone()
             if not product:
                 continue
             quantity = float(qty or 0)
@@ -1331,23 +1285,23 @@ def vendas():
         sale_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         conn.execute(
-            "INSERT INTO sales (date, client_id, payment_method, discount, surcharge, total, profit) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (sale_date, client_id, payment_method, discount, surcharge, total, profit),
+            "INSERT INTO sales (account_id, date, client_id, payment_method, discount, surcharge, total, profit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (account_id, sale_date, client_id, payment_method, discount, surcharge, total, profit),
         )
-        sale_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        sale_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('sales', 'id'))").fetchone()[0]
 
         for item in items:
             conn.execute(
-                "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price) VALUES (%s, %s, %s, %s, %s)",
                 (sale_id, item["product_id"], item["quantity"], item["unit_price"], item["total_price"]),
             )
             conn.execute(
-                "UPDATE products SET stock = stock - ? WHERE id = ?",
-                (item["quantity"], item["product_id"]),
+                "UPDATE products SET stock = stock - %s WHERE id = %s AND account_id = %s",
+                (item["quantity"], item["product_id"], account_id),
             )
             conn.execute(
-                "INSERT INTO stock_movements (product_id, quantity, movement_type, date, notes) VALUES (?, ?, ?, ?, ?)",
-                (item["product_id"], item["quantity"], "sale", sale_date, f"Venda #{sale_id}"),
+                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) VALUES (%s, %s, %s, %s, %s, %s)",
+                (account_id, item["product_id"], item["quantity"], "sale", sale_date, f"Venda #{sale_id}"),
             )
 
         conn.commit()
@@ -1358,7 +1312,12 @@ def vendas():
 
         # Recarrega os produtos para refletir o estoque atualizado na nova venda.
         products = conn.execute(
-            "SELECT p.*, u.name AS unit_name FROM products p LEFT JOIN units u ON p.unit_id = u.id ORDER BY (SELECT IFNULL(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name"
+            "SELECT p.*, u.name AS unit_name "
+            "FROM products p "
+            "LEFT JOIN units u ON p.unit_id = u.id "
+            "WHERE p.account_id = %s "
+            "ORDER BY (SELECT COALESCE(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name",
+            (account_id,),
         ).fetchall()
 
         conn.close()
@@ -1386,17 +1345,24 @@ def vendas():
 def fechar_caixa():
     if not session.get("user"):
         return redirect(url_for("login"))
+    account_id = get_current_account_id()
     conn = get_tenant_connection()
     products = conn.execute(
-        "SELECT p.*, u.name AS unit_name FROM products p LEFT JOIN units u ON p.unit_id = u.id ORDER BY (SELECT IFNULL(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name"
+        "SELECT p.*, u.name AS unit_name "
+        "FROM products p "
+        "LEFT JOIN units u ON p.unit_id = u.id "
+        "WHERE p.account_id = %s "
+        "ORDER BY (SELECT COALESCE(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name",
+        (account_id,),
     ).fetchall()
-    clients = conn.execute("SELECT * FROM clients ORDER BY name").fetchall()
+    clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     today = datetime.now().strftime("%Y-%m-%d")
     cash_total = conn.execute(
-        "SELECT IFNULL(SUM(total), 0) FROM sales WHERE date LIKE ? AND payment_method = ?", (f"{today}%", "Dinheiro")
+        "SELECT COALESCE(SUM(total), 0) FROM sales WHERE account_id = %s AND date LIKE %s AND payment_method = %s",
+        (account_id, f"{today}%", "Dinheiro"),
     ).fetchone()[0]
     auth_conn = get_auth_connection()
-    user = auth_conn.execute("SELECT email FROM users WHERE id = ?", (get_current_user_id(),)).fetchone()
+    user = auth_conn.execute("SELECT email FROM users WHERE id = %s AND account_id = %s", (get_current_user_id(), account_id)).fetchone()
     auth_conn.close()
     email = user["email"] if user else None
     conn.close()
@@ -1419,48 +1385,55 @@ def fechar_caixa():
 def relatorios():
     if not session.get("user"):
         return redirect(url_for("login"))
+
+    account_id = get_current_account_id()
     conn = get_tenant_connection()
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
     section = request.args.get("section")
     report = request.args.get("report")
 
-    date_clause = ""
-    date_params = []
+    sales_conditions = ["s.account_id = %s"]
+    sales_params = [account_id]
     if start_date and end_date:
         try:
             datetime.strptime(start_date, "%Y-%m-%d")
             datetime.strptime(end_date, "%Y-%m-%d")
-            date_clause = " WHERE date BETWEEN ? AND ?"
-            date_params = [f"{start_date} 00:00:00", f"{end_date} 23:59:59"]
+            sales_conditions.append("s.date BETWEEN %s AND %s")
+            sales_params.extend([f"{start_date} 00:00:00", f"{end_date} 23:59:59"])
         except ValueError:
             flash(translate("error_invalid_date"), "error")
 
-    query = "SELECT s.*, c.name AS client_name FROM sales s LEFT JOIN clients c ON s.client_id = c.id"
-    query += date_clause + " ORDER BY s.date DESC"
-    sales = conn.execute(query, date_params).fetchall()
+    sales_where = " WHERE " + " AND ".join(sales_conditions)
+
+    sales = conn.execute(
+        "SELECT s.*, c.name AS client_name FROM sales s LEFT JOIN clients c ON s.client_id = c.id" + sales_where + " ORDER BY s.date DESC",
+        tuple(sales_params),
+    ).fetchall()
 
     top_customers = conn.execute(
-        "SELECT c.name, IFNULL(SUM(s.total), 0) AS total FROM sales s LEFT JOIN clients c ON s.client_id = c.id"
-        + date_clause
+        "SELECT c.name, COALESCE(SUM(s.total), 0) AS total FROM sales s LEFT JOIN clients c ON s.client_id = c.id"
+        + sales_where
         + " GROUP BY c.name ORDER BY total DESC LIMIT 5",
-        date_params,
+        tuple(sales_params),
     ).fetchall()
     profit_top = conn.execute(
-        "SELECT p.name, IFNULL(SUM(si.total_price - p.cost * si.quantity), 0) AS profit FROM sale_items si JOIN products p ON si.product_id = p.id"
-        + (" JOIN sales s ON si.sale_id = s.id" if date_clause else "")
-        + date_clause.replace(" WHERE", " WHERE s.")
+        "SELECT p.name, COALESCE(SUM(si.total_price - p.cost * si.quantity), 0) AS profit "
+        "FROM sale_items si "
+        "JOIN products p ON si.product_id = p.id "
+        "JOIN sales s ON si.sale_id = s.id"
+        + sales_where
         + " GROUP BY p.name ORDER BY profit DESC LIMIT 5",
-        ([*date_params] if date_clause else []),
+        tuple(sales_params),
     ).fetchall()
     payment_totals = conn.execute(
-        "SELECT payment_method, IFNULL(SUM(total), 0) AS total FROM sales"
-        + date_clause
+        "SELECT payment_method, COALESCE(SUM(total), 0) AS total FROM sales s"
+        + sales_where
         + " GROUP BY payment_method",
-        date_params,
+        tuple(sales_params),
     ).fetchall()
-    highest_stock = conn.execute("SELECT name FROM products ORDER BY stock DESC LIMIT 1").fetchone()
-    lowest_stock = conn.execute("SELECT name FROM products ORDER BY stock ASC LIMIT 1").fetchone()
+    highest_stock = conn.execute("SELECT name FROM products WHERE account_id = %s ORDER BY stock DESC LIMIT 1", (account_id,)).fetchone()
+    lowest_stock = conn.execute("SELECT name FROM products WHERE account_id = %s ORDER BY stock ASC LIMIT 1", (account_id,)).fetchone()
 
     report_options = []
     report_title = None
@@ -1493,28 +1466,40 @@ def relatorios():
             report_description = translate("supplier_by_category_desc")
             report_headers = [translate("category_label"), translate("total_label")]
             report_rows = conn.execute(
-                "SELECT COALESCE(cat.name, ?) AS category, COUNT(s.id) AS total FROM suppliers s LEFT JOIN categories cat ON s.category_id = cat.id GROUP BY category ORDER BY total DESC",
-                (translate("no_records_found"),),
+                "SELECT COALESCE(cat.name, %s) AS category, COUNT(sup.id) AS total "
+                "FROM suppliers sup "
+                "LEFT JOIN categories cat ON sup.category_id = cat.id "
+                "WHERE sup.account_id = %s "
+                "GROUP BY category ORDER BY total DESC",
+                (translate("no_records_found"), account_id),
             ).fetchall()
         elif report == "supplier_product_quantity":
             report_title = translate("supplier_product_quantity")
             report_description = translate("supplier_product_quantity_desc")
             report_headers = [translate("supplier_name"), translate("quantity_label")]
             report_rows = conn.execute(
-                "SELECT COALESCE(s.name, ?) AS name, IFNULL(SUM(si.quantity), 0) AS total FROM sale_items si JOIN products p ON si.product_id = p.id LEFT JOIN suppliers s ON p.supplier_id = s.id JOIN sales sale ON si.sale_id = sale.id"
-                + (date_clause.replace(" WHERE", " WHERE sale.") if date_clause else "")
-                + " GROUP BY s.name ORDER BY total DESC",
-                ([translate("no_records_found")] + date_params if date_clause else [translate("no_records_found")]),
+                "SELECT COALESCE(sup.name, %s) AS name, COALESCE(SUM(si.quantity), 0) AS total "
+                "FROM sale_items si "
+                "JOIN products p ON si.product_id = p.id "
+                "LEFT JOIN suppliers sup ON p.supplier_id = sup.id "
+                "JOIN sales s ON si.sale_id = s.id"
+                + sales_where
+                + " GROUP BY sup.name ORDER BY total DESC",
+                tuple([translate("no_records_found"), *sales_params]),
             ).fetchall()
         elif report == "supplier_sales_value":
             report_title = translate("supplier_sales_value")
             report_description = translate("supplier_sales_value_desc")
             report_headers = [translate("supplier_name"), translate("total_label")]
             report_rows = conn.execute(
-                "SELECT COALESCE(s.name, ?) AS name, IFNULL(SUM(si.total_price), 0) AS total FROM sale_items si JOIN products p ON si.product_id = p.id LEFT JOIN suppliers s ON p.supplier_id = s.id JOIN sales sale ON si.sale_id = sale.id"
-                + (date_clause.replace(" WHERE", " WHERE sale.") if date_clause else "")
-                + " GROUP BY s.name ORDER BY total DESC",
-                ([translate("no_records_found")] + date_params if date_clause else [translate("no_records_found")]),
+                "SELECT COALESCE(sup.name, %s) AS name, COALESCE(SUM(si.total_price), 0) AS total "
+                "FROM sale_items si "
+                "JOIN products p ON si.product_id = p.id "
+                "LEFT JOIN suppliers sup ON p.supplier_id = sup.id "
+                "JOIN sales s ON si.sale_id = s.id"
+                + sales_where
+                + " GROUP BY sup.name ORDER BY total DESC",
+                tuple([translate("no_records_found"), *sales_params]),
             ).fetchall()
     elif section == "clientes":
         section_title = translate("clients_report_card")
@@ -1535,20 +1520,22 @@ def relatorios():
             report_description = translate("client_sales_quantity_desc")
             report_headers = [translate("client_name"), translate("quantity_label")]
             report_rows = conn.execute(
-                "SELECT COALESCE(c.name, ?) AS name, IFNULL(SUM(si.quantity), 0) AS total FROM sale_items si JOIN sales s ON si.sale_id = s.id LEFT JOIN clients c ON s.client_id = c.id"
-                + (date_clause.replace(" WHERE", " WHERE s.") if date_clause else "")
+                "SELECT COALESCE(c.name, %s) AS name, COALESCE(SUM(si.quantity), 0) AS total "
+                "FROM sale_items si JOIN sales s ON si.sale_id = s.id LEFT JOIN clients c ON s.client_id = c.id"
+                + sales_where
                 + " GROUP BY c.name ORDER BY total DESC",
-                ([translate("no_records_found")] + date_params if date_clause else [translate("no_records_found")]),
+                tuple([translate("no_records_found"), *sales_params]),
             ).fetchall()
         elif report == "client_sales_value":
             report_title = translate("client_sales_value")
             report_description = translate("client_sales_value_desc")
             report_headers = [translate("client_name"), translate("total_label")]
             report_rows = conn.execute(
-                "SELECT COALESCE(c.name, ?) AS name, IFNULL(SUM(si.total_price), 0) AS total FROM sale_items si JOIN sales s ON si.sale_id = s.id LEFT JOIN clients c ON s.client_id = c.id"
-                + (date_clause.replace(" WHERE", " WHERE s.") if date_clause else "")
+                "SELECT COALESCE(c.name, %s) AS name, COALESCE(SUM(si.total_price), 0) AS total "
+                "FROM sale_items si JOIN sales s ON si.sale_id = s.id LEFT JOIN clients c ON s.client_id = c.id"
+                + sales_where
                 + " GROUP BY c.name ORDER BY total DESC",
-                ([translate("no_records_found")] + date_params if date_clause else [translate("no_records_found")]),
+                tuple([translate("no_records_found"), *sales_params]),
             ).fetchall()
     elif section == "produtos":
         section_title = translate("products_report_card")
@@ -1569,20 +1556,22 @@ def relatorios():
             report_description = translate("product_sales_quantity_desc")
             report_headers = [translate("product_name"), translate("quantity_label")]
             report_rows = conn.execute(
-                "SELECT p.name AS name, IFNULL(SUM(si.quantity), 0) AS total FROM sale_items si JOIN products p ON si.product_id = p.id JOIN sales s ON si.sale_id = s.id"
-                + (date_clause.replace(" WHERE", " WHERE s.") if date_clause else "")
+                "SELECT p.name AS name, COALESCE(SUM(si.quantity), 0) AS total "
+                "FROM sale_items si JOIN products p ON si.product_id = p.id JOIN sales s ON si.sale_id = s.id"
+                + sales_where
                 + " GROUP BY p.name ORDER BY total DESC",
-                date_params,
+                tuple(sales_params),
             ).fetchall()
         elif report == "product_sales_value":
             report_title = translate("product_sales_value")
             report_description = translate("product_sales_value_desc")
             report_headers = [translate("product_name"), translate("total_label")]
             report_rows = conn.execute(
-                "SELECT p.name AS name, IFNULL(SUM(si.total_price), 0) AS total FROM sale_items si JOIN products p ON si.product_id = p.id JOIN sales s ON si.sale_id = s.id"
-                + (date_clause.replace(" WHERE", " WHERE s.") if date_clause else "")
+                "SELECT p.name AS name, COALESCE(SUM(si.total_price), 0) AS total "
+                "FROM sale_items si JOIN products p ON si.product_id = p.id JOIN sales s ON si.sale_id = s.id"
+                + sales_where
                 + " GROUP BY p.name ORDER BY total DESC",
-                date_params,
+                tuple(sales_params),
             ).fetchall()
     elif section == "categorias":
         section_title = translate("categories_report_card")
@@ -1603,20 +1592,22 @@ def relatorios():
             report_description = translate("category_sales_quantity_desc")
             report_headers = [translate("category_label"), translate("quantity_label")]
             report_rows = conn.execute(
-                "SELECT COALESCE(cat.name, ?) AS name, IFNULL(SUM(si.quantity), 0) AS total FROM sale_items si JOIN products p ON si.product_id = p.id LEFT JOIN categories cat ON p.category_id = cat.id JOIN sales s ON si.sale_id = s.id"
-                + (date_clause.replace(" WHERE", " WHERE s.") if date_clause else "")
+                "SELECT COALESCE(cat.name, %s) AS name, COALESCE(SUM(si.quantity), 0) AS total "
+                "FROM sale_items si JOIN products p ON si.product_id = p.id LEFT JOIN categories cat ON p.category_id = cat.id JOIN sales s ON si.sale_id = s.id"
+                + sales_where
                 + " GROUP BY cat.name ORDER BY total DESC",
-                ([translate("no_records_found")] + date_params if date_clause else [translate("no_records_found")]),
+                tuple([translate("no_records_found"), *sales_params]),
             ).fetchall()
         elif report == "category_sales_value":
             report_title = translate("category_sales_value")
             report_description = translate("category_sales_value_desc")
             report_headers = [translate("category_label"), translate("total_label")]
             report_rows = conn.execute(
-                "SELECT COALESCE(cat.name, ?) AS name, IFNULL(SUM(si.total_price), 0) AS total FROM sale_items si JOIN products p ON si.product_id = p.id LEFT JOIN categories cat ON p.category_id = cat.id JOIN sales s ON si.sale_id = s.id"
-                + (date_clause.replace(" WHERE", " WHERE s.") if date_clause else "")
+                "SELECT COALESCE(cat.name, %s) AS name, COALESCE(SUM(si.total_price), 0) AS total "
+                "FROM sale_items si JOIN products p ON si.product_id = p.id LEFT JOIN categories cat ON p.category_id = cat.id JOIN sales s ON si.sale_id = s.id"
+                + sales_where
                 + " GROUP BY cat.name ORDER BY total DESC",
-                ([translate("no_records_found")] + date_params if date_clause else [translate("no_records_found")]),
+                tuple([translate("no_records_found"), *sales_params]),
             ).fetchall()
     elif section == "pagamentos":
         section_title = translate("payments_report_card")
@@ -1632,10 +1623,10 @@ def relatorios():
             report_description = translate("payment_sales_value_desc")
             report_headers = [translate("payment_method"), translate("total_label")]
             report_rows = conn.execute(
-                "SELECT payment_method, IFNULL(SUM(total), 0) AS total FROM sales"
-                + date_clause
+                "SELECT payment_method, COALESCE(SUM(total), 0) AS total FROM sales s"
+                + sales_where
                 + " GROUP BY payment_method ORDER BY total DESC",
-                date_params,
+                tuple(sales_params),
             ).fetchall()
 
     chart_data = None
