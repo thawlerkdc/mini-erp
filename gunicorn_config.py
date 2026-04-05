@@ -5,8 +5,9 @@ Configuração de Gunicorn para produção.
 import os
 import multiprocessing
 
-# Endereço de escuta
-bind = "0.0.0.0:5000"
+# Porta dinâmica injetada pelo Render (default 10000 em produção, 5000 local).
+_port = os.environ.get("PORT", "5000")
+bind = f"0.0.0.0:{_port}"
 
 # Número de workers (processos de trabalho)
 workers = multiprocessing.cpu_count() * 2 + 1

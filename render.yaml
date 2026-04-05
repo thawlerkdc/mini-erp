@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: mini-erp
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app -c gunicorn_config.py
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: PYTHON_VERSION
+        value: 3.14.3
+    disk:
+      name: erp-data
+      mountPath: /var/data
+      sizeGB: 1
