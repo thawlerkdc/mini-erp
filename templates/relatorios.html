@@ -20,6 +20,18 @@
       {% if report %}
         <input type="hidden" name="report" value="{{ report }}">
       {% endif %}
+      {% if section == 'estoque' and report == 'stock_by_product' %}
+        <input type="hidden" name="stock_order" value="{{ selected_stock_order }}">
+        {% if selected_stock_category %}
+          <input type="hidden" name="stock_category" value="{{ selected_stock_category }}">
+        {% endif %}
+      {% endif %}
+      {% if section == 'estoque' and report == 'stock_by_minimum' %}
+        <input type="hidden" name="min_order" value="{{ selected_min_order }}">
+      {% endif %}
+      {% if section == 'clientes' and report == 'client_top_customers' and selected_client_id %}
+        <input type="hidden" name="client_id" value="{{ selected_client_id }}">
+      {% endif %}
     </form>
   </div>
 
@@ -38,6 +50,11 @@
       <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='produtos') }}" class="report-card produtos">
         <h3>{{ t('products_report_card') }}</h3>
         <p>{{ t('product_sales_quantity_desc') }}</p>
+        <span class="report-card-button">{{ t('view_report') }}</span>
+      </a>
+      <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='estoque') }}" class="report-card estoque">
+        <h3>Relatórios de Estoque</h3>
+        <p>Acesse filtros por categoria, ordenação e alertas por estoque mínimo.</p>
         <span class="report-card-button">{{ t('view_report') }}</span>
       </a>
       <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='categorias') }}" class="report-card categorias">
@@ -87,32 +104,125 @@
         </div>
         <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section=section) }}" class="outline-button small">{{ t('back_to_reports') }}</a>
       </div>
-      <table>
-        <thead>
-          <tr>
-            {% for header in report_headers %}
-              <th>{{ header }}</th>
+
+      {% if section == 'estoque' and report == 'stock_by_product' %}
+        <div class="report-toolbar">
+          <div class="toolbar-group">
+            <strong>Ordenação:</strong>
+            <a class="chip {% if selected_stock_order == 'asc' %}active{% endif %}" href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='estoque', report='stock_by_product', stock_order='asc', stock_category=selected_stock_category or None) }}">Crescente</a>
+            <a class="chip {% if selected_stock_order == 'desc' %}active{% endif %}" href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='estoque', report='stock_by_product', stock_order='desc', stock_category=selected_stock_category or None) }}">Decrescente</a>
+          </div>
+          <form class="toolbar-group inline-filter-form" method="get" action="{{ url_for('relatorios') }}">
+            <input type="hidden" name="start_date" value="{{ filters.start_date }}">
+            <input type="hidden" name="end_date" value="{{ filters.end_date }}">
+            <input type="hidden" name="section" value="estoque">
+            <input type="hidden" name="report" value="stock_by_product">
+            <input type="hidden" name="stock_order" value="{{ selected_stock_order }}">
+            <label for="stock-category">Categoria:</label>
+            <select id="stock-category" name="stock_category" onchange="this.form.submit()">
+              <option value="">Todas</option>
+              {% for category in stock_categories %}
+                <option value="{{ category['id'] }}" {% if selected_stock_category|string == category['id']|string %}selected{% endif %}>{{ category['name'] }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </div>
+      {% endif %}
+
+      {% if section == 'estoque' and report == 'stock_by_minimum' %}
+        <div class="report-toolbar">
+          <div class="toolbar-group">
+            <strong>Ordenação:</strong>
+            <a class="chip {% if selected_min_order == 'asc' %}active{% endif %}" href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='estoque', report='stock_by_minimum', min_order='asc') }}">Menor para maior</a>
+            <a class="chip {% if selected_min_order == 'desc' %}active{% endif %}" href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='estoque', report='stock_by_minimum', min_order='desc') }}">Maior para menor</a>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if section == 'clientes' and report == 'client_top_customers' %}
+        <table>
+          <thead>
+            <tr><th>Cliente</th><th>Total no período</th></tr>
+          </thead>
+          <tbody>
+            {% for client in client_top_rows %}
+              <tr>
+                <td>
+                  {% if client['client_id'] %}
+                    <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='clientes', report='client_top_customers', client_id=client['client_id']) }}">{{ client['client_name'] }}</a>
+                  {% else %}
+                    {{ client['client_name'] }}
+                  {% endif %}
+                </td>
+                <td>${{ "%.2f"|format(client['total']|float) }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="2">{{ t('no_records_found') }}</td></tr>
             {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in report_rows %}
+          </tbody>
+        </table>
+
+        {% if selected_client_name %}
+          <div class="report-subsection">
+            <h4>Compras de {{ selected_client_name }} no período</h4>
+            <table>
+              <thead>
+                <tr><th>Data</th><th>Produto</th><th>Quantidade</th><th>Valor</th><th>Pagamento</th></tr>
+              </thead>
+              <tbody>
+                {% for item in client_purchase_rows %}
+                  <tr>
+                    <td>{{ item['date'] }}</td>
+                    <td>{{ item['product_name'] }}</td>
+                    <td>{{ item['quantity'] }}</td>
+                    <td>${{ "%.2f"|format(item['total_price']|float) }}</td>
+                    <td>{{ item['payment_method'] }}</td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="5">{{ t('no_records_found') }}</td></tr>
+                {% endfor %}
+              </tbody>
+              {% if report_total is not none %}
+                <tfoot>
+                  <tr>
+                    <td colspan="3"><strong>{{ t('total_sum') }}</strong></td>
+                    <td><strong>${{ "%.2f"|format(report_total) }}</strong></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              {% endif %}
+            </table>
+          </div>
+        {% endif %}
+      {% else %}
+        <table>
+          <thead>
             <tr>
-              {% for _ in report_headers %}
-                <td>{{ row[loop.index0] }}</td>
+              {% for header in report_headers %}
+                <th>{{ header }}</th>
               {% endfor %}
             </tr>
-          {% else %}
-            <tr><td colspan="{{ report_headers|length }}">{{ t('no_records_found') }}</td></tr>
-          {% endfor %}
-          {% if report_total is not none %}
-            <tr>
-              <td><strong>{{ t('total_sum') }}</strong></td>
-              <td><strong>${{ "%.2f"|format(report_total) }}</strong></td>
-            </tr>
-          {% endif %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for row in report_rows %}
+              <tr class="{{ report_row_classes[loop.index0] if report_row_classes and loop.index0 < report_row_classes|length else '' }}">
+                {% for _ in report_headers %}
+                  <td>{{ row[loop.index0] }}</td>
+                {% endfor %}
+              </tr>
+            {% else %}
+              <tr><td colspan="{{ report_headers|length }}">{{ t('no_records_found') }}</td></tr>
+            {% endfor %}
+            {% if report_total is not none %}
+              <tr>
+                <td colspan="{{ (report_headers|length - 1) if report_headers|length > 1 else 1 }}"><strong>{{ t('total_sum') }}</strong></td>
+                <td><strong>${{ "%.2f"|format(report_total) }}</strong></td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      {% endif %}
+
       {% if chart_data_json %}
         <div style="max-width: 280px; margin: 0 auto;">
           <canvas id="reportChart" width="280" height="160"></canvas>
@@ -159,36 +269,6 @@
             <li>{{ t('no_records_found') }}</li>
           {% endfor %}
         </ol>
-      </div>
-      <div class="report-card summary-card">
-        <h3>{{ t('top_customers') }}</h3>
-        <ol>
-          {% for client in top_customers %}
-            <li>{{ client['name'] or t('unknown') }} — ${{ client['total'] }}</li>
-          {% else %}
-            <li>{{ t('no_records_found') }}</li>
-          {% endfor %}
-        </ol>
-      </div>
-      <div class="report-card summary-card">
-        <h3>{{ t('product_profit_top') }}</h3>
-        <ol>
-          {% for item in profit_top %}
-            <li>{{ item['name'] }} — ${{ item['profit'] }}</li>
-          {% else %}
-            <li>{{ t('no_records_found') }}</li>
-          {% endfor %}
-        </ol>
-      </div>
-      <div class="report-card summary-card">
-        <h3>{{ t('payment_report') }}</h3>
-        <ul>
-          {% for payment in payment_totals %}
-            <li>{{ payment['payment_method'] }} — ${{ payment['total'] }}</li>
-          {% else %}
-            <li>{{ t('no_records_found') }}</li>
-          {% endfor %}
-        </ul>
       </div>
     </div>
   {% endif %}
@@ -366,6 +446,10 @@
       background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%);
     }
 
+    .report-card.estoque {
+      background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+    }
+
     .report-card.pagamentos {
       background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
     }
@@ -445,6 +529,69 @@
     .report-result-card th {
       background: #f8fafc;
       color: #0f172a;
+    }
+
+    .report-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .inline-filter-form select {
+      min-width: 180px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #0f172a;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.86rem;
+    }
+
+    .chip.active {
+      background: #0b4a82;
+      border-color: #0b4a82;
+      color: #fff;
+    }
+
+    .report-subsection {
+      margin-top: 18px;
+    }
+
+    .report-subsection h4 {
+      margin-bottom: 10px;
+    }
+
+    .status-red td {
+      background: rgba(239, 68, 68, 0.16);
+    }
+
+    .status-orange td {
+      background: rgba(249, 115, 22, 0.15);
+    }
+
+    .status-yellow td {
+      background: rgba(250, 204, 21, 0.16);
+    }
+
+    .status-green td {
+      background: rgba(34, 197, 94, 0.13);
     }
 
     @media (max-width: 640px) {

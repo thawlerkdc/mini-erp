@@ -1025,11 +1025,10 @@ def cadastro(entity):
                                     "INSERT INTO users (account_id, name, username, password, email, role, parent_user_id, is_admin, created_at) VALUES (%s, %s, %s, %s, %s, 'operator', %s, 0, %s)",
                                     (account_id, name, username, password, email, current_user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
                                 )
-                        if not (edit_id_form and not password):
-                            conn.commit()
-                            flash(translate("record_saved"), "success")
-                            conn.close()
-                            return redirect(url_for("cadastro", entity=entity))
+                        conn.commit()
+                        flash(translate("record_saved"), "success")
+                        conn.close()
+                        return redirect(url_for("cadastro", entity=entity))
                     except psycopg.IntegrityError:
                         conn.rollback()
                         flash("Este login já existe", "error")
@@ -1427,6 +1426,10 @@ def relatorios():
     end_date = request.args.get("end_date")
     section = request.args.get("section")
     report = request.args.get("report")
+    stock_order = (request.args.get("stock_order") or "asc").lower()
+    min_order = (request.args.get("min_order") or "asc").lower()
+    stock_category = request.args.get("stock_category") or ""
+    client_id = request.args.get("client_id", type=int)
 
     if not start_date or not end_date:
         now = datetime.now()
@@ -1489,6 +1492,35 @@ def relatorios():
     report_rows = []
     section_title = None
     report_total = None
+    report_row_classes = []
+    stock_categories = conn.execute(
+        "SELECT id, name FROM categories WHERE account_id = %s ORDER BY name ASC",
+        (account_id,),
+    ).fetchall()
+    selected_stock_category = stock_category
+    selected_stock_order = stock_order if stock_order in ("asc", "desc") else "asc"
+    selected_min_order = min_order if min_order in ("asc", "desc") else "asc"
+    client_top_rows = []
+    selected_client_name = None
+    client_purchase_rows = []
+
+    def get_stock_status(stock_value, stock_min_value):
+        try:
+            stock_num = float(stock_value or 0)
+            stock_min_num = float(stock_min_value or 0)
+        except (TypeError, ValueError):
+            stock_num = 0.0
+            stock_min_num = 0.0
+
+        if stock_min_num <= 0:
+            return "status-green", "Adequado"
+        if stock_num < stock_min_num:
+            return "status-red", "Abaixo do mínimo"
+        if stock_num <= stock_min_num * 1.2:
+            return "status-orange", "Atenção (até 20% acima)"
+        if stock_num <= stock_min_num * 1.5:
+            return "status-yellow", "Confortável (20% a 50% acima)"
+        return "status-green", "Estoque saudável"
 
     if section == "fornecedores":
         section_title = translate("suppliers_report_card")
@@ -1553,6 +1585,11 @@ def relatorios():
         section_title = translate("clients_report_card")
         report_options = [
             {
+                "key": "client_top_customers",
+                "label": "Clientes que mais compram",
+                "description": "Ranking por valor comprado no período com detalhamento por cliente.",
+            },
+            {
                 "key": "client_sales_quantity",
                 "label": translate("client_sales_quantity"),
                 "description": translate("client_sales_quantity_desc"),
@@ -1563,7 +1600,37 @@ def relatorios():
                 "description": translate("client_sales_value_desc"),
             },
         ]
-        if report == "client_sales_quantity":
+        if report == "client_top_customers":
+            report_title = "Clientes que mais compram"
+            report_description = "Clique no cliente para ver todas as compras no período filtrado."
+            report_headers = [translate("client_name"), translate("total_label")]
+            client_top_rows = conn.execute(
+                "SELECT c.id AS client_id, COALESCE(c.name, %s) AS client_name, COALESCE(SUM(s.total), 0) AS total "
+                "FROM sales s "
+                "LEFT JOIN clients c ON s.client_id = c.id"
+                + sales_where
+                + " GROUP BY c.id, c.name ORDER BY total DESC",
+                tuple([translate("unknown"), *sales_params]),
+            ).fetchall()
+
+            if client_id:
+                selected_client = conn.execute(
+                    "SELECT id, name FROM clients WHERE id = %s AND account_id = %s",
+                    (client_id, account_id),
+                ).fetchone()
+                if selected_client:
+                    selected_client_name = selected_client["name"]
+                    client_purchase_rows = conn.execute(
+                        "SELECT s.date, p.name AS product_name, si.quantity, si.total_price, s.payment_method "
+                        "FROM sale_items si "
+                        "JOIN sales s ON si.sale_id = s.id "
+                        "JOIN products p ON si.product_id = p.id "
+                        "WHERE s.account_id = %s AND s.client_id = %s AND s.date BETWEEN %s AND %s "
+                        "ORDER BY s.date DESC, s.id DESC",
+                        (account_id, client_id, f"{start_date} 00:00:00", f"{end_date} 23:59:59"),
+                    ).fetchall()
+                    report_total = sum(float(row["total_price"] or 0) for row in client_purchase_rows)
+        elif report == "client_sales_quantity":
             report_title = translate("client_sales_quantity")
             report_description = translate("client_sales_quantity_desc")
             report_headers = [translate("client_name"), translate("quantity_label")]
@@ -1589,6 +1656,11 @@ def relatorios():
         section_title = translate("products_report_card")
         report_options = [
             {
+                "key": "product_profit_top",
+                "label": "Produtos com maior lucro",
+                "description": "Lucro líquido baseado em (venda - custo) x quantidade vendida.",
+            },
+            {
                 "key": "product_sales_quantity",
                 "label": translate("product_sales_quantity"),
                 "description": translate("product_sales_quantity_desc"),
@@ -1604,7 +1676,22 @@ def relatorios():
                 "description": "Percentual de compras por gênero para cada produto.",
             },
         ]
-        if report == "product_sales_quantity":
+        if report == "product_profit_top":
+            report_title = "Produtos com maior lucro"
+            report_description = "Lucro líquido calculado com base no custo, venda e quantidade vendida no período."
+            report_headers = [translate("product_name"), "Lucro líquido"]
+            report_rows = conn.execute(
+                "SELECT p.name AS product_name, "
+                "COALESCE(SUM((si.unit_price - p.cost) * si.quantity), 0) AS profit "
+                "FROM sale_items si "
+                "JOIN products p ON si.product_id = p.id "
+                "JOIN sales s ON si.sale_id = s.id"
+                + sales_where
+                + " GROUP BY p.name ORDER BY profit DESC",
+                tuple(sales_params),
+            ).fetchall()
+            report_total = sum(float(row[1] or 0) for row in report_rows)
+        elif report == "product_sales_quantity":
             report_title = translate("product_sales_quantity")
             report_description = translate("product_sales_quantity_desc")
             report_headers = [translate("product_name"), translate("quantity_label")]
@@ -1660,6 +1747,78 @@ def relatorios():
                         )
                     )
             report_rows = percent_rows
+    elif section == "estoque":
+        section_title = "Relatórios de estoque"
+        report_options = [
+            {
+                "key": "stock_by_product",
+                "label": "Estoque por produto e categoria",
+                "description": "Lista completa com filtro por categoria e ordenação crescente/decrescente.",
+            },
+            {
+                "key": "stock_by_minimum",
+                "label": "Acompanhamento por estoque mínimo",
+                "description": "Veja os itens mais urgentes ou mais folgados em relação ao mínimo.",
+            },
+        ]
+
+        if report == "stock_by_product":
+            report_title = "Estoque por produto"
+            report_description = "Use os filtros para ordenar o estoque e segmentar por categoria."
+            report_headers = ["Produto", "Categoria", "Estoque atual", "Estoque mínimo", "Nível"]
+
+            stock_params = [account_id]
+            stock_where = ["p.account_id = %s"]
+            if selected_stock_category:
+                stock_where.append("p.category_id = %s")
+                stock_params.append(selected_stock_category)
+
+            stock_order_sql = "ASC" if selected_stock_order == "asc" else "DESC"
+            stock_rows = conn.execute(
+                "SELECT p.name, COALESCE(cat.name, %s) AS category_name, p.stock, p.stock_min "
+                "FROM products p "
+                "LEFT JOIN categories cat ON p.category_id = cat.id "
+                "WHERE " + " AND ".join(stock_where) + f" ORDER BY p.stock {stock_order_sql}, p.name ASC",
+                tuple([translate("no_records_found"), *stock_params]),
+            ).fetchall()
+
+            formatted_rows = []
+            for row in stock_rows:
+                status_class, status_text = get_stock_status(row[2], row[3])
+                formatted_rows.append((row[0], row[1], row[2], row[3], status_text))
+                report_row_classes.append(status_class)
+            report_rows = formatted_rows
+
+        elif report == "stock_by_minimum":
+            report_title = "Estoque mínimo"
+            report_description = "Ordene para identificar rapidamente o que precisa comprar agora e o que pode esperar."
+            report_headers = ["Produto", "Estoque atual", "Estoque mínimo", "% acima do mínimo", "Nível"]
+
+            stock_rows = conn.execute(
+                "SELECT p.name, p.stock, p.stock_min "
+                "FROM products p WHERE p.account_id = %s",
+                (account_id,),
+            ).fetchall()
+
+            rows_with_ratio = []
+            for row in stock_rows:
+                stock_value = float(row[1] or 0)
+                stock_min_value = float(row[2] or 0)
+                if stock_min_value > 0:
+                    ratio = ((stock_value - stock_min_value) / stock_min_value) * 100
+                    ratio_text = f"{ratio:.1f}%"
+                else:
+                    ratio = 999999
+                    ratio_text = "N/A"
+                status_class, status_text = get_stock_status(stock_value, stock_min_value)
+                rows_with_ratio.append((row[0], stock_value, stock_min_value, ratio, ratio_text, status_class, status_text))
+
+            reverse_order = selected_min_order == "desc"
+            rows_with_ratio.sort(key=lambda item: item[3], reverse=reverse_order)
+
+            for item in rows_with_ratio:
+                report_rows.append((item[0], item[1], item[2], item[4], item[6]))
+                report_row_classes.append(item[5])
     elif section == "categorias":
         section_title = translate("categories_report_card")
         report_options = [
@@ -1735,7 +1894,6 @@ def relatorios():
         near_min_stock=near_min_stock,
         top_customers=top_customers,
         profit_top=profit_top,
-        payment_totals=payment_totals,
         filters={"start_date": start_date, "end_date": end_date},
         section=section,
         section_title=section_title,
@@ -1746,6 +1904,15 @@ def relatorios():
         report_headers=report_headers,
         report_rows=report_rows,
         report_total=report_total,
+        report_row_classes=report_row_classes,
+        stock_categories=stock_categories,
+        selected_stock_category=selected_stock_category,
+        selected_stock_order=selected_stock_order,
+        selected_min_order=selected_min_order,
+        client_top_rows=client_top_rows,
+        selected_client_name=selected_client_name,
+        selected_client_id=client_id,
+        client_purchase_rows=client_purchase_rows,
         chart_data_json=chart_data_json,
     )
 
