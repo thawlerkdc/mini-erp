@@ -1,9 +1,8 @@
-services:
-  - type: pserv
-    name: mini-erp-db
-    env: postgresql
+databases:
+  - name: mini-erp-db
     plan: free
 
+services:
   - type: web
     name: mini-erp
     plan: free
