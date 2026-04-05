@@ -9,6 +9,7 @@ from models import (
     seed_admin,
 )
 from datetime import datetime
+from calendar import monthrange
 import re
 import json
 import logging
@@ -180,7 +181,11 @@ TRANSLATIONS = {
         "gender_label": "Gênero",
         "gender_male": "Masculino",
         "gender_female": "Feminino",
-        "gender_not_informed": "Não informar"
+        "gender_not_informed": "Não informar",
+        "stock_current_quantity": "Quantidade atual",
+        "near_min_stock": "Produtos mais próximos do estoque mínimo",
+        "total_sum": "Total geral",
+        "product_gender_share": "Vendas por produto e percentual por gênero"
     },
     "en": {
         "login_title": "Kdc Systems Login",
@@ -719,6 +724,25 @@ def translate(key):
     return TRANSLATIONS.get(lang, TRANSLATIONS[DEFAULT_LANG]).get(key, TRANSLATIONS[DEFAULT_LANG].get(key, key))
 
 
+def normalize_date_for_input(value):
+    if not value:
+        return ""
+
+    text = str(value).strip()
+    if not text:
+        return ""
+
+    # Keep only the date segment when datetime-like values are stored.
+    text = text.split(" ")[0]
+
+    for pattern in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%m-%d-%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(text, pattern).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return ""
+
+
 @app.context_processor
 def inject_translations():
     return {
@@ -910,6 +934,8 @@ def cadastro(entity):
             edit_data = dict(conn.execute("SELECT * FROM users WHERE id = %s AND account_id = %s", (edit_id, account_id)).fetchone() or {})
         elif entity == "produtos":
             edit_data = dict(conn.execute("SELECT * FROM products WHERE id = %s AND account_id = %s", (edit_id, account_id)).fetchone() or {})
+            if edit_data.get("expiration_date"):
+                edit_data["expiration_date"] = normalize_date_for_input(edit_data.get("expiration_date"))
         elif entity == "clientes":
             edit_data = dict(conn.execute("SELECT * FROM clients WHERE id = %s AND account_id = %s", (edit_id, account_id)).fetchone() or {})
         elif entity == "fornecedores":
@@ -1402,6 +1428,13 @@ def relatorios():
     section = request.args.get("section")
     report = request.args.get("report")
 
+    if not start_date or not end_date:
+        now = datetime.now()
+        first_day = now.replace(day=1)
+        last_day = now.replace(day=monthrange(now.year, now.month)[1])
+        start_date = first_day.strftime("%Y-%m-%d")
+        end_date = last_day.strftime("%Y-%m-%d")
+
     sales_conditions = ["s.account_id = %s"]
     sales_params = [account_id]
     if start_date and end_date:
@@ -1438,11 +1471,16 @@ def relatorios():
     payment_totals = conn.execute(
         "SELECT payment_method, COALESCE(SUM(total), 0) AS total FROM sales s"
         + sales_where
-        + " GROUP BY payment_method",
+        + " GROUP BY payment_method ORDER BY payment_method ASC",
         tuple(sales_params),
     ).fetchall()
-    highest_stock = conn.execute("SELECT name FROM products WHERE account_id = %s ORDER BY stock DESC LIMIT 1", (account_id,)).fetchone()
-    lowest_stock = conn.execute("SELECT name FROM products WHERE account_id = %s ORDER BY stock ASC LIMIT 1", (account_id,)).fetchone()
+    highest_stock = conn.execute("SELECT name, stock FROM products WHERE account_id = %s ORDER BY stock DESC LIMIT 1", (account_id,)).fetchone()
+    lowest_stock = conn.execute("SELECT name, stock FROM products WHERE account_id = %s ORDER BY stock ASC LIMIT 1", (account_id,)).fetchone()
+    near_min_stock = conn.execute(
+        "SELECT name, stock, stock_min, (stock - stock_min) AS stock_gap "
+        "FROM products WHERE account_id = %s ORDER BY stock_gap ASC, stock ASC LIMIT 8",
+        (account_id,),
+    ).fetchall()
 
     report_options = []
     report_title = None
@@ -1450,6 +1488,7 @@ def relatorios():
     report_headers = []
     report_rows = []
     section_title = None
+    report_total = None
 
     if section == "fornecedores":
         section_title = translate("suppliers_report_card")
@@ -1559,6 +1598,11 @@ def relatorios():
                 "label": translate("product_sales_value"),
                 "description": translate("product_sales_value_desc"),
             },
+            {
+                "key": "product_gender_share",
+                "label": translate("product_gender_share"),
+                "description": "Percentual de compras por gênero para cada produto.",
+            },
         ]
         if report == "product_sales_quantity":
             report_title = translate("product_sales_quantity")
@@ -1582,6 +1626,40 @@ def relatorios():
                 + " GROUP BY p.name ORDER BY total DESC",
                 tuple(sales_params),
             ).fetchall()
+            report_total = sum(float(row[1] or 0) for row in report_rows)
+        elif report == "product_gender_share":
+            report_title = translate("product_gender_share")
+            report_description = "Percentual de compras por gênero para cada produto."
+            report_headers = [translate("product_name"), translate("gender_male"), translate("gender_female"), translate("gender_not_informed")]
+            report_rows = conn.execute(
+                "SELECT p.name AS product_name, "
+                "COALESCE(SUM(CASE WHEN c.gender = 'masculino' THEN si.quantity ELSE 0 END), 0) AS qty_male, "
+                "COALESCE(SUM(CASE WHEN c.gender = 'feminino' THEN si.quantity ELSE 0 END), 0) AS qty_female, "
+                "COALESCE(SUM(CASE WHEN c.gender = 'nao_informar' OR c.gender IS NULL THEN si.quantity ELSE 0 END), 0) AS qty_na "
+                "FROM sale_items si "
+                "JOIN sales s ON si.sale_id = s.id "
+                "JOIN products p ON si.product_id = p.id "
+                "LEFT JOIN clients c ON s.client_id = c.id"
+                + sales_where
+                + " GROUP BY p.name ORDER BY p.name ASC",
+                tuple(sales_params),
+            ).fetchall()
+
+            percent_rows = []
+            for row in report_rows:
+                total_qty = float(row[1] or 0) + float(row[2] or 0) + float(row[3] or 0)
+                if total_qty <= 0:
+                    percent_rows.append((row[0], "0.0%", "0.0%", "0.0%"))
+                else:
+                    percent_rows.append(
+                        (
+                            row[0],
+                            f"{(float(row[1]) / total_qty) * 100:.1f}%",
+                            f"{(float(row[2]) / total_qty) * 100:.1f}%",
+                            f"{(float(row[3]) / total_qty) * 100:.1f}%",
+                        )
+                    )
+            report_rows = percent_rows
     elif section == "categorias":
         section_title = translate("categories_report_card")
         report_options = [
@@ -1618,6 +1696,7 @@ def relatorios():
                 + " GROUP BY cat.name ORDER BY total DESC",
                 tuple([translate("no_records_found"), *sales_params]),
             ).fetchall()
+            report_total = sum(float(row[1] or 0) for row in report_rows)
     elif section == "pagamentos":
         section_title = translate("payments_report_card")
         report_options = [
@@ -1634,9 +1713,10 @@ def relatorios():
             report_rows = conn.execute(
                 "SELECT payment_method, COALESCE(SUM(total), 0) AS total FROM sales s"
                 + sales_where
-                + " GROUP BY payment_method ORDER BY total DESC",
+                + " GROUP BY payment_method ORDER BY payment_method ASC",
                 tuple(sales_params),
             ).fetchall()
+            report_total = sum(float(row[1] or 0) for row in report_rows)
 
     chart_data = None
     if report in ["payment_sales_value", "category_sales_value"]:
@@ -1652,6 +1732,7 @@ def relatorios():
         sales=sales,
         highest_stock=highest_stock,
         lowest_stock=lowest_stock,
+        near_min_stock=near_min_stock,
         top_customers=top_customers,
         profit_top=profit_top,
         payment_totals=payment_totals,
@@ -1664,6 +1745,7 @@ def relatorios():
         report_description=report_description,
         report_headers=report_headers,
         report_rows=report_rows,
+        report_total=report_total,
         chart_data_json=chart_data_json,
     )
 

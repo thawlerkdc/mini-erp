@@ -11,6 +11,9 @@
       <div class="brand">
         <span class="brand-name">Kdc Systems</span>
         <span class="brand-subtitle">ERP</span>
+        {% if session.get('user') %}
+          <span class="account-badge">{{ session.get('account_name') }}{% if session.get('role') == 'owner' %} · principal{% else %} · dependente{% endif %}</span>
+        {% endif %}
       </div>
       <div class="topbar">
         {% if session.get('user') %}
@@ -29,7 +32,6 @@
             <a href="{{ url_for('manual') }}" class="nav-link {% if request.endpoint == 'manual' %}active{% endif %}">{{ t('menu_manual') }}</a>
           </nav>
           <div class="actions">
-            <span class="account-badge">{{ session.get('account_name') }}{% if session.get('role') == 'owner' %} · principal{% else %} · dependente{% endif %}</span>
             <div class="language-dropdown">
               <button type="button">{{ t('select_language') }}</button>
               <div class="language-dropdown-menu">

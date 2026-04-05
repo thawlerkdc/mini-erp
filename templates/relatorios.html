@@ -98,12 +98,19 @@
         <tbody>
           {% for row in report_rows %}
             <tr>
-              <td>{{ row[0] }}</td>
-              <td>${{ row[1] }}</td>
+              {% for cell in row %}
+                <td>{{ cell }}</td>
+              {% endfor %}
             </tr>
           {% else %}
-            <tr><td colspan="2">{{ t('no_records_found') }}</td></tr>
+            <tr><td colspan="{{ report_headers|length }}">{{ t('no_records_found') }}</td></tr>
           {% endfor %}
+          {% if report_total is not none %}
+            <tr>
+              <td><strong>{{ t('total_sum') }}</strong></td>
+              <td><strong>${{ "%.2f"|format(report_total) }}</strong></td>
+            </tr>
+          {% endif %}
         </tbody>
       </table>
       {% if chart_data_json %}
@@ -138,12 +145,22 @@
 
   {% if not section %}
     <div class="report-grid">
-      <div class="table-card">
+      <div class="report-card summary-card">
         <h3>{{ t('stock_report') }}</h3>
-        <p>{{ t('highest_stock') }}: {{ highest_stock[0] if highest_stock else '-' }}</p>
-        <p>{{ t('lowest_stock') }}: {{ lowest_stock[0] if lowest_stock else '-' }}</p>
+        <p>{{ t('highest_stock') }}: {{ highest_stock[0] if highest_stock else '-' }} {% if highest_stock %}({{ t('stock_current_quantity') }}: {{ highest_stock[1] }}){% endif %}</p>
+        <p>{{ t('lowest_stock') }}: {{ lowest_stock[0] if lowest_stock else '-' }} {% if lowest_stock %}({{ t('stock_current_quantity') }}: {{ lowest_stock[1] }}){% endif %}</p>
       </div>
-      <div class="table-card">
+      <div class="report-card summary-card">
+        <h3>{{ t('near_min_stock') }}</h3>
+        <ol>
+          {% for item in near_min_stock %}
+            <li>{{ item['name'] }} — {{ t('stock_current_quantity') }}: {{ item['stock'] }} / {{ t('stock_min_label') }}: {{ item['stock_min'] }}</li>
+          {% else %}
+            <li>{{ t('no_records_found') }}</li>
+          {% endfor %}
+        </ol>
+      </div>
+      <div class="report-card summary-card">
         <h3>{{ t('top_customers') }}</h3>
         <ol>
           {% for client in top_customers %}
@@ -153,7 +170,7 @@
           {% endfor %}
         </ol>
       </div>
-      <div class="table-card">
+      <div class="report-card summary-card">
         <h3>{{ t('product_profit_top') }}</h3>
         <ol>
           {% for item in profit_top %}
@@ -163,7 +180,7 @@
           {% endfor %}
         </ol>
       </div>
-      <div class="table-card">
+      <div class="report-card summary-card">
         <h3>{{ t('payment_report') }}</h3>
         <ul>
           {% for payment in payment_totals %}
@@ -199,19 +216,19 @@
     .report-grid,
     .report-options-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
       margin-bottom: 20px;
     }
 
     .report-card {
       border-radius: 18px;
-      padding: 18px;
+      padding: 14px;
       border: 1px solid rgba(15, 23, 42, 0.08);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      min-height: 180px;
+      min-height: 150px;
       text-decoration: none;
       color: #0f172a;
       box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
@@ -308,7 +325,7 @@
     .report-card h3,
     .option-card h4 {
       margin: 0;
-      font-size: 1.12rem;
+      font-size: 1rem;
       color: #0f172a;
       text-decoration: none;
     }
@@ -319,6 +336,18 @@
       color: #334155;
       line-height: 1.5;
       text-decoration: none;
+    }
+
+    .summary-card {
+      min-height: auto;
+    }
+
+    .summary-card ol,
+    .summary-card ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 4px;
     }
 
     .report-card.fornecedores {
