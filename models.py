@@ -89,7 +89,8 @@ _TENANT_STATEMENTS = [
         city TEXT,
         state TEXT,
         country TEXT,
-        postal_code TEXT
+        postal_code TEXT,
+        gender TEXT DEFAULT 'nao_informar'
     )
     """,
     """
@@ -151,6 +152,10 @@ _TENANT_STATEMENTS = [
         notes TEXT
     )
     """,
+]
+
+_TENANT_MIGRATIONS = [
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'nao_informar'",
 ]
 
 ADMIN_USER = ("admin", "admin123", "admin@kdcsystems.local", 1)
@@ -269,6 +274,7 @@ def init_auth_db(db_path=None):
 def init_tenant_db(db_path=None):
     """Creates tenant tables in PostgreSQL. db_path ignored (kept for API compat)."""
     _run_statements(_TENANT_STATEMENTS)
+    _run_statements(_TENANT_MIGRATIONS)
 
 
 # ---------------------------------------------------------------------------

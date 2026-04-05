@@ -87,12 +87,15 @@ header .brand-subtitle {
 .account-badge {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 700;
+  background: linear-gradient(135deg, #fde68a, #f59e0b);
+  color: #1f2937;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 .language-dropdown {
@@ -221,18 +224,18 @@ button,
 }
 .dashboard-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
 }
 .dashboard-card {
   display: block;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
   text-decoration: none;
-  border-radius: 16px;
+  border-radius: 14px;
   border: none;
   box-shadow: 0 12px 24px rgba(102, 126, 234, 0.3);
-  padding: 24px;
+  padding: 16px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -248,23 +251,30 @@ button,
   pointer-events: none;
 }
 .dashboard-card:hover {
-  transform: translateY(-6px);
+  transform: translateY(-4px);
   box-shadow: 0 20px 40px rgba(102, 126, 234, 0.4);
 }
+.dashboard-card .card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
 .dashboard-card .card-icon {
-  font-size: 2rem;
-  margin-bottom: 12px;
-  display: block;
+  font-size: 1.2rem;
+  margin: 0;
+  display: inline-flex;
 }
 .dashboard-card h3 {
-  margin: 0 0 10px;
-  font-size: 1.2rem;
+  margin: 0;
+  font-size: 1rem;
   color: #fff;
 }
 .dashboard-card p {
   margin: 0;
+  font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.9);
-  line-height: 1.6;
+  line-height: 1.45;
 }
 .welcome-card {
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
@@ -425,6 +435,7 @@ button,
 }
 .table-card table {
   width: 100%;
+  min-width: 680px;
   border-collapse: collapse;
   margin-top: 12px;
 }
@@ -469,6 +480,24 @@ footer {
   main {
     padding: 16px;
   }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .dashboard-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-card {
+    padding: 20px;
+  }
+
+  .quick-stats {
+    flex-direction: column;
+    gap: 10px;
+  }
   
   .sale-row {
     grid-template-columns: 1fr;
@@ -484,13 +513,39 @@ footer {
     grid-template-columns: 1fr;
   }
   
+  .topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
   .topbar nav {
+    width: 100%;
     flex-direction: column;
     align-items: flex-start;
+    white-space: normal;
+    overflow-x: visible;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .topbar .actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .account-badge {
+    width: 100%;
+    justify-content: center;
   }
   
   .totals-section {
     padding: 12px;
+    max-width: 100%;
+  }
+
+  .table-card {
+    overflow-x: auto;
   }
 }
 
@@ -542,6 +597,24 @@ footer {
 
 .btn-add:hover {
   background: #059669 !important; /* Darker green */
+}
+
+.btn-aux {
+  background: #f59e0b !important;
+  color: #fff !important;
+}
+
+.btn-aux:hover {
+  background: #d97706 !important;
+}
+
+.btn-manage {
+  background: #0ea5e9 !important;
+  color: #fff !important;
+}
+
+.btn-manage:hover {
+  background: #0284c7 !important;
 }
 
 .btn-delete {

@@ -72,7 +72,7 @@
               <option value="{{ category['id'] }}" {% if edit_data and edit_data.get('category_id') == category['id'] %}selected{% endif %}>{{ category['name'] }}</option>
             {% endfor %}
           </select>
-          <button type="button" class="outline-button small btn-add" onclick="toggleCategoryForm('product-category-form', this)">{{ t('add_category') }}</button>
+          <button type="button" class="outline-button small btn-aux" onclick="toggleCategoryForm('product-category-form', this)">{{ t('add_category') }}</button>
           <a href="{{ url_for('cadastro', entity='categorias') }}" class="outline-button small btn-manage">{{ t('manage_categories') }}</a>
         </div>
         <label>{{ t('unit_label') }}</label>
@@ -83,8 +83,8 @@
               <option value="{{ unit['id'] }}" {% if edit_data and edit_data.get('unit_id') == unit['id'] %}selected{% endif %}>{{ unit['name'] }}</option>
             {% endfor %}
           </select>
-          <button type="button" class="outline-button small btn-add" onclick="toggleUnitForm('product-unit-form', this)">{{ t('add_unit') }}</button>
-          <a href="{{ url_for('cadastro', entity='unidades') }}" class="outline-button small">{{ t('manage_units') }}</a>
+          <button type="button" class="outline-button small btn-aux" onclick="toggleUnitForm('product-unit-form', this)">{{ t('add_unit') }}</button>
+          <a href="{{ url_for('cadastro', entity='unidades') }}" class="outline-button small btn-manage">{{ t('manage_units') }}</a>
         </div>
         <label>{{ t('supplier_name') }}</label>
         <select name="supplier_id">
@@ -98,9 +98,9 @@
         <label>{{ t('price_label') }}</label>
         <input type="number" name="price" step="0.01" placeholder="0.00" value="{{ edit_data.get('price', '0.00') if edit_data else '' }}" required>
         <label>{{ t('stock_label') }}</label>
-        <input type="number" name="stock" value="{{ edit_data.get('stock', '0') if edit_data else '0' }}" required>
+        <input type="number" name="stock" placeholder="0" value="{{ edit_data.get('stock', '0') if edit_data else '' }}" required>
         <label>{{ t('stock_min_label') }}</label>
-        <input type="number" name="stock_min" value="{{ edit_data.get('stock_min', '0') if edit_data else '0' }}" required>
+        <input type="number" name="stock_min" placeholder="0" value="{{ edit_data.get('stock_min', '0') if edit_data else '' }}" required>
         <label>{{ t('expiration_date') }}</label>
         <input type="date" name="expiration_date" value="{{ edit_data.get('expiration_date', '') if edit_data else '' }}">
         <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_product') }}{% endif %}</button>
@@ -113,7 +113,7 @@
           <label>{{ t('new_category_prompt') }}</label>
           <input type="text" name="new_category_name" placeholder="{{ t('new_category_prompt') }}" required>
         </div>
-        <button type="submit" class="outline-button small btn-add">{{ t('add_category') }}</button>
+        <button type="submit" class="outline-button small btn-aux">{{ t('add_category') }}</button>
       </form>
     </div>
     <div id="product-unit-form" class="inline-add-category hidden">
@@ -122,7 +122,7 @@
           <label>{{ t('new_unit_prompt') }}</label>
           <input type="text" name="new_unit_name" placeholder="{{ t('new_unit_prompt') }}" required>
         </div>
-        <button type="submit" class="outline-button small btn-add">{{ t('add_unit') }}</button>
+        <button type="submit" class="outline-button small btn-aux">{{ t('add_unit') }}</button>
       </form>
     </div>
     <div class="table-card">
@@ -132,7 +132,7 @@
       </div>
       <table id="products-table">
         <thead>
-          <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>{{ t('unit_label') }}</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('price_label') }}</th><th>{{ t('actions') }}</th></tr>
+          <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>{{ t('unit_label') }}</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
         </thead>
         <tbody>
           {% for product in rows %}
@@ -143,6 +143,7 @@
               <td>{{ product['supplier_name'] or '-' }}</td>
               <td>{{ product['stock'] }}</td>
               <td>$ {{ "%.2f"|format(product['price']) }}</td>
+              <td>$ {{ "%.2f"|format((product['price'] or 0) - (product['cost'] or 0)) }}</td>
               <td class="action-buttons">
                 <a href="{{ url_for('cadastro', entity='produtos', edit_id=product['id']) }}" class="btn-edit">Editar</a>
                 <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='produtos') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
@@ -152,7 +153,7 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="6">{{ t('no_records_found') }}</td></tr>
+            <tr><td colspan="8">{{ t('no_records_found') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -180,6 +181,12 @@
         <input type="text" name="state" maxlength="2" pattern="[A-Za-z]{0,2}" style="text-transform: uppercase;" value="{{ edit_data.get('state', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/[^A-Za-z]/g,'').toUpperCase()">
         <label>{{ t('country_label') }}</label>
         <input type="text" name="country" value="{{ edit_data.get('country', '') if edit_data else '' }}">
+        <label>{{ t('gender_label') }}</label>
+        <select name="gender">
+          <option value="nao_informar" {% if (edit_data.get('gender') if edit_data else 'nao_informar') == 'nao_informar' %}selected{% endif %}>{{ t('gender_not_informed') }}</option>
+          <option value="masculino" {% if edit_data and edit_data.get('gender') == 'masculino' %}selected{% endif %}>{{ t('gender_male') }}</option>
+          <option value="feminino" {% if edit_data and edit_data.get('gender') == 'feminino' %}selected{% endif %}>{{ t('gender_female') }}</option>
+        </select>
         <label>{{ t('zipcode_label') }}</label>
         <input type="text" name="postal_code" inputmode="numeric" pattern="[0-9]*" maxlength="8" value="{{ edit_data.get('postal_code', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
         <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_client') }}{% endif %}</button>
@@ -193,13 +200,22 @@
       </div>
       <table id="clients-table">
         <thead>
-          <tr><th>{{ t('client_name') }}</th><th>{{ t('cpf_label') }}</th><th>{{ t('city_label') }}</th><th>{{ t('state_label') }}</th><th>{{ t('zipcode_label') }}</th><th>{{ t('actions') }}</th></tr>
+          <tr><th>{{ t('client_name') }}</th><th>{{ t('cpf_label') }}</th><th>{{ t('gender_label') }}</th><th>{{ t('city_label') }}</th><th>{{ t('state_label') }}</th><th>{{ t('zipcode_label') }}</th><th>{{ t('actions') }}</th></tr>
         </thead>
         <tbody>
           {% for client in rows %}
             <tr>
               <td>{{ client['name'] }}</td>
               <td>{{ client['cpf'] }}</td>
+              <td>
+                {% if client['gender'] == 'masculino' %}
+                  {{ t('gender_male') }}
+                {% elif client['gender'] == 'feminino' %}
+                  {{ t('gender_female') }}
+                {% else %}
+                  {{ t('gender_not_informed') }}
+                {% endif %}
+              </td>
               <td>{{ client['city'] or '-' }}</td>
               <td>{{ client['state'] or '-' }}</td>
               <td>{{ client['postal_code'] }}</td>
@@ -212,7 +228,7 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="5">{{ t('no_records_found') }}</td></tr>
+            <tr><td colspan="7">{{ t('no_records_found') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -250,7 +266,7 @@
               <option value="{{ category['id'] }}" {% if edit_data and edit_data.get('category_id') == category['id'] %}selected{% endif %}>{{ category['name'] }}</option>
             {% endfor %}
           </select>
-          <button type="button" class="outline-button small btn-add" onclick="toggleCategoryForm('supplier-category-form', this)">{{ t('add_category') }}</button>
+          <button type="button" class="outline-button small btn-aux" onclick="toggleCategoryForm('supplier-category-form', this)">{{ t('add_category') }}</button>
           <a href="{{ url_for('cadastro', entity='categorias') }}" class="outline-button small btn-manage">{{ t('manage_categories') }}</a>
         </div>
         <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_supplier') }}{% endif %}</button>
@@ -263,7 +279,7 @@
           <label>{{ t('new_category_prompt') }}</label>
           <input type="text" name="new_category_name" placeholder="{{ t('new_category_prompt') }}" required>
         </div>
-        <button type="submit" class="outline-button small btn-add">{{ t('add_category') }}</button>
+        <button type="submit" class="outline-button small btn-aux">{{ t('add_category') }}</button>
       </form>
     </div>
     <div class="table-card">
@@ -410,7 +426,7 @@
 
     function positionInlineForm(el, button) {
       const rect = button.getBoundingClientRect();
-      const formWidth = 320;
+      const formWidth = Math.min(320, window.innerWidth - 24);
       const left = Math.min(rect.left, window.innerWidth - formWidth - 20);
       const top = rect.bottom + 10;
 
@@ -545,12 +561,21 @@
     }
 
     .btn-manage {
-      background: #22c55e;
+      background: #0ea5e9;
       color: white;
     }
 
     .btn-manage:hover {
-      background: #16a34a;
+      background: #0284c7;
+    }
+
+    .btn-aux {
+      background: #f59e0b;
+      color: white;
+    }
+
+    .btn-aux:hover {
+      background: #d97706;
     }
     
     .action-buttons button {

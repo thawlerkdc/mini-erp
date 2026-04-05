@@ -35,7 +35,7 @@ TRANSLATIONS = {
         "password_label": "Senha",
         "email_label": "E-mail",
         "dashboard_title": "Painel de controle",
-        "dashboard_welcome": "Bem-vindo",
+        "dashboard_welcome": "Bem-vindo(a)",
         "menu_dashboard": "Dashboard",
         "menu_users": "Usuários",
         "menu_products": "Produtos",
@@ -93,7 +93,7 @@ TRANSLATIONS = {
         "select_product": "Selecione um produto",
         "quantity_label": "Quantidade",
         "unit_price": "Preço unitário",
-        "line_total": "Total da linha",
+        "line_total": "Total por produto",
         "remove": "Remover",
         "add_item": "Adicionar item",
         "discount_label": "Desconto",
@@ -175,7 +175,12 @@ TRANSLATIONS = {
         "payment_sales_value_desc": "Valor de vendas por forma de pagamento.",
         "sales_period_report_card": "Vendas no período",
         "sales_period_desc": "Lista de vendas realizadas no período selecionado.",
-        "actions": "Ações"
+        "actions": "Ações",
+        "product_net_profit": "Lucro líquido",
+        "gender_label": "Gênero",
+        "gender_male": "Masculino",
+        "gender_female": "Feminino",
+        "gender_not_informed": "Não informar"
     },
     "en": {
         "login_title": "Kdc Systems Login",
@@ -1067,18 +1072,22 @@ def cadastro(entity):
                 state = re.sub(r"[^A-Za-z]", "", request.form.get("state") or "").upper()[:2]
                 country = request.form.get("country")
                 postal_code = re.sub(r"\D", "", request.form.get("postal_code") or "")[:8]
+                gender = (request.form.get("gender") or "nao_informar").strip()
                 edit_id_form = request.form.get("edit_id")
+
+                if gender not in {"masculino", "feminino", "nao_informar"}:
+                    gender = "nao_informar"
 
                 if name:
                     if edit_id_form:
                         conn.execute(
-                            "UPDATE clients SET name = %s, cpf = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s WHERE id = %s AND account_id = %s",
-                            (name, cpf, street, number, complement, neighborhood, city, state, country, postal_code, edit_id_form, account_id),
+                            "UPDATE clients SET name = %s, cpf = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, gender = %s WHERE id = %s AND account_id = %s",
+                            (name, cpf, street, number, complement, neighborhood, city, state, country, postal_code, gender, edit_id_form, account_id),
                         )
                     else:
                         conn.execute(
-                            "INSERT INTO clients (account_id, name, cpf, street, number, complement, neighborhood, city, state, country, postal_code) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (account_id, name, cpf, street, number, complement, neighborhood, city, state, country, postal_code),
+                            "INSERT INTO clients (account_id, name, cpf, street, number, complement, neighborhood, city, state, country, postal_code, gender) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (account_id, name, cpf, street, number, complement, neighborhood, city, state, country, postal_code, gender),
                         )
                     conn.commit()
                     flash(translate("record_saved"), "success")
@@ -1470,7 +1479,7 @@ def relatorios():
                 "FROM suppliers sup "
                 "LEFT JOIN categories cat ON sup.category_id = cat.id "
                 "WHERE sup.account_id = %s "
-                "GROUP BY category ORDER BY total DESC",
+                "GROUP BY cat.name ORDER BY total DESC",
                 (translate("no_records_found"), account_id),
             ).fetchall()
         elif report == "supplier_product_quantity":
