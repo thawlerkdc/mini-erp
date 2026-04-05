@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="login-card">
+    <form method="post" action="{{ url_for('login') }}">
+      <label for="username">{{ t('username_label') }}</label>
+      <input id="username" name="username" type="text" required>
+
+      <label for="password">{{ t('password_label') }}</label>
+      <input id="password" name="password" type="password" required>
+
+      <button type="submit">{{ t('login_title') }}</button>
+    </form>
+    
+    <div class="login-footer">
+      <p>
+        <a href="{{ url_for('forgot_password') }}" class="forgot-password-link">
+          {{ t('forgot_password_label') }}
+        </a>
+      </p>
+    </div>
+  </div>
+
+  <style>
+    .login-footer {
+      text-align: center;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+    }
+    
+    .forgot-password-link {
+      color: #007bff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    
+    .forgot-password-link:hover {
+      text-decoration: underline;
+      color: #0056b3;
+    }
+  </style>
+{% endblock %}

@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="form-card report-filter-card">
+    <form method="get" action="{{ url_for('relatorios') }}">
+      <div class="filter-row">
+        <label>
+          {{ t('period_start') }}
+          <input type="date" name="start_date" value="{{ filters.start_date or '' }}">
+        </label>
+        <label>
+          {{ t('period_end') }}
+          <input type="date" name="end_date" value="{{ filters.end_date or '' }}">
+        </label>
+        <button type="submit">{{ t('apply_filter') }}</button>
+      </div>
+      {% if section %}
+        <input type="hidden" name="section" value="{{ section }}">
+      {% endif %}
+      {% if report %}
+        <input type="hidden" name="report" value="{{ report }}">
+      {% endif %}
+    </form>
+  </div>
+
+  {% if not section %}
+    <div class="report-grid">
+      <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='fornecedores') }}" class="report-card fornecedores">
+        <h3>{{ t('suppliers_report_card') }}</h3>
+        <p>{{ t('supplier_by_category_desc') }}</p>
+        <span class="report-card-button">{{ t('view_report') }}</span>
+      </a>
+      <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='clientes') }}" class="report-card clientes">
+        <h3>{{ t('clients_report_card') }}</h3>
+        <p>{{ t('client_sales_value_desc') }}</p>
+        <span class="report-card-button">{{ t('view_report') }}</span>
+      </a>
+      <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='produtos') }}" class="report-card produtos">
+        <h3>{{ t('products_report_card') }}</h3>
+        <p>{{ t('product_sales_quantity_desc') }}</p>
+        <span class="report-card-button">{{ t('view_report') }}</span>
+      </a>
+      <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='categorias') }}" class="report-card categorias">
+        <h3>{{ t('categories_report_card') }}</h3>
+        <p>{{ t('category_sales_value_desc') }}</p>
+        <span class="report-card-button">{{ t('view_report') }}</span>
+      </a>
+      <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='pagamentos') }}" class="report-card pagamentos">
+        <h3>{{ t('payments_report_card') }}</h3>
+        <p>{{ t('payment_sales_value_desc') }}</p>
+        <span class="report-card-button">{{ t('view_report') }}</span>
+      </a>
+      <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='vendas_periodo') }}" class="report-card vendas-periodo">
+        <h3>{{ t('sales_period_report_card') }}</h3>
+        <p>{{ t('sales_period_desc') }}</p>
+        <span class="report-card-button">{{ t('view_report') }}</span>
+      </a>
+    </div>
+  {% endif %}
+
+  {% if section and not report %}
+    <div class="section-panel">
+      <div class="section-panel-header">
+        <div>
+          <h2>{{ t('report_choose_type') }}</h2>
+          <p>{{ section_title }}</p>
+        </div>
+        <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date) }}" class="outline-button small">{{ t('back_to_reports') }}</a>
+      </div>
+      <div class="report-options-grid">
+        {% for option in report_options %}
+          <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section=section, report=option.key) }}" class="report-card option-card">
+            <h4>{{ option.label }}</h4>
+            <p>{{ option.description }}</p>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if report %}
+    <div class="table-card report-result-card">
+      <div class="report-result-header">
+        <div>
+          <h3>{{ report_title }}</h3>
+          <p>{{ report_description }}</p>
+        </div>
+        <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section=section) }}" class="outline-button small">{{ t('back_to_reports') }}</a>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            {% for header in report_headers %}
+              <th>{{ header }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in report_rows %}
+            <tr>
+              <td>{{ row[0] }}</td>
+              <td>${{ row[1] }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="2">{{ t('no_records_found') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if chart_data_json %}
+        <div style="max-width: 280px; margin: 0 auto;">
+          <canvas id="reportChart" width="280" height="160"></canvas>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if section == "vendas_periodo" %}
+    <div class="table-card report-result-card">
+      <div class="report-result-header">
+        <div>
+          <h3>{{ t('sales_period_report_card') }}</h3>
+          <p>{{ t('sales_period_desc') }}</p>
+        </div>
+        <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date) }}" class="outline-button small">{{ t('back_to_reports') }}</a>
+      </div>
+      <table>
+        <thead><tr><th>{{ t('sale_date') }}</th><th>{{ t('client_label') }}</th><th>{{ t('payment_method') }}</th><th>{{ t('total_label') }}</th></tr></thead>
+        <tbody>
+          {% for row in sales %}
+            <tr><td>{{ row['date'] }}</td><td>{{ row['client_name'] or t('no_client') }}</td><td>{{ row['payment_method'] }}</td><td>${{ row['total'] }}</td></tr>
+          {% else %}
+            <tr><td colspan="4">{{ t('no_records_found') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if not section %}
+    <div class="report-grid">
+      <div class="table-card">
+        <h3>{{ t('stock_report') }}</h3>
+        <p>{{ t('highest_stock') }}: {{ highest_stock[0] if highest_stock else '-' }}</p>
+        <p>{{ t('lowest_stock') }}: {{ lowest_stock[0] if lowest_stock else '-' }}</p>
+      </div>
+      <div class="table-card">
+        <h3>{{ t('top_customers') }}</h3>
+        <ol>
+          {% for client in top_customers %}
+            <li>{{ client['name'] or t('unknown') }} — ${{ client['total'] }}</li>
+          {% else %}
+            <li>{{ t('no_records_found') }}</li>
+          {% endfor %}
+        </ol>
+      </div>
+      <div class="table-card">
+        <h3>{{ t('product_profit_top') }}</h3>
+        <ol>
+          {% for item in profit_top %}
+            <li>{{ item['name'] }} — ${{ item['profit'] }}</li>
+          {% else %}
+            <li>{{ t('no_records_found') }}</li>
+          {% endfor %}
+        </ol>
+      </div>
+      <div class="table-card">
+        <h3>{{ t('payment_report') }}</h3>
+        <ul>
+          {% for payment in payment_totals %}
+            <li>{{ payment['payment_method'] }} — ${{ payment['total'] }}</li>
+          {% else %}
+            <li>{{ t('no_records_found') }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  {% endif %}
+
+  <style>
+    .report-filter-card {
+      margin-bottom: 20px;
+    }
+
+    .filter-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+
+    .filter-row label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .report-grid,
+    .report-options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .option-card {
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .option-card:nth-child(1) {
+      background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+    }
+
+    .option-card:nth-child(2) {
+      background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+    }
+
+    .option-card:nth-child(3) {
+      background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%);
+    }
+
+    .option-card:nth-child(4) {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .option-card:nth-child(5) {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .option-card:nth-child(6) {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .option-card:nth-child(7) {
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    .option-card:nth-child(8) {
+      background: linear-gradient(135deg, #a8c0ff 0%, #3f2b96 100%);
+    }
+
+    .report-card:hover,
+    .option-card:hover {
+      transform: translateY(-2px);
+      border-color: #0b4a82;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    .report-card h3,
+    .option-card h4 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #0f172a;
+    }
+
+    .report-card p,
+    .option-card p {
+      margin: 0;
+      color: #334155;
+      line-height: 1.5;
+    }
+
+    .report-card.fornecedores {
+      background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+    }
+
+    .report-card.clientes {
+      background: linear-gradient(135deg, #a29bfe 0%, #fd79a8 100%);
+    }
+
+    .report-card.produtos {
+      background: linear-gradient(135deg, #00cec9 0%, #55a3ff 100%);
+    }
+
+    .report-card.categorias {
+      background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%);
+    }
+
+    .report-card.pagamentos {
+      background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+    }
+
+    .report-card.vendas-periodo {
+      background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+    }
+
+    .report-card.modern-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: none;
+    }
+
+    .report-card.modern-btn h3,
+    .report-card.modern-btn p {
+      color: #fff;
+    }
+
+    .report-card.modern-btn .report-card-button {
+      color: #fff;
+    }
+
+    .report-card.modern-btn:hover {
+      background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+      transform: translateY(-4px);
+      box-shadow: 0 25px 50px rgba(102, 126, 234, 0.25);
+    }
+
+    .section-panel {
+      margin-bottom: 24px;
+    }
+
+    .section-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .section-panel-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .report-result-card {
+      padding: 18px;
+    }
+
+    .report-result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .report-result-header h3 {
+      margin: 0;
+    }
+
+    .report-result-card table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .report-result-card th,
+    .report-result-card td {
+      padding: 12px 10px;
+      border: 1px solid #e2e8f0;
+      text-align: left;
+    }
+
+    .report-result-card th {
+      background: #f8fafc;
+      color: #0f172a;
+    }
+  </style>
+
+  {% if chart_data_json %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+  <script>
+    const ctx = document.getElementById('reportChart').getContext('2d');
+    const data = {{ chart_data_json | safe }};
+    const colors = [
+      '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+    ];
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+    new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: data.map(item => item.label),
+        datasets: [{
+          label: '{{ report_title }}',
+          data: data.map(item => item.value),
+          backgroundColor: colors.slice(0, data.length),
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                return context.label + ': $' + context.parsed.toFixed(2) + ' (' + percentage + '%)';
+              }
+            }
+          },
+          datalabels: {
+            color: '#fff',
+            font: {
+              weight: 'bold',
+              size: 14
+            },
+            formatter: function(value, context) {
+              const percentage = ((value / total) * 100).toFixed(1);
+              return percentage + '%';
+            }
+          }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  </script>
+  {% endif %}
+{% endblock %}

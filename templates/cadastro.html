@@ -1,0 +1,561 @@
+{% extends "base.html" %}
+
+{% block content %}
+  {% if entity == 'usuarios' %}
+    <div class="form-card">
+      <h3>{% if edit_id %}Editar Usuário{% else %}{{ t('add_user') }}{% endif %}</h3>
+      <form method="post" action="{{ url_for('cadastro', entity='usuarios') }}">
+        {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
+        <label>{{ t('name_label') }} *</label>
+        <input type="text" name="name" placeholder="Ex: João Silva" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
+        <label>{{ t('username_label') }} (Login) *</label>
+        <input type="text" name="username" placeholder="Ex: joao.silva (sem espaços)" value="{{ edit_data.get('username', '') if edit_data else '' }}" required pattern="[A-Za-z0-9._-]+" {% if edit_id %}readonly{% endif %}>
+        {% if not edit_id %}<label>{{ t('password_label') }} *</label>
+        <input type="password" name="password" required>{% else %}<label>{{ t('password_label') }} (deixe em branco para manter)</label>
+        <input type="password" name="password">{% endif %}
+        <label>{{ t('email_label') }}</label>
+        <input type="email" name="email" value="{{ edit_data.get('email', '') if edit_data else '' }}">
+        <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_user') }}{% endif %}</button>
+        {% if edit_id %}<a href="{{ url_for('cadastro', entity='usuarios') }}" class="outline-button">Cancelar</a>{% endif %}
+      </form>
+    </div>
+    <div class="table-card">
+      <h3>{{ t('user_list') }}</h3>
+      <div class="table-search">
+        <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('users-table', this.value)">
+      </div>
+      <table id="users-table">
+        <thead>
+          <tr><th>Nome</th><th>{{ t('username_label') }}</th><th>{{ t('email_label') }}</th><th>{{ t('actions') }}</th></tr>
+        </thead>
+        <tbody>
+          {% for user in rows %}
+            <tr>
+              <td>{{ user['name'] or user['username'] }}</td>
+              <td>{{ user['username'] }}</td>
+              <td>{{ user['email'] or '-' }}</td>
+              <td class="action-buttons">
+                <a href="{{ url_for('cadastro', entity='usuarios', edit_id=user['id']) }}" class="btn-edit">Editar</a>
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='usuarios') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                  <input type="hidden" name="delete_id" value="{{ user['id'] }}">
+                  <button type="submit" class="btn-delete">Deletar</button>
+                </form>
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='usuarios') }}">
+                  <input type="hidden" name="reset_id" value="{{ user['id'] }}">
+                  <input type="password" name="reset_password" placeholder="{{ t('new_password_placeholder') }}" required>
+                  <button type="submit" name="action" value="reset">{{ t('reset_password_button') }}</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4">{{ t('no_records_found') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif entity == 'produtos' %}
+    <div class="form-card">
+      <h3>{% if edit_id %}Editar Produto{% else %}{{ t('add_product') }}{% endif %}</h3>
+      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}">
+        {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
+        <label>{{ t('product_name') }}</label>
+        <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
+        <label>{{ t('category_label') }}</label>
+        <div class="inline-group">
+          <select name="category_id" required>
+            <option value="">Selecione...</option>
+            {% for category in categories %}
+              <option value="{{ category['id'] }}" {% if edit_data and edit_data.get('category_id') == category['id'] %}selected{% endif %}>{{ category['name'] }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="outline-button small btn-add" onclick="toggleCategoryForm('product-category-form', this)">{{ t('add_category') }}</button>
+          <a href="{{ url_for('cadastro', entity='categorias') }}" class="outline-button small btn-manage">{{ t('manage_categories') }}</a>
+        </div>
+        <label>{{ t('unit_label') }}</label>
+        <div class="inline-group">
+          <select name="unit_id" required>
+            <option value="">Selecione...</option>
+            {% for unit in units %}
+              <option value="{{ unit['id'] }}" {% if edit_data and edit_data.get('unit_id') == unit['id'] %}selected{% endif %}>{{ unit['name'] }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="outline-button small btn-add" onclick="toggleUnitForm('product-unit-form', this)">{{ t('add_unit') }}</button>
+          <a href="{{ url_for('cadastro', entity='unidades') }}" class="outline-button small">{{ t('manage_units') }}</a>
+        </div>
+        <label>{{ t('supplier_name') }}</label>
+        <select name="supplier_id">
+          <option value="">Selecione...</option>
+          {% for supplier in suppliers %}
+            <option value="{{ supplier['id'] }}" {% if edit_data and edit_data.get('supplier_id') == supplier['id'] %}selected{% endif %}>{{ supplier['name'] }}</option>
+          {% endfor %}
+        </select>
+        <label>{{ t('cost_label') }}</label>
+        <input type="number" name="cost" step="0.01" value="{{ edit_data.get('cost', '0.00') if edit_data else '0.00' }}" required>
+        <label>{{ t('price_label') }}</label>
+        <input type="number" name="price" step="0.01" value="{{ edit_data.get('price', '0.00') if edit_data else '0.00' }}" required>
+        <label>{{ t('stock_label') }}</label>
+        <input type="number" name="stock" value="{{ edit_data.get('stock', '0') if edit_data else '0' }}" required>
+        <label>{{ t('stock_min_label') }}</label>
+        <input type="number" name="stock_min" value="{{ edit_data.get('stock_min', '0') if edit_data else '0' }}" required>
+        <label>{{ t('expiration_date') }}</label>
+        <input type="date" name="expiration_date" value="{{ edit_data.get('expiration_date', '') if edit_data else '' }}">
+        <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_product') }}{% endif %}</button>
+        {% if edit_id %}<a href="{{ url_for('cadastro', entity='produtos') }}" class="outline-button">Cancelar</a>{% endif %}
+      </form>
+    </div>
+    <div id="product-category-form" class="inline-add-category hidden">
+      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" style="display: flex; gap: 10px; align-items: flex-end;">
+        <div style="flex: 1;">
+          <label>{{ t('new_category_prompt') }}</label>
+          <input type="text" name="new_category_name" placeholder="{{ t('new_category_prompt') }}" required>
+        </div>
+        <button type="submit" class="outline-button small btn-add">{{ t('add_category') }}</button>
+      </form>
+    </div>
+    <div id="product-unit-form" class="inline-add-category hidden">
+      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" style="display: flex; gap: 10px; align-items: flex-end;">
+        <div style="flex: 1;">
+          <label>{{ t('new_unit_prompt') }}</label>
+          <input type="text" name="new_unit_name" placeholder="{{ t('new_unit_prompt') }}" required>
+        </div>
+        <button type="submit" class="outline-button small btn-add">{{ t('add_unit') }}</button>
+      </form>
+    </div>
+    <div class="table-card">
+      <h3>{{ t('product_list') }}</h3>
+      <div class="table-search">
+        <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('products-table', this.value)">
+      </div>
+      <table id="products-table">
+        <thead>
+          <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>{{ t('unit_label') }}</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('price_label') }}</th><th>{{ t('actions') }}</th></tr>
+        </thead>
+        <tbody>
+          {% for product in rows %}
+            <tr>
+              <td>{{ product['name'] }}</td>
+              <td>{{ product['category_name'] or '-' }}</td>
+              <td>{{ product['unit_name'] or '-' }}</td>
+              <td>{{ product['supplier_name'] or '-' }}</td>
+              <td>{{ product['stock'] }}</td>
+              <td>$ {{ "%.2f"|format(product['price']) }}</td>
+              <td class="action-buttons">
+                <a href="{{ url_for('cadastro', entity='produtos', edit_id=product['id']) }}" class="btn-edit">Editar</a>
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='produtos') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                  <input type="hidden" name="delete_id" value="{{ product['id'] }}">
+                  <button type="submit" class="btn-delete">Deletar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6">{{ t('no_records_found') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif entity == 'clientes' %}
+    <div class="form-card">
+      <h3>{% if edit_id %}Editar Cliente{% else %}{{ t('add_client') }}{% endif %}</h3>
+      <form method="post" action="{{ url_for('cadastro', entity='clientes') }}">
+        {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
+        <label>{{ t('client_name') }}</label>
+        <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
+        <label>{{ t('cpf_label') }}</label>
+        <input type="text" name="cpf" inputmode="numeric" pattern="[0-9]*" maxlength="11" value="{{ edit_data.get('cpf', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
+        <label>{{ t('street_label') }}</label>
+        <input type="text" name="street" value="{{ edit_data.get('street', '') if edit_data else '' }}">
+        <label>{{ t('number_label') }}</label>
+        <input type="text" name="number" value="{{ edit_data.get('number', '') if edit_data else '' }}">
+        <label>{{ t('complement_label') }}</label>
+        <input type="text" name="complement" value="{{ edit_data.get('complement', '') if edit_data else '' }}">
+        <label>{{ t('neighborhood_label') }}</label>
+        <input type="text" name="neighborhood" value="{{ edit_data.get('neighborhood', '') if edit_data else '' }}">
+        <label>{{ t('city_label') }}</label>
+        <input type="text" name="city" value="{{ edit_data.get('city', '') if edit_data else '' }}">
+        <label>{{ t('state_label') }}</label>
+        <input type="text" name="state" maxlength="2" pattern="[A-Za-z]{0,2}" style="text-transform: uppercase;" value="{{ edit_data.get('state', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/[^A-Za-z]/g,'').toUpperCase()">
+        <label>{{ t('country_label') }}</label>
+        <input type="text" name="country" value="{{ edit_data.get('country', '') if edit_data else '' }}">
+        <label>{{ t('zipcode_label') }}</label>
+        <input type="text" name="postal_code" inputmode="numeric" pattern="[0-9]*" maxlength="8" value="{{ edit_data.get('postal_code', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
+        <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_client') }}{% endif %}</button>
+        {% if edit_id %}<a href="{{ url_for('cadastro', entity='clientes') }}" class="outline-button">Cancelar</a>{% endif %}
+      </form>
+    </div>
+    <div class="table-card">
+      <h3>{{ t('client_list') }}</h3>
+      <div class="table-search">
+        <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('clients-table', this.value)">
+      </div>
+      <table id="clients-table">
+        <thead>
+          <tr><th>{{ t('client_name') }}</th><th>{{ t('cpf_label') }}</th><th>{{ t('city_label') }}</th><th>{{ t('state_label') }}</th><th>{{ t('zipcode_label') }}</th><th>{{ t('actions') }}</th></tr>
+        </thead>
+        <tbody>
+          {% for client in rows %}
+            <tr>
+              <td>{{ client['name'] }}</td>
+              <td>{{ client['cpf'] }}</td>
+              <td>{{ client['city'] or '-' }}</td>
+              <td>{{ client['state'] or '-' }}</td>
+              <td>{{ client['postal_code'] }}</td>
+              <td class="action-buttons">
+                <a href="{{ url_for('cadastro', entity='clientes', edit_id=client['id']) }}" class="btn-edit">Editar</a>
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='clientes') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                  <input type="hidden" name="delete_id" value="{{ client['id'] }}">
+                  <button type="submit" class="btn-delete">Deletar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5">{{ t('no_records_found') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif entity == 'fornecedores' %}
+    <div class="form-card">
+      <h3>{% if edit_id %}Editar Fornecedor{% else %}{{ t('add_supplier') }}{% endif %}</h3>
+      <form method="post" action="{{ url_for('cadastro', entity='fornecedores') }}">
+        {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
+        <label>{{ t('supplier_name') }}</label>
+        <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
+        <label>{{ t('cnpj_label') }}</label>
+        <input type="text" name="cnpj" inputmode="numeric" pattern="[0-9]*" maxlength="14" value="{{ edit_data.get('cnpj', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
+        <label>{{ t('street_label') }}</label>
+        <input type="text" name="street" value="{{ edit_data.get('street', '') if edit_data else '' }}">
+        <label>{{ t('number_label') }}</label>
+        <input type="text" name="number" value="{{ edit_data.get('number', '') if edit_data else '' }}">
+        <label>{{ t('complement_label') }}</label>
+        <input type="text" name="complement" value="{{ edit_data.get('complement', '') if edit_data else '' }}">
+        <label>{{ t('neighborhood_label') }}</label>
+        <input type="text" name="neighborhood" value="{{ edit_data.get('neighborhood', '') if edit_data else '' }}">
+        <label>{{ t('city_label') }}</label>
+        <input type="text" name="city" value="{{ edit_data.get('city', '') if edit_data else '' }}">
+        <label>{{ t('state_label') }}</label>
+        <input type="text" name="state" maxlength="2" pattern="[A-Za-z]{0,2}" style="text-transform: uppercase;" value="{{ edit_data.get('state', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/[^A-Za-z]/g,'').toUpperCase()">
+        <label>{{ t('country_label') }}</label>
+        <input type="text" name="country" value="{{ edit_data.get('country', '') if edit_data else '' }}">
+        <label>{{ t('zipcode_label') }}</label>
+        <input type="text" name="postal_code" inputmode="numeric" pattern="[0-9]*" maxlength="8" value="{{ edit_data.get('postal_code', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
+        <label>{{ t('supplier_category') }}</label>
+        <div class="inline-group">
+          <select name="category_id" required>
+            <option value="">Selecione...</option>
+            {% for category in categories %}
+              <option value="{{ category['id'] }}" {% if edit_data and edit_data.get('category_id') == category['id'] %}selected{% endif %}>{{ category['name'] }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="outline-button small btn-add" onclick="toggleCategoryForm('supplier-category-form', this)">{{ t('add_category') }}</button>
+          <a href="{{ url_for('cadastro', entity='categorias') }}" class="outline-button small btn-manage">{{ t('manage_categories') }}</a>
+        </div>
+        <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_supplier') }}{% endif %}</button>
+        {% if edit_id %}<a href="{{ url_for('cadastro', entity='fornecedores') }}" class="outline-button">Cancelar</a>{% endif %}
+      </form>
+    </div>
+    <div id="supplier-category-form" class="inline-add-category hidden">
+      <form method="post" action="{{ url_for('cadastro', entity='fornecedores') }}" style="display: flex; gap: 10px; align-items: flex-end;">
+        <div style="flex: 1;">
+          <label>{{ t('new_category_prompt') }}</label>
+          <input type="text" name="new_category_name" placeholder="{{ t('new_category_prompt') }}" required>
+        </div>
+        <button type="submit" class="outline-button small btn-add">{{ t('add_category') }}</button>
+      </form>
+    </div>
+    <div class="table-card">
+      <h3>{{ t('supplier_list') }}</h3>
+      <div class="table-search">
+        <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('suppliers-table', this.value)">
+      </div>
+      <table id="suppliers-table">
+        <thead>
+          <tr><th>{{ t('supplier_name') }}</th><th>{{ t('cnpj_label') }}</th><th>{{ t('city_label') }}</th><th>{{ t('supplier_category') }}</th><th>{{ t('actions') }}</th></tr>
+        </thead>
+        <tbody>
+          {% for supplier in rows %}
+            <tr>
+              <td>{{ supplier['name'] }}</td>
+              <td>{{ supplier['cnpj'] }}</td>
+              <td>{{ supplier['city'] or '-' }}</td>
+              <td>{{ supplier['category_name'] or supplier['category'] or '-' }}</td>
+              <td class="action-buttons">
+                <a href="{{ url_for('cadastro', entity='fornecedores', edit_id=supplier['id']) }}" class="btn-edit">Editar</a>
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='fornecedores') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                  <input type="hidden" name="delete_id" value="{{ supplier['id'] }}">
+                  <button type="submit" class="btn-delete">Deletar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5">{{ t('no_records_found') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif entity == 'categorias' %}
+    <div class="form-card">
+      <h3>{% if edit_id %}Editar Categoria{% else %}{{ t('add_category') }}{% endif %}</h3>
+      <form method="post" action="{{ url_for('cadastro', entity='categorias') }}">
+        {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
+        <label>{{ t('category_label') }}</label>
+        <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
+        <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_category') }}{% endif %}</button>
+        {% if edit_id %}<a href="{{ url_for('cadastro', entity='categorias') }}" class="outline-button">Cancelar</a>{% endif %}
+        <a href="{{ url_for('cadastro', entity='produtos') }}" class="outline-button">{{ t('back_to_products') }}</a>
+      </form>
+    </div>
+    <div class="table-card">
+      <h3>{{ t('category_list') }}</h3>
+      <div class="table-search">
+        <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('categories-table', this.value)">
+      </div>
+      <table id="categories-table">
+        <thead><tr><th>{{ t('category_label') }}</th><th>{{ t('actions') }}</th></tr></thead>
+        <tbody>
+          {% for item in rows %}
+            <tr>
+              <td>{{ item['name'] }}</td>
+              <td class="action-buttons">
+                <a href="{{ url_for('cadastro', entity='categorias', edit_id=item['id']) }}" class="btn-edit">Editar</a>
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='categorias') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                  <input type="hidden" name="delete_id" value="{{ item['id'] }}">
+                  <button type="submit" class="btn-delete">Deletar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="2">{{ t('no_records_found') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif entity == 'unidades' %}
+    <div class="form-card">
+      <h3>{% if edit_id %}Editar Unidade{% else %}{{ t('add_unit') }}{% endif %}</h3>
+      <form method="post" action="{{ url_for('cadastro', entity='unidades') }}">
+        {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
+        <label>{{ t('unit_label') }}</label>
+        <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
+        <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_unit') }}{% endif %}</button>
+        {% if edit_id %}<a href="{{ url_for('cadastro', entity='unidades') }}" class="outline-button">Cancelar</a>{% endif %}
+        <a href="{{ url_for('cadastro', entity='produtos') }}" class="outline-button">{{ t('back_to_products') }}</a>
+      </form>
+    </div>
+    <div class="table-card">
+      <h3>{{ t('unit_list') }}</h3>
+      <table>
+        <thead><tr><th>{{ t('unit_label') }}</th><th>{{ t('actions') }}</th></tr></thead>
+        <tbody>
+          {% for item in rows %}
+            <tr>
+              <td>{{ item['name'] }}</td>
+              <td class="action-buttons">
+                <a href="{{ url_for('cadastro', entity='unidades', edit_id=item['id']) }}" class="btn-edit">Editar</a>
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='unidades') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                  <input type="hidden" name="delete_id" value="{{ item['id'] }}">
+                  <button type="submit" class="btn-delete">Deletar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="2">{{ t('no_records_found') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  <script>
+    function toggleCategoryForm(id, button) {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const isHidden = el.classList.contains('hidden');
+      closeAllInlineForms();
+
+      if (isHidden) {
+        positionInlineForm(el, button);
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+
+    function toggleUnitForm(id, button) {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const isHidden = el.classList.contains('hidden');
+      closeAllInlineForms();
+
+      if (isHidden) {
+        positionInlineForm(el, button);
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+
+    function closeAllInlineForms() {
+      document.querySelectorAll('.inline-add-category').forEach((form) => {
+        form.classList.add('hidden');
+        form.style.top = '';
+        form.style.left = '';
+      });
+    }
+
+    function positionInlineForm(el, button) {
+      const rect = button.getBoundingClientRect();
+      const formWidth = 320;
+      const left = Math.min(rect.left, window.innerWidth - formWidth - 20);
+      const top = rect.bottom + 10;
+
+      el.style.position = 'fixed';
+      el.style.width = formWidth + 'px';
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+      el.style.zIndex = '1000';
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function filterTable(tableId, query) {
+      const filter = query.trim().toLowerCase();
+      const table = document.getElementById(tableId);
+      if (!table) return;
+
+      table.querySelectorAll('tbody tr').forEach((row) => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = filter && !text.includes(filter) ? 'none' : '';
+      });
+    }
+  </script>
+
+  <style>
+    .inline-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      margin-bottom: 12px;
+    }
+
+    .table-search {
+      margin-bottom: 14px;
+    }
+
+    .search-input {
+      width: 100%;
+      max-width: 320px;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: #ffffff;
+      color: #111827;
+      font-size: 0.95rem;
+    }
+
+    .inline-add-category {
+      display: none;
+      width: auto;
+      max-width: 360px;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      padding: 14px;
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .inline-add-category.visible,
+    .inline-add-category:not(.hidden) {
+      display: flex;
+    }
+
+    .inline-add-category form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      width: 100%;
+    }
+
+    .inline-add-category label {
+      width: 100%;
+      margin-bottom: 4px;
+    }
+
+    .inline-add-category input {
+      flex: 1 1 260px;
+      min-width: 220px;
+      width: auto;
+    }
+
+    .outline-button.small {
+      padding: 10px 14px;
+      font-size: 0.9rem;
+    }
+
+    .action-buttons {
+      white-space: nowrap;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    
+    .action-buttons form {
+      display: inline;
+    }
+    
+    .btn-edit,
+    .btn-delete,
+    .action-buttons button {
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-edit {
+      background: #007bff;
+      color: white;
+    }
+    
+    .btn-edit:hover {
+      background: #0056b3;
+    }
+    
+    .btn-delete {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .btn-delete:hover {
+      background: #dc2626;
+    }
+
+    .btn-manage {
+      background: #22c55e;
+      color: white;
+    }
+
+    .btn-manage:hover {
+      background: #16a34a;
+    }
+    
+    .action-buttons button {
+      background: #6c757d;
+      color: white;
+    }
+    
+    .action-buttons button:hover {
+      background: #5a6268;
+    }
+  </style>
+{% endblock %}

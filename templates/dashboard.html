@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="dashboard-grid">
+    <div class="welcome-card">
+      <h2>{{ t('dashboard_welcome') }}, {{ user }}</h2>
+      <p>{{ welcome_text }}</p>
+      <div class="quick-stats">
+        <div class="stat">
+          <span class="stat-number">{{ total_clients or 0 }}</span>
+          <span class="stat-label">{{ t('menu_clients') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-number">{{ total_products or 0 }}</span>
+          <span class="stat-label">{{ t('menu_products') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-number">{{ total_sales or 0 }}</span>
+          <span class="stat-label">{{ t('menu_sales') }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="dashboard-actions">
+      <a class="dashboard-card" href="{{ url_for('cadastro', entity='clientes') }}">
+        <div class="card-icon">👥</div>
+        <h3>{{ t('menu_clients') }}</h3>
+        <p>Cadastre e consulte clientes por cidade, estado e CEP.</p>
+      </a>
+      <a class="dashboard-card" href="{{ url_for('cadastro', entity='fornecedores') }}">
+        <div class="card-icon">🏢</div>
+        <h3>{{ t('menu_suppliers') }}</h3>
+        <p>Cadastre fornecedores com categoria selecionável.</p>
+      </a>
+      <a class="dashboard-card" href="{{ url_for('cadastro', entity='produtos') }}">
+        <div class="card-icon">📦</div>
+        <h3>{{ t('menu_products') }}</h3>
+        <p>Cadastre produtos com categoria, unidade e preço.</p>
+      </a>
+      <a class="dashboard-card" href="{{ url_for('cadastro', entity='unidades') }}">
+        <div class="card-icon">⚖️</div>
+        <h3>{{ t('unit_label') }}</h3>
+        <p>Gerencie unidades de medida usadas nos produtos.</p>
+      </a>
+      <a class="dashboard-card" href="{{ url_for('vendas') }}">
+        <div class="card-icon">💰</div>
+        <h3>{{ t('menu_sales') }}</h3>
+        <p>Registre vendas e controle o estoque em tempo real.</p>
+      </a>
+      <a class="dashboard-card" href="{{ url_for('relatorios') }}">
+        <div class="card-icon">📊</div>
+        <h3>{{ t('menu_reports') }}</h3>
+        <p>Veja relatórios práticos por período e cliente.</p>
+      </a>
+      <a class="dashboard-card" href="{{ url_for('manual') }}">
+        <div class="card-icon">📖</div>
+        <h3>{{ t('menu_manual') }}</h3>
+        <p>Acesse o manual com orientações do sistema.</p>
+      </a>
+    </div>
+  </div>
+{% endblock %}
