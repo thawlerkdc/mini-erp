@@ -748,7 +748,9 @@ body {
 }
 
 .sidebar-nav .nav-link {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   color: #e9efff;
   text-decoration: none;
   font-weight: 600;
@@ -782,11 +784,22 @@ body {
 
 .sidebar-footer .logout,
 .sidebar-footer .language-dropdown button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   text-align: left;
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.16);
   color: #f8fbff;
+}
+
+.menu-icon {
+  width: 18px;
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .sidebar-footer .logout {

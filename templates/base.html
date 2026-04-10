@@ -16,24 +16,24 @@
           </div>
 
           <nav class="sidebar-nav">
-            <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">{{ t('menu_dashboard') }}</a>
+            <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127968;</span><span>{{ t('menu_dashboard') }}</span></a>
             {% if session.get('role') == 'owner' %}
-              <a href="{{ url_for('cadastro', entity='usuarios') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'usuarios' %}active{% endif %}">{{ t('menu_users') }}</a>
-              <a href="{{ url_for('parametros') }}" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}">Parâmetros</a>
+              <a href="{{ url_for('cadastro', entity='usuarios') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'usuarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>{{ t('menu_users') }}</span></a>
+              <a href="{{ url_for('parametros') }}" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9881;</span><span>Parâmetros</span></a>
             {% endif %}
-            <a href="{{ url_for('cadastro', entity='produtos') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'produtos' %}active{% endif %}">{{ t('menu_products') }}</a>
-            <a href="{{ url_for('cadastro', entity='clientes') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'clientes' %}active{% endif %}">{{ t('menu_clients') }}</a>
-            <a href="{{ url_for('cadastro', entity='fornecedores') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'fornecedores' %}active{% endif %}">{{ t('menu_suppliers') }}</a>
-            <a href="{{ url_for('cadastro', entity='categorias') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'categorias' %}active{% endif %}">{{ t('category_label') }}</a>
-            <a href="{{ url_for('cadastro', entity='unidades') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'unidades' %}active{% endif %}">{{ t('unit_label') }}</a>
-            <a href="{{ url_for('vendas') }}" class="nav-link {% if request.endpoint == 'vendas' %}active{% endif %}">{{ t('menu_sales') }}</a>
-            <a href="{{ url_for('relatorios') }}" class="nav-link {% if request.endpoint == 'relatorios' %}active{% endif %}">{{ t('menu_reports') }}</a>
-            <a href="{{ url_for('manual') }}" class="nav-link {% if request.endpoint == 'manual' %}active{% endif %}">{{ t('menu_manual') }}</a>
+            <a href="{{ url_for('cadastro', entity='produtos') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'produtos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128230;</span><span>{{ t('menu_products') }}</span></a>
+            <a href="{{ url_for('cadastro', entity='clientes') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'clientes' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128100;</span><span>{{ t('menu_clients') }}</span></a>
+            <a href="{{ url_for('cadastro', entity='fornecedores') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'fornecedores' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127970;</span><span>{{ t('menu_suppliers') }}</span></a>
+            <a href="{{ url_for('cadastro', entity='categorias') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128451;</span><span>{{ t('category_label') }}</span></a>
+            <a href="{{ url_for('cadastro', entity='unidades') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'unidades' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9878;</span><span>{{ t('unit_label') }}</span></a>
+            <a href="{{ url_for('vendas') }}" class="nav-link {% if request.endpoint == 'vendas' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128722;</span><span>{{ t('menu_sales') }}</span></a>
+            <a href="{{ url_for('relatorios') }}" class="nav-link {% if request.endpoint == 'relatorios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128202;</span><span>{{ t('menu_reports') }}</span></a>
+            <a href="{{ url_for('manual') }}" class="nav-link {% if request.endpoint == 'manual' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128214;</span><span>{{ t('menu_manual') }}</span></a>
           </nav>
 
           <div class="sidebar-footer">
             <div class="language-dropdown">
-              <button type="button">{{ t('select_language') }}</button>
+              <button type="button"><span class="menu-icon" aria-hidden="true">&#127760;</span><span>{{ t('select_language') }}</span></button>
               <div class="language-dropdown-menu">
                 {% for code, label in languages.items() %}
                   <a class="lang-link {% if current_language == code %}active{% endif %}" href="{{ url_for('set_language', lang_code=code) }}">{{ label }}</a>
@@ -83,7 +83,7 @@
         <div class="topbar">
           <div class="actions">
             <div class="language-dropdown">
-              <button type="button">{{ t('select_language') }}</button>
+              <button type="button"><span class="menu-icon" aria-hidden="true">&#127760;</span><span>{{ t('select_language') }}</span></button>
               <div class="language-dropdown-menu">
                 {% for code, label in languages.items() %}
                   <a class="lang-link {% if current_language == code %}active{% endif %}" href="{{ url_for('set_language', lang_code=code) }}">{{ label }}</a>
