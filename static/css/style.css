@@ -138,7 +138,7 @@ header .brand-subtitle {
   top: auto;
   bottom: calc(100% + 8px);
 }
-.language-dropdown:hover .language-dropdown-menu,
+.language-dropdown.is-open .language-dropdown-menu,
 .language-dropdown:focus-within .language-dropdown-menu {
   display: block;
 }

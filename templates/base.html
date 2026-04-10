@@ -143,29 +143,79 @@
 
         function bindLanguageDropdownAutoDirection() {
           var dropdowns = document.querySelectorAll('.language-dropdown');
+
+          function closeAllDropdowns(exceptDropdown) {
+            dropdowns.forEach(function (item) {
+              if (!exceptDropdown || item !== exceptDropdown) {
+                item.classList.remove('is-open');
+              }
+            });
+          }
+
           dropdowns.forEach(function (dropdown) {
-            dropdown.addEventListener('mouseenter', function () {
-              measureAndPositionLanguageDropdown(dropdown);
-            });
-
-            dropdown.addEventListener('focusin', function () {
-              measureAndPositionLanguageDropdown(dropdown);
-            });
-
             var button = dropdown.querySelector('button');
             if (button) {
-              button.addEventListener('click', function () {
+              button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                var willOpen = !dropdown.classList.contains('is-open');
+                closeAllDropdowns(dropdown);
+
+                if (willOpen) {
+                  dropdown.classList.add('is-open');
+                } else {
+                  dropdown.classList.remove('is-open');
+                }
+
                 measureAndPositionLanguageDropdown(dropdown);
               });
+
+              button.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  button.click();
+                }
+              });
+            }
+
+            dropdown.addEventListener('keydown', function (event) {
+              if (event.key === 'Escape') {
+                dropdown.classList.remove('is-open');
+              }
+            });
+
+            var links = dropdown.querySelectorAll('.language-dropdown-menu a');
+            links.forEach(function (link) {
+              link.addEventListener('click', function () {
+                dropdown.classList.remove('is-open');
+              });
+            });
+          });
+
+          document.addEventListener('click', function (event) {
+            var clickedInside = Array.prototype.some.call(dropdowns, function (dropdown) {
+              return dropdown.contains(event.target);
+            });
+            if (!clickedInside) {
+              closeAllDropdowns();
             }
           });
 
           window.addEventListener('resize', function () {
-            dropdowns.forEach(measureAndPositionLanguageDropdown);
+            dropdowns.forEach(function (dropdown) {
+              if (dropdown.classList.contains('is-open')) {
+                measureAndPositionLanguageDropdown(dropdown);
+              }
+            });
           });
 
           window.addEventListener('scroll', function () {
-            dropdowns.forEach(measureAndPositionLanguageDropdown);
+            dropdowns.forEach(function (dropdown) {
+              if (dropdown.classList.contains('is-open')) {
+                measureAndPositionLanguageDropdown(dropdown);
+              }
+            });
           }, true);
         }
 
