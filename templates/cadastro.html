@@ -60,7 +60,7 @@
   {% elif entity == 'produtos' %}
     <div class="form-card">
       <h3>{% if edit_id %}Editar Produto{% else %}{{ t('add_product') }}{% endif %}</h3>
-      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}">
+      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" id="product-main-form">
         {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
         <label>{{ t('product_name') }}</label>
         <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
@@ -69,7 +69,7 @@
           <select name="category_id" required>
             <option value="">Selecione...</option>
             {% for category in categories %}
-              <option value="{{ category['id'] }}" {% if edit_data and edit_data.get('category_id') == category['id'] %}selected{% endif %}>{{ category['name'] }}</option>
+              <option value="{{ category['id'] }}" {% if edit_data and (edit_data.get('category_id')|string) == (category['id']|string) %}selected{% endif %}>{{ category['name'] }}</option>
             {% endfor %}
           </select>
           <button type="button" class="outline-button small btn-aux" onclick="toggleCategoryForm('product-category-form', this)">{{ t('add_category') }}</button>
@@ -80,7 +80,7 @@
           <select name="unit_id" required>
             <option value="">Selecione...</option>
             {% for unit in units %}
-              <option value="{{ unit['id'] }}" {% if edit_data and edit_data.get('unit_id') == unit['id'] %}selected{% endif %}>{{ unit['name'] }}</option>
+              <option value="{{ unit['id'] }}" {% if edit_data and (edit_data.get('unit_id')|string) == (unit['id']|string) %}selected{% endif %}>{{ unit['name'] }}</option>
             {% endfor %}
           </select>
           <button type="button" class="outline-button small btn-aux" onclick="toggleUnitForm('product-unit-form', this)">{{ t('add_unit') }}</button>
@@ -90,7 +90,7 @@
         <select name="supplier_id">
           <option value="">Selecione...</option>
           {% for supplier in suppliers %}
-            <option value="{{ supplier['id'] }}" {% if edit_data and edit_data.get('supplier_id') == supplier['id'] %}selected{% endif %}>{{ supplier['name'] }}</option>
+            <option value="{{ supplier['id'] }}" {% if edit_data and (edit_data.get('supplier_id')|string) == (supplier['id']|string) %}selected{% endif %}>{{ supplier['name'] }}</option>
           {% endfor %}
         </select>
         <label>{{ t('cost_label') }}</label>
@@ -108,19 +108,39 @@
       </form>
     </div>
     <div id="product-category-form" class="inline-add-category hidden">
-      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" style="display: flex; gap: 10px; align-items: flex-end;">
+      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" class="preserve-main-form" data-source-form="product-main-form" style="display: flex; gap: 10px; align-items: flex-end;">
         <div style="flex: 1;">
           <label>{{ t('new_category_prompt') }}</label>
           <input type="text" name="new_category_name" placeholder="{{ t('new_category_prompt') }}" required>
+          <input type="hidden" name="name">
+          <input type="hidden" name="category_id">
+          <input type="hidden" name="unit_id">
+          <input type="hidden" name="supplier_id">
+          <input type="hidden" name="cost">
+          <input type="hidden" name="price">
+          <input type="hidden" name="stock">
+          <input type="hidden" name="stock_min">
+          <input type="hidden" name="expiration_date">
+          <input type="hidden" name="edit_id">
         </div>
         <button type="submit" class="outline-button small btn-aux">{{ t('add_category') }}</button>
       </form>
     </div>
     <div id="product-unit-form" class="inline-add-category hidden">
-      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" style="display: flex; gap: 10px; align-items: flex-end;">
+      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" class="preserve-main-form" data-source-form="product-main-form" style="display: flex; gap: 10px; align-items: flex-end;">
         <div style="flex: 1;">
           <label>{{ t('new_unit_prompt') }}</label>
           <input type="text" name="new_unit_name" placeholder="{{ t('new_unit_prompt') }}" required>
+          <input type="hidden" name="name">
+          <input type="hidden" name="category_id">
+          <input type="hidden" name="unit_id">
+          <input type="hidden" name="supplier_id">
+          <input type="hidden" name="cost">
+          <input type="hidden" name="price">
+          <input type="hidden" name="stock">
+          <input type="hidden" name="stock_min">
+          <input type="hidden" name="expiration_date">
+          <input type="hidden" name="edit_id">
         </div>
         <button type="submit" class="outline-button small btn-aux">{{ t('add_unit') }}</button>
       </form>
@@ -168,6 +188,10 @@
         <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
         <label>{{ t('cpf_label') }}</label>
         <input type="text" name="cpf" inputmode="numeric" pattern="[0-9]*" maxlength="11" value="{{ edit_data.get('cpf', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
+        <label>{{ t('email_label') }}</label>
+        <input type="email" name="email" value="{{ edit_data.get('email', '') if edit_data else '' }}">
+        <label>Data de nascimento</label>
+        <input type="date" name="birth_date" value="{{ edit_data.get('birth_date', '') if edit_data else '' }}">
         <label>{{ t('gender_label') }}</label>
         <select name="gender">
           <option value="nao_informar" {% if (edit_data.get('gender') if edit_data else 'nao_informar') == 'nao_informar' %}selected{% endif %}>{{ t('gender_not_informed') }}</option>
@@ -201,13 +225,15 @@
       </div>
       <table id="clients-table">
         <thead>
-          <tr><th>{{ t('client_name') }}</th><th>{{ t('cpf_label') }}</th><th>{{ t('gender_label') }}</th><th>{{ t('city_label') }}</th><th>{{ t('state_label') }}</th><th>{{ t('zipcode_label') }}</th><th>{{ t('actions') }}</th></tr>
+          <tr><th>{{ t('client_name') }}</th><th>{{ t('cpf_label') }}</th><th>{{ t('email_label') }}</th><th>Nascimento</th><th>{{ t('gender_label') }}</th><th>{{ t('city_label') }}</th><th>{{ t('state_label') }}</th><th>{{ t('zipcode_label') }}</th><th>{{ t('actions') }}</th></tr>
         </thead>
         <tbody>
           {% for client in rows %}
             <tr>
               <td>{{ client['name'] }}</td>
               <td>{{ client['cpf'] }}</td>
+              <td>{{ client['email'] or '-' }}</td>
+              <td>{{ client['birth_date'] or '-' }}</td>
               <td>
                 {% if client['gender'] == 'masculino' %}
                   {{ t('gender_male') }}
@@ -229,7 +255,7 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="7">{{ t('no_records_found') }}</td></tr>
+            <tr><td colspan="9">{{ t('no_records_found') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -237,12 +263,14 @@
   {% elif entity == 'fornecedores' %}
     <div class="form-card">
       <h3>{% if edit_id %}Editar Fornecedor{% else %}{{ t('add_supplier') }}{% endif %}</h3>
-      <form method="post" action="{{ url_for('cadastro', entity='fornecedores') }}">
+      <form method="post" action="{{ url_for('cadastro', entity='fornecedores') }}" id="supplier-main-form">
         {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
         <label>{{ t('supplier_name') }}</label>
         <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
         <label>{{ t('cnpj_label') }}</label>
         <input type="text" name="cnpj" inputmode="numeric" pattern="[0-9]*" maxlength="14" value="{{ edit_data.get('cnpj', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
+        <label>{{ t('email_label') }}</label>
+        <input type="email" name="email" value="{{ edit_data.get('email', '') if edit_data else '' }}">
         <label>{{ t('street_label') }}</label>
         <input type="text" name="street" value="{{ edit_data.get('street', '') if edit_data else '' }}">
         <label>{{ t('number_label') }}</label>
@@ -264,7 +292,7 @@
           <select name="category_id" required>
             <option value="">Selecione...</option>
             {% for category in categories %}
-              <option value="{{ category['id'] }}" {% if edit_data and edit_data.get('category_id') == category['id'] %}selected{% endif %}>{{ category['name'] }}</option>
+              <option value="{{ category['id'] }}" {% if edit_data and (edit_data.get('category_id')|string) == (category['id']|string) %}selected{% endif %}>{{ category['name'] }}</option>
             {% endfor %}
           </select>
           <button type="button" class="outline-button small btn-aux" onclick="toggleCategoryForm('supplier-category-form', this)">{{ t('add_category') }}</button>
@@ -275,10 +303,23 @@
       </form>
     </div>
     <div id="supplier-category-form" class="inline-add-category hidden">
-      <form method="post" action="{{ url_for('cadastro', entity='fornecedores') }}" style="display: flex; gap: 10px; align-items: flex-end;">
+      <form method="post" action="{{ url_for('cadastro', entity='fornecedores') }}" class="preserve-main-form" data-source-form="supplier-main-form" style="display: flex; gap: 10px; align-items: flex-end;">
         <div style="flex: 1;">
           <label>{{ t('new_category_prompt') }}</label>
           <input type="text" name="new_category_name" placeholder="{{ t('new_category_prompt') }}" required>
+          <input type="hidden" name="name">
+          <input type="hidden" name="cnpj">
+          <input type="hidden" name="email">
+          <input type="hidden" name="street">
+          <input type="hidden" name="number">
+          <input type="hidden" name="complement">
+          <input type="hidden" name="neighborhood">
+          <input type="hidden" name="city">
+          <input type="hidden" name="state">
+          <input type="hidden" name="country">
+          <input type="hidden" name="postal_code">
+          <input type="hidden" name="category_id">
+          <input type="hidden" name="edit_id">
         </div>
         <button type="submit" class="outline-button small btn-aux">{{ t('add_category') }}</button>
       </form>
@@ -290,13 +331,14 @@
       </div>
       <table id="suppliers-table">
         <thead>
-          <tr><th>{{ t('supplier_name') }}</th><th>{{ t('cnpj_label') }}</th><th>{{ t('city_label') }}</th><th>{{ t('supplier_category') }}</th><th>{{ t('actions') }}</th></tr>
+          <tr><th>{{ t('supplier_name') }}</th><th>{{ t('cnpj_label') }}</th><th>{{ t('email_label') }}</th><th>{{ t('city_label') }}</th><th>{{ t('supplier_category') }}</th><th>{{ t('actions') }}</th></tr>
         </thead>
         <tbody>
           {% for supplier in rows %}
             <tr>
               <td>{{ supplier['name'] }}</td>
               <td>{{ supplier['cnpj'] }}</td>
+              <td>{{ supplier['email'] or '-' }}</td>
               <td>{{ supplier['city'] or '-' }}</td>
               <td>{{ supplier['category_name'] or supplier['category'] or '-' }}</td>
               <td class="action-buttons">
@@ -308,7 +350,7 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="5">{{ t('no_records_found') }}</td></tr>
+            <tr><td colspan="6">{{ t('no_records_found') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -439,6 +481,19 @@
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    function syncHiddenFields(auxForm) {
+      const sourceFormId = auxForm.dataset.sourceForm;
+      if (!sourceFormId) return;
+      const sourceForm = document.getElementById(sourceFormId);
+      if (!sourceForm) return;
+
+      auxForm.querySelectorAll('input[type="hidden"][name]').forEach((hiddenInput) => {
+        const source = sourceForm.querySelector(`[name="${hiddenInput.name}"]`);
+        if (!source) return;
+        hiddenInput.value = source.value;
+      });
+    }
+
     function filterTable(tableId, query) {
       const filter = query.trim().toLowerCase();
       const table = document.getElementById(tableId);
@@ -449,6 +504,12 @@
         row.style.display = filter && !text.includes(filter) ? 'none' : '';
       });
     }
+
+    document.querySelectorAll('form.preserve-main-form').forEach((form) => {
+      form.addEventListener('submit', function() {
+        syncHiddenFields(form);
+      });
+    });
   </script>
 
   <style>

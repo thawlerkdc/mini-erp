@@ -3,10 +3,15 @@ import os
 
 import psycopg
 from datetime import datetime
+from pathlib import Path
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Estado da conexão
+_DB_INITIALIZED = False
+_DB_ERROR = None
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +67,7 @@ _TENANT_STATEMENTS = [
         account_id INTEGER NOT NULL REFERENCES accounts(id),
         name TEXT NOT NULL,
         cnpj TEXT,
+        email TEXT,
         address TEXT,
         street TEXT,
         number TEXT,
@@ -81,6 +87,8 @@ _TENANT_STATEMENTS = [
         account_id INTEGER NOT NULL REFERENCES accounts(id),
         name TEXT NOT NULL,
         cpf TEXT,
+        email TEXT,
+        birth_date TEXT,
         address TEXT,
         street TEXT,
         number TEXT,
@@ -152,10 +160,23 @@ _TENANT_STATEMENTS = [
         notes TEXT
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS account_settings (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        setting_key TEXT NOT NULL,
+        setting_value TEXT,
+        updated_at TEXT NOT NULL,
+        UNIQUE (account_id, setting_key)
+    )
+    """,
 ]
 
 _TENANT_MIGRATIONS = [
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'nao_informar'",
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS email TEXT",
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_date TEXT",
+    "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS email TEXT",
 ]
 
 ADMIN_USER = ("admin", "admin123", "admin@kdcsystems.local", 1)
@@ -171,6 +192,22 @@ def _get_db_url() -> str:
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
     return url
+
+
+def _log_db_info():
+    """Log informações sobre a configuração do banco de dados."""
+    global _DB_INITIALIZED, _DB_ERROR
+    
+    db_url = _get_db_url()
+    
+    if db_url:
+        logger.info("📦 Usando PostgreSQL (Render/Produção ou Local)")
+        logger.info(f"   URL: {db_url[:50]}...")
+    else:
+        logger.info("📦 DATABASE_URL não configurado")
+        logger.info("   Configure no arquivo .env para ativar PostgreSQL")
+    
+    _DB_INITIALIZED = True
 
 
 class _Conn:
@@ -246,11 +283,31 @@ class _Cursor:
 
 
 def get_db_connection() -> _Conn:
+    """
+    Obtém conexão com o banco de dados.
+    
+    - Tenta usar DATABASE_URL (Render/PostgreSQL local)
+    - Se falhar, registra erro e levanta exceção
+    - O app.py trata a exceção graciosamente
+    """
+    global _DB_INITIALIZED
+    
+    if not _DB_INITIALIZED:
+        _log_db_info()
+    
+    db_url = _get_db_url()
+    
+    if not db_url:
+        raise RuntimeError(
+            "DATABASE_URL não configurado. "
+            "Configure a variável de ambiente DATABASE_URL ou adicione ao arquivo .env"
+        )
+    
     try:
-        pg_conn = psycopg.connect(_get_db_url())
+        pg_conn = psycopg.connect(db_url)
         return _Conn(pg_conn)
-    except psycopg.OperationalError as exc:
-        logger.error("Erro ao conectar ao banco de dados: %s", exc)
+    except (psycopg.OperationalError, psycopg.DatabaseError) as exc:
+        logger.error(f"❌ Erro ao conectar ao banco de dados: {exc}")
         raise
 
 

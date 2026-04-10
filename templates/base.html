@@ -21,6 +21,7 @@
             <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">{{ t('menu_dashboard') }}</a>
             {% if session.get('role') == 'owner' %}
               <a href="{{ url_for('cadastro', entity='usuarios') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'usuarios' %}active{% endif %}">{{ t('menu_users') }}</a>
+              <a href="{{ url_for('parametros') }}" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}">Parâmetros</a>
             {% endif %}
             <a href="{{ url_for('cadastro', entity='produtos') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'produtos' %}active{% endif %}">{{ t('menu_products') }}</a>
             <a href="{{ url_for('cadastro', entity='clientes') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'clientes' %}active{% endif %}">{{ t('menu_clients') }}</a>

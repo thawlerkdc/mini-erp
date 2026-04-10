@@ -1,4 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from dotenv import load_dotenv
+import os
+
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
+
 from models import (
     authenticate_user,
     create_account_with_owner,
@@ -13,7 +19,9 @@ from calendar import monthrange
 import re
 import json
 import logging
+import smtplib
 import psycopg
+from email.message import EmailMessage
 
 logger = logging.getLogger(__name__)
 
@@ -752,10 +760,45 @@ def inject_translations():
     }
 
 
-init_auth_db()
-init_tenant_db()
-migrate_legacy_database()
-seed_admin()
+# ===== STATUS DO BANCO DE DADOS =====
+DB_STATUS = {
+    "available": False,
+    "error": None,
+    "mode": "offline",
+    "environment": "development"
+}
+
+# Verificar se estamos em produção (Render)
+if os.environ.get("DATABASE_URL"):
+    DB_STATUS["environment"] = "production (Render)"
+else:
+    DB_STATUS["environment"] = "development (Local)"
+
+logger.info(f"🌍 Ambiente: {DB_STATUS['environment']}")
+
+# Inicializar banco de dados (com tolerância para desenvolvimento)
+try:
+    init_auth_db()
+    init_tenant_db()
+    migrate_legacy_database()
+    seed_admin()
+    DB_STATUS["available"] = True
+    DB_STATUS["mode"] = "online"
+    logger.info("✅ Banco de dados conectado e inicializado")
+except Exception as e:
+    DB_STATUS["available"] = False
+    DB_STATUS["error"] = str(e)
+    DB_STATUS["mode"] = "offline"
+    
+    if os.environ.get("DATABASE_URL"):
+        # Em produção, isso é crítico
+        logger.error(f"❌ ERRO CRÍTICO no Render: {e}")
+        logger.info("   Verifique a conexão com o PostgreSQL no Render")
+    else:
+        # Em desenvolvimento, isso é apenas aviso
+        logger.warning(f"⚠️  Banco de dados não disponível no startup: {e}")
+        logger.info("   💡 Para testar, configure DATABASE_URL no .env com PostgreSQL local")
+        logger.info("   💡 Ou use 'python app.py' para modo limitado")
 
 
 def get_auth_connection():
@@ -783,6 +826,161 @@ def require_owner_access():
         flash("Somente o usuário principal pode gerenciar usuários desta conta.", "error")
         return False
     return True
+
+
+SETTINGS_DEFAULTS = {
+    "send_sale_thank_you": "0",
+    "send_stock_min_alert": "0",
+    "send_birthday_email": "0",
+    "birthday_email_subject": "Feliz aniversário!",
+    "birthday_email_body": "Olá {name}, desejamos um feliz aniversário! Obrigado por ser nosso cliente.",
+    "last_birthday_run_date": "",
+    "smtp_host": "",
+    "smtp_port": "587",
+    "smtp_username": "",
+    "smtp_password": "",
+    "smtp_from_email": "",
+    "smtp_from_name": "Kdc Systems",
+    "smtp_use_tls": "1",
+}
+
+
+def _to_bool(value):
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def get_account_settings(account_id):
+    conn = get_tenant_connection()
+    rows = conn.execute(
+        "SELECT setting_key, setting_value FROM account_settings WHERE account_id = %s",
+        (account_id,),
+    ).fetchall()
+    conn.close()
+    settings = dict(SETTINGS_DEFAULTS)
+    for row in rows:
+        settings[row["setting_key"]] = row["setting_value"] or ""
+    return settings
+
+
+def save_account_settings(account_id, form_data):
+    keys = list(SETTINGS_DEFAULTS.keys())
+    values = {
+        "send_sale_thank_you": "1" if form_data.get("send_sale_thank_you") else "0",
+        "send_stock_min_alert": "1" if form_data.get("send_stock_min_alert") else "0",
+        "send_birthday_email": "1" if form_data.get("send_birthday_email") else "0",
+        "birthday_email_subject": (form_data.get("birthday_email_subject") or "Feliz aniversário!").strip(),
+        "birthday_email_body": (form_data.get("birthday_email_body") or "Olá {name}, desejamos um feliz aniversário! Obrigado por ser nosso cliente.").strip(),
+        "last_birthday_run_date": form_data.get("last_birthday_run_date") or "",
+        "smtp_host": (form_data.get("smtp_host") or "").strip(),
+        "smtp_port": (form_data.get("smtp_port") or "587").strip(),
+        "smtp_username": (form_data.get("smtp_username") or "").strip(),
+        "smtp_password": (form_data.get("smtp_password") or "").strip(),
+        "smtp_from_email": (form_data.get("smtp_from_email") or "").strip(),
+        "smtp_from_name": (form_data.get("smtp_from_name") or "Kdc Systems").strip(),
+        "smtp_use_tls": "1" if form_data.get("smtp_use_tls") else "0",
+    }
+
+    conn = get_tenant_connection()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for key in keys:
+        conn.execute(
+            """
+            INSERT INTO account_settings (account_id, setting_key, setting_value, updated_at)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (account_id, setting_key)
+            DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = EXCLUDED.updated_at
+            """,
+            (account_id, key, values[key], now),
+        )
+    conn.commit()
+    conn.close()
+
+
+def set_account_setting(account_id, key, value):
+    conn = get_tenant_connection()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        """
+        INSERT INTO account_settings (account_id, setting_key, setting_value, updated_at)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (account_id, setting_key)
+        DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = EXCLUDED.updated_at
+        """,
+        (account_id, key, value, now),
+    )
+    conn.commit()
+    conn.close()
+
+
+def send_email_with_settings(account_id, recipients, subject, body):
+    recipients = [email for email in recipients if email]
+    if not recipients:
+        return False, "Sem destinatário configurado"
+
+    settings = get_account_settings(account_id)
+    host = settings.get("smtp_host") or os.environ.get("SMTP_HOST", "")
+    port = int(settings.get("smtp_port") or os.environ.get("SMTP_PORT", 587))
+    username = settings.get("smtp_username") or os.environ.get("SMTP_USERNAME", "")
+    password = settings.get("smtp_password") or os.environ.get("SMTP_PASSWORD", "")
+    from_email = settings.get("smtp_from_email") or os.environ.get("SMTP_FROM_EMAIL", "")
+    from_name = settings.get("smtp_from_name") or "Kdc Systems"
+    use_tls = _to_bool(settings.get("smtp_use_tls", "1"))
+
+    if not host or not from_email:
+        return False, "SMTP não configurado em Parâmetros"
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = f"{from_name} <{from_email}>"
+    msg["To"] = ", ".join(recipients)
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP(host, port, timeout=20) as server:
+            if use_tls:
+                server.starttls()
+            if username:
+                server.login(username, password)
+            server.send_message(msg)
+        return True, "E-mail enviado com sucesso"
+    except Exception as exc:
+        logger.error("Falha ao enviar e-mail: %s", exc)
+        return False, str(exc)
+
+
+def run_daily_birthday_automation(account_id):
+    settings = get_account_settings(account_id)
+    if not _to_bool(settings.get("send_birthday_email")):
+        return
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    if settings.get("last_birthday_run_date") == today:
+        return
+
+    conn = get_tenant_connection()
+    day_month = datetime.now().strftime("%m-%d")
+    clients = conn.execute(
+        """
+        SELECT id, name, email, birth_date
+        FROM clients
+        WHERE account_id = %s
+          AND email IS NOT NULL
+          AND birth_date IS NOT NULL
+          AND SUBSTRING(birth_date, 6, 5) = %s
+        """,
+        (account_id, day_month),
+    ).fetchall()
+    conn.close()
+
+    subject_template = settings.get("birthday_email_subject") or "Feliz aniversário!"
+    body_template = settings.get("birthday_email_body") or "Olá {name}, desejamos um feliz aniversário! Obrigado por ser nosso cliente."
+
+    for client in clients:
+        subject = subject_template.replace("{name}", client["name"] or "cliente")
+        body = body_template.replace("{name}", client["name"] or "cliente")
+        send_email_with_settings(account_id, [client["email"]], subject, body)
+
+    set_account_setting(account_id, "last_birthday_run_date", today)
 
 
 @app.route("/set_language/<lang_code>")
@@ -843,6 +1041,7 @@ def dashboard():
         return redirect(url_for("login"))
     
     account_id = get_current_account_id()
+    run_daily_birthday_automation(account_id)
     conn = get_tenant_connection()
     total_clients = conn.execute("SELECT COUNT(*) FROM clients WHERE account_id = %s", (account_id,)).fetchone()[0]
     total_products = conn.execute("SELECT COUNT(*) FROM products WHERE account_id = %s", (account_id,)).fetchone()[0]
@@ -908,6 +1107,40 @@ def get_entity_title(entity):
         "unidades": translate("unit_label"),
     }
     return f"Cadastro de {labels.get(entity, entity.capitalize())}"
+
+
+@app.route("/parametros", methods=["GET", "POST"])
+def parametros():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+    if not require_owner_access():
+        return redirect(url_for("dashboard"))
+
+    account_id = get_current_account_id()
+    if request.method == "POST":
+        if request.form.get("action") == "test_smtp":
+            test_email = (request.form.get("test_email") or "").strip()
+            if not test_email:
+                flash("Informe um e-mail de teste.", "error")
+                return redirect(url_for("parametros"))
+            sent, err = send_email_with_settings(
+                account_id,
+                [test_email],
+                "Teste SMTP - Kdc Systems",
+                "Este é um e-mail de teste enviado pela tela de parâmetros.",
+            )
+            if sent:
+                flash(f"Teste SMTP enviado para {test_email}.", "success")
+            else:
+                flash(f"Falha no teste SMTP: {err}", "error")
+            return redirect(url_for("parametros"))
+
+        save_account_settings(account_id, request.form)
+        flash("Parâmetros atualizados com sucesso.", "success")
+        return redirect(url_for("parametros"))
+
+    settings = get_account_settings(account_id)
+    return render_template("parametros.html", title="Parâmetros", settings=settings)
 
 
 @app.route("/cadastro/<entity>", methods=["GET", "POST"])
@@ -1035,60 +1268,79 @@ def cadastro(entity):
 
             elif entity == "produtos":
                 new_category_name = request.form.get("new_category_name")
+                new_unit_name = request.form.get("new_unit_name")
                 if new_category_name:
+                    new_category_id = None
                     try:
-                        conn.execute("INSERT INTO categories (account_id, name) VALUES (%s, %s)", (account_id, new_category_name.strip()))
+                        new_category_id = conn.execute(
+                            "INSERT INTO categories (account_id, name) VALUES (%s, %s) RETURNING id",
+                            (account_id, new_category_name.strip()),
+                        ).fetchone()[0]
                         conn.commit()
                         flash(translate("record_saved"), "success")
                     except psycopg.IntegrityError:
                         conn.rollback()
                         flash("Esta categoria já existe", "error")
-                    conn.close()
-                    return redirect(url_for("cadastro", entity=entity))
-
-                new_unit_name = request.form.get("new_unit_name")
-                if new_unit_name:
+                    categories = conn.execute("SELECT * FROM categories WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                    units = conn.execute("SELECT * FROM units WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                    suppliers = conn.execute("SELECT * FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                    edit_data = dict(request.form)
+                    if new_category_id is not None:
+                        edit_data["category_id"] = str(new_category_id)
+                elif new_unit_name:
+                    new_unit_id = None
                     try:
-                        conn.execute("INSERT INTO units (account_id, name) VALUES (%s, %s)", (account_id, new_unit_name.strip()))
+                        new_unit_id = conn.execute(
+                            "INSERT INTO units (account_id, name) VALUES (%s, %s) RETURNING id",
+                            (account_id, new_unit_name.strip()),
+                        ).fetchone()[0]
                         conn.commit()
                         flash(translate("record_saved"), "success")
                     except psycopg.IntegrityError:
                         conn.rollback()
                         flash("Esta unidade já existe", "error")
-                    conn.close()
-                    return redirect(url_for("cadastro", entity=entity))
+                    categories = conn.execute("SELECT * FROM categories WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                    units = conn.execute("SELECT * FROM units WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                    suppliers = conn.execute("SELECT * FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                    edit_data = dict(request.form)
+                    if new_unit_id is not None:
+                        edit_data["unit_id"] = str(new_unit_id)
 
-                name = request.form.get("name")
-                category_id = request.form.get("category_id")
-                unit_id = request.form.get("unit_id")
-                supplier_id = request.form.get("supplier_id") or None
-                cost = float(request.form.get("cost") or 0)
-                price = float(request.form.get("price") or 0)
-                stock = int(request.form.get("stock") or 0)
-                stock_min = int(request.form.get("stock_min") or 0)
-                expiration_date = request.form.get("expiration_date") or None
-                edit_id_form = request.form.get("edit_id")
+                else:
+                    name = request.form.get("name")
+                    category_id = request.form.get("category_id")
+                    unit_id = request.form.get("unit_id")
+                    supplier_id = request.form.get("supplier_id") or None
+                    cost = float(request.form.get("cost") or 0)
+                    price = float(request.form.get("price") or 0)
+                    stock = int(request.form.get("stock") or 0)
+                    stock_min = int(request.form.get("stock_min") or 0)
+                    expiration_date = request.form.get("expiration_date") or None
+                    edit_id_form = request.form.get("edit_id")
 
-                if name and category_id and unit_id:
-                    if edit_id_form:
-                        conn.execute(
-                            "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
-                            (name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date, edit_id_form, account_id),
-                        )
-                    else:
-                        conn.execute(
-                            "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date),
-                        )
-                    conn.commit()
-                    flash(translate("record_saved"), "success")
-                    conn.close()
-                    return redirect(url_for("cadastro", entity=entity))
-                flash("Preencha todos os campos obrigatórios", "error")
+                    if name and category_id and unit_id:
+                        if edit_id_form:
+                            conn.execute(
+                                "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
+                                (name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date, edit_id_form, account_id),
+                            )
+                        else:
+                            conn.execute(
+                                "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date),
+                            )
+                        conn.commit()
+                        flash(translate("record_saved"), "success")
+                        conn.close()
+                        return redirect(url_for("cadastro", entity=entity))
+                    edit_data = dict(request.form)
+                    flash("Preencha todos os campos obrigatórios", "error")
 
             elif entity == "clientes":
                 name = request.form.get("name")
                 cpf = re.sub(r"\D", "", request.form.get("cpf") or "")[:11]
+                email = (request.form.get("email") or "").strip() or None
+                birth_date = request.form.get("birth_date") or None
                 street = request.form.get("street")
                 number = request.form.get("number")
                 complement = request.form.get("complement")
@@ -1106,62 +1358,72 @@ def cadastro(entity):
                 if name:
                     if edit_id_form:
                         conn.execute(
-                            "UPDATE clients SET name = %s, cpf = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, gender = %s WHERE id = %s AND account_id = %s",
-                            (name, cpf, street, number, complement, neighborhood, city, state, country, postal_code, gender, edit_id_form, account_id),
+                            "UPDATE clients SET name = %s, cpf = %s, email = %s, birth_date = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, gender = %s WHERE id = %s AND account_id = %s",
+                            (name, cpf, email, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender, edit_id_form, account_id),
                         )
                     else:
                         conn.execute(
-                            "INSERT INTO clients (account_id, name, cpf, street, number, complement, neighborhood, city, state, country, postal_code, gender) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (account_id, name, cpf, street, number, complement, neighborhood, city, state, country, postal_code, gender),
+                            "INSERT INTO clients (account_id, name, cpf, email, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (account_id, name, cpf, email, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender),
                         )
                     conn.commit()
                     flash(translate("record_saved"), "success")
                     conn.close()
                     return redirect(url_for("cadastro", entity=entity))
+                edit_data = dict(request.form)
                 flash("Nome é obrigatório", "error")
 
             elif entity == "fornecedores":
                 new_category_name = request.form.get("new_category_name")
                 if new_category_name:
+                    new_category_id = None
                     try:
-                        conn.execute("INSERT INTO categories (account_id, name) VALUES (%s, %s)", (account_id, new_category_name.strip()))
+                        new_category_id = conn.execute(
+                            "INSERT INTO categories (account_id, name) VALUES (%s, %s) RETURNING id",
+                            (account_id, new_category_name.strip()),
+                        ).fetchone()[0]
                         conn.commit()
                         flash(translate("record_saved"), "success")
                     except psycopg.IntegrityError:
                         conn.rollback()
                         flash("Esta categoria já existe", "error")
-                    conn.close()
-                    return redirect(url_for("cadastro", entity=entity))
+                    categories = conn.execute("SELECT * FROM categories WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                    edit_data = dict(request.form)
+                    if new_category_id is not None:
+                        edit_data["category_id"] = str(new_category_id)
 
-                name = request.form.get("name")
-                cnpj = re.sub(r"\D", "", request.form.get("cnpj") or "")[:14]
-                street = request.form.get("street")
-                number = request.form.get("number")
-                complement = request.form.get("complement")
-                neighborhood = request.form.get("neighborhood")
-                city = request.form.get("city")
-                state = re.sub(r"[^A-Za-z]", "", request.form.get("state") or "").upper()[:2]
-                country = request.form.get("country")
-                postal_code = re.sub(r"\D", "", request.form.get("postal_code") or "")[:8]
-                category_id = request.form.get("category_id")
-                edit_id_form = request.form.get("edit_id")
+                else:
+                    name = request.form.get("name")
+                    cnpj = re.sub(r"\D", "", request.form.get("cnpj") or "")[:14]
+                    email = (request.form.get("email") or "").strip() or None
+                    street = request.form.get("street")
+                    number = request.form.get("number")
+                    complement = request.form.get("complement")
+                    neighborhood = request.form.get("neighborhood")
+                    city = request.form.get("city")
+                    state = re.sub(r"[^A-Za-z]", "", request.form.get("state") or "").upper()[:2]
+                    country = request.form.get("country")
+                    postal_code = re.sub(r"\D", "", request.form.get("postal_code") or "")[:8]
+                    category_id = request.form.get("category_id")
+                    edit_id_form = request.form.get("edit_id")
 
-                if name and category_id:
-                    if edit_id_form:
-                        conn.execute(
-                            "UPDATE suppliers SET name = %s, cnpj = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, category_id = %s WHERE id = %s AND account_id = %s",
-                            (name, cnpj, street, number, complement, neighborhood, city, state, country, postal_code, category_id, edit_id_form, account_id),
-                        )
-                    else:
-                        conn.execute(
-                            "INSERT INTO suppliers (account_id, name, cnpj, street, number, complement, neighborhood, city, state, country, postal_code, category_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (account_id, name, cnpj, street, number, complement, neighborhood, city, state, country, postal_code, category_id),
-                        )
-                    conn.commit()
-                    flash(translate("record_saved"), "success")
-                    conn.close()
-                    return redirect(url_for("cadastro", entity=entity))
-                flash("Nome e Categoria são obrigatórios", "error")
+                    if name and category_id:
+                        if edit_id_form:
+                            conn.execute(
+                                "UPDATE suppliers SET name = %s, cnpj = %s, email = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, category_id = %s WHERE id = %s AND account_id = %s",
+                                (name, cnpj, email, street, number, complement, neighborhood, city, state, country, postal_code, category_id, edit_id_form, account_id),
+                            )
+                        else:
+                            conn.execute(
+                                "INSERT INTO suppliers (account_id, name, cnpj, email, street, number, complement, neighborhood, city, state, country, postal_code, category_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (account_id, name, cnpj, email, street, number, complement, neighborhood, city, state, country, postal_code, category_id),
+                            )
+                        conn.commit()
+                        flash(translate("record_saved"), "success")
+                        conn.close()
+                        return redirect(url_for("cadastro", entity=entity))
+                    edit_data = dict(request.form)
+                    flash("Nome e Categoria são obrigatórios", "error")
 
             elif entity == "categorias":
                 name = request.form.get("name")
@@ -1341,6 +1603,75 @@ def vendas():
         conn.commit()
         flash(translate("sale_success"), "success")
 
+        settings = get_account_settings(account_id)
+
+        if _to_bool(settings.get("send_sale_thank_you")) and client_id:
+            client = conn.execute(
+                "SELECT name, email FROM clients WHERE id = %s AND account_id = %s",
+                (client_id, account_id),
+            ).fetchone()
+            if client and client.get("email"):
+                sale_lines = [
+                    f"- {item['product_name']}: {item['quantity']} x {item['unit_price']:.2f} = {item['total_price']:.2f}"
+                    for item in items
+                ]
+                sale_body = (
+                    f"Olá, {client.get('name') or 'cliente'}!\n\n"
+                    f"Obrigado pela sua compra na Kdc Systems.\n"
+                    f"Venda #{sale_id} em {sale_date}.\n"
+                    f"Forma de pagamento: {payment_method}.\n"
+                    f"Total: {total:.2f}.\n\n"
+                    "Itens:\n"
+                    + "\n".join(sale_lines)
+                    + "\n\nAgradecemos a preferência!"
+                )
+                sent, err = send_email_with_settings(
+                    account_id,
+                    [client["email"]],
+                    f"Obrigado pela compra - Venda #{sale_id}",
+                    sale_body,
+                )
+                if sent:
+                    flash(f"E-mail de agradecimento enviado para {client['email']}.", "info")
+                else:
+                    flash(f"Não foi possível enviar e-mail ao cliente: {err}", "error")
+
+        if _to_bool(settings.get("send_stock_min_alert")):
+            low_stock_items = []
+            for item in items:
+                product_state = conn.execute(
+                    "SELECT name, stock, stock_min FROM products WHERE id = %s AND account_id = %s",
+                    (item["product_id"], account_id),
+                ).fetchone()
+                if product_state and float(product_state["stock"] or 0) <= float(product_state["stock_min"] or 0):
+                    low_stock_items.append(product_state)
+
+            if low_stock_items:
+                auth_conn = get_auth_connection()
+                owner = auth_conn.execute(
+                    "SELECT email, name FROM users WHERE account_id = %s AND role = 'owner' LIMIT 1",
+                    (account_id,),
+                ).fetchone()
+                auth_conn.close()
+                if owner and owner.get("email"):
+                    alert_lines = [
+                        f"- {row['name']}: estoque atual {row['stock']} (mínimo {row['stock_min']})"
+                        for row in low_stock_items
+                    ]
+                    alert_body = (
+                        "Os seguintes produtos atingiram estoque mínimo após uma venda:\n\n"
+                        + "\n".join(alert_lines)
+                        + "\n\nVerifique a reposição no sistema."
+                    )
+                    sent, err = send_email_with_settings(
+                        account_id,
+                        [owner["email"]],
+                        "Alerta de estoque mínimo",
+                        alert_body,
+                    )
+                    if not sent:
+                        flash(f"Falha ao enviar alerta de estoque mínimo: {err}", "error")
+
         if payment_method == "Pix":
             pix_code = f"PIX-{int(total * 100)}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
@@ -1391,18 +1722,52 @@ def fechar_caixa():
     ).fetchall()
     clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     today = datetime.now().strftime("%Y-%m-%d")
+    sales_today = conn.execute(
+        "SELECT id, date, payment_method, total FROM sales WHERE account_id = %s AND date LIKE %s ORDER BY date ASC",
+        (account_id, f"{today}%"),
+    ).fetchall()
     cash_total = conn.execute(
         "SELECT COALESCE(SUM(total), 0) FROM sales WHERE account_id = %s AND date LIKE %s AND payment_method = %s",
         (account_id, f"{today}%", "Dinheiro"),
     ).fetchone()[0]
+    total_day = sum(float(sale["total"] or 0) for sale in sales_today)
     auth_conn = get_auth_connection()
-    user = auth_conn.execute("SELECT email FROM users WHERE id = %s AND account_id = %s", (get_current_user_id(), account_id)).fetchone()
+    owner = auth_conn.execute(
+        "SELECT email, name FROM users WHERE account_id = %s AND role = 'owner' LIMIT 1",
+        (account_id,),
+    ).fetchone()
     auth_conn.close()
-    email = user["email"] if user else None
-    conn.close()
-    cash_summary = f"{translate('cash_total_message')} {cash_total:.2f}. "
+
+    email = owner["email"] if owner else None
+    email_sent = False
+    email_error = None
+
     if email:
+        lines = [
+            f"{sale['date']} | Venda #{sale['id']} | {sale['payment_method'] or 'N/A'} | R$ {float(sale['total'] or 0):.2f}"
+            for sale in sales_today
+        ]
+        body = (
+            f"Fechamento de caixa - {today}\n\n"
+            f"Total em dinheiro: R$ {cash_total:.2f}\n"
+            f"Total geral do dia: R$ {total_day:.2f}\n"
+            f"Quantidade de vendas: {len(sales_today)}\n\n"
+            "Vendas do dia:\n"
+            + ("\n".join(lines) if lines else "Nenhuma venda registrada hoje.")
+        )
+        email_sent, email_error = send_email_with_settings(
+            account_id,
+            [email],
+            f"Fechamento de caixa - {today}",
+            body,
+        )
+
+    conn.close()
+    cash_summary = f"{translate('cash_total_message')} {cash_total:.2f}. Total geral do dia: {total_day:.2f}. "
+    if email and email_sent:
         cash_summary += f"{translate('email_sent_to')} {email}."
+    elif email and not email_sent:
+        cash_summary += f"Falha ao enviar e-mail para {email}: {email_error}."
     else:
         cash_summary += translate('email_not_configured')
     return render_template(
@@ -1925,4 +2290,4 @@ def manual():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True)
