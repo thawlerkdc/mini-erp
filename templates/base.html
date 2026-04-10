@@ -112,5 +112,69 @@
         <p>Mini ERP Kdc Systems</p>
       </footer>
     {% endif %}
+
+    <script>
+      (function () {
+        function measureAndPositionLanguageDropdown(dropdown) {
+          if (!dropdown) return;
+          var menu = dropdown.querySelector('.language-dropdown-menu');
+          if (!menu) return;
+
+          var previousDisplay = menu.style.display;
+          var previousVisibility = menu.style.visibility;
+
+          menu.style.visibility = 'hidden';
+          menu.style.display = 'block';
+
+          var rect = dropdown.getBoundingClientRect();
+          var menuHeight = menu.offsetHeight;
+          var spaceBelow = window.innerHeight - rect.bottom;
+          var spaceAbove = rect.top;
+          var shouldOpenUp = spaceBelow < (menuHeight + 8) && spaceAbove > spaceBelow;
+
+          dropdown.classList.toggle('open-up', shouldOpenUp);
+
+          var available = shouldOpenUp ? (spaceAbove - 12) : (spaceBelow - 12);
+          menu.style.maxHeight = Math.max(120, Math.floor(available)) + 'px';
+
+          menu.style.display = previousDisplay;
+          menu.style.visibility = previousVisibility;
+        }
+
+        function bindLanguageDropdownAutoDirection() {
+          var dropdowns = document.querySelectorAll('.language-dropdown');
+          dropdowns.forEach(function (dropdown) {
+            dropdown.addEventListener('mouseenter', function () {
+              measureAndPositionLanguageDropdown(dropdown);
+            });
+
+            dropdown.addEventListener('focusin', function () {
+              measureAndPositionLanguageDropdown(dropdown);
+            });
+
+            var button = dropdown.querySelector('button');
+            if (button) {
+              button.addEventListener('click', function () {
+                measureAndPositionLanguageDropdown(dropdown);
+              });
+            }
+          });
+
+          window.addEventListener('resize', function () {
+            dropdowns.forEach(measureAndPositionLanguageDropdown);
+          });
+
+          window.addEventListener('scroll', function () {
+            dropdowns.forEach(measureAndPositionLanguageDropdown);
+          }, true);
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', bindLanguageDropdownAutoDirection);
+        } else {
+          bindLanguageDropdownAutoDirection();
+        }
+      })();
+    </script>
   </body>
 </html>

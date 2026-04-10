@@ -132,6 +132,11 @@ header .brand-subtitle {
   min-width: 180px;
   padding: 8px 0;
   z-index: 20;
+  overflow-y: auto;
+}
+.language-dropdown.open-up .language-dropdown-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
 }
 .language-dropdown:hover .language-dropdown-menu,
 .language-dropdown:focus-within .language-dropdown-menu {
