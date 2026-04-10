@@ -229,6 +229,31 @@ button,
 .hidden {
   display: none !important;
 }
+.parametros-hint {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.parametros-hint p {
+  margin: 8px 0 0;
+}
+.smtp-advanced-block {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+.smtp-advanced-block summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #334155;
+}
+.smtp-advanced-block[open] {
+  padding-bottom: 14px;
+}
 .dashboard-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

@@ -829,12 +829,14 @@ def require_owner_access():
 
 
 SETTINGS_DEFAULTS = {
+    "smtp_provider": "gmail",
     "send_sale_thank_you": "0",
     "send_stock_min_alert": "0",
     "send_birthday_email": "0",
     "birthday_email_subject": "Feliz aniversário!",
     "birthday_email_body": "Olá {name}, desejamos um feliz aniversário! Obrigado por ser nosso cliente.",
     "last_birthday_run_date": "",
+    "notification_email": "",
     "smtp_host": "",
     "smtp_port": "587",
     "smtp_username": "",
@@ -842,6 +844,13 @@ SETTINGS_DEFAULTS = {
     "smtp_from_email": "",
     "smtp_from_name": "Kdc Systems",
     "smtp_use_tls": "1",
+}
+
+SMTP_PROVIDER_PRESETS = {
+    "gmail": {"host": "smtp.gmail.com", "port": "587", "use_tls": "1"},
+    "outlook": {"host": "smtp.office365.com", "port": "587", "use_tls": "1"},
+    "yahoo": {"host": "smtp.mail.yahoo.com", "port": "587", "use_tls": "1"},
+    "custom": {"host": "", "port": "587", "use_tls": "1"},
 }
 
 
@@ -862,22 +871,45 @@ def get_account_settings(account_id):
     return settings
 
 
+def _sanitize_provider(raw_provider):
+    provider = (raw_provider or "custom").strip().lower()
+    return provider if provider in SMTP_PROVIDER_PRESETS else "custom"
+
+
 def save_account_settings(account_id, form_data):
+    provider = _sanitize_provider(form_data.get("smtp_provider"))
+    preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
+    from_email = (form_data.get("smtp_from_email") or "").strip()
+
+    custom_host = (form_data.get("smtp_host") or "").strip()
+    custom_port = (form_data.get("smtp_port") or "").strip()
+    smtp_host = custom_host if provider == "custom" else (custom_host or preset["host"])
+    smtp_port = custom_port if provider == "custom" else (custom_port or preset["port"])
+
+    custom_tls = "1" if form_data.get("smtp_use_tls") else "0"
+    smtp_use_tls = custom_tls if provider == "custom" else preset["use_tls"]
+
+    smtp_username = (form_data.get("smtp_username") or "").strip()
+    if not smtp_username and provider != "custom":
+        smtp_username = from_email
+
     keys = list(SETTINGS_DEFAULTS.keys())
     values = {
+        "smtp_provider": provider,
         "send_sale_thank_you": "1" if form_data.get("send_sale_thank_you") else "0",
         "send_stock_min_alert": "1" if form_data.get("send_stock_min_alert") else "0",
         "send_birthday_email": "1" if form_data.get("send_birthday_email") else "0",
         "birthday_email_subject": (form_data.get("birthday_email_subject") or "Feliz aniversário!").strip(),
         "birthday_email_body": (form_data.get("birthday_email_body") or "Olá {name}, desejamos um feliz aniversário! Obrigado por ser nosso cliente.").strip(),
         "last_birthday_run_date": form_data.get("last_birthday_run_date") or "",
-        "smtp_host": (form_data.get("smtp_host") or "").strip(),
-        "smtp_port": (form_data.get("smtp_port") or "587").strip(),
-        "smtp_username": (form_data.get("smtp_username") or "").strip(),
+        "notification_email": (form_data.get("notification_email") or "").strip(),
+        "smtp_host": smtp_host,
+        "smtp_port": smtp_port or "587",
+        "smtp_username": smtp_username,
         "smtp_password": (form_data.get("smtp_password") or "").strip(),
-        "smtp_from_email": (form_data.get("smtp_from_email") or "").strip(),
+        "smtp_from_email": from_email,
         "smtp_from_name": (form_data.get("smtp_from_name") or "Kdc Systems").strip(),
-        "smtp_use_tls": "1" if form_data.get("smtp_use_tls") else "0",
+        "smtp_use_tls": smtp_use_tls,
     }
 
     conn = get_tenant_connection()
@@ -918,13 +950,18 @@ def send_email_with_settings(account_id, recipients, subject, body):
         return False, "Sem destinatário configurado"
 
     settings = get_account_settings(account_id)
-    host = settings.get("smtp_host") or os.environ.get("SMTP_HOST", "")
-    port = int(settings.get("smtp_port") or os.environ.get("SMTP_PORT", 587))
+    provider = _sanitize_provider(settings.get("smtp_provider"))
+    preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
+    host = settings.get("smtp_host") or preset["host"] or os.environ.get("SMTP_HOST", "")
+    port = int(settings.get("smtp_port") or preset["port"] or os.environ.get("SMTP_PORT", 587))
     username = settings.get("smtp_username") or os.environ.get("SMTP_USERNAME", "")
     password = settings.get("smtp_password") or os.environ.get("SMTP_PASSWORD", "")
     from_email = settings.get("smtp_from_email") or os.environ.get("SMTP_FROM_EMAIL", "")
     from_name = settings.get("smtp_from_name") or "Kdc Systems"
-    use_tls = _to_bool(settings.get("smtp_use_tls", "1"))
+    use_tls = _to_bool(settings.get("smtp_use_tls", preset["use_tls"]))
+
+    if not username and provider != "custom":
+        username = from_email
 
     if not host or not from_email:
         return False, "SMTP não configurado em Parâmetros"
@@ -981,6 +1018,29 @@ def run_daily_birthday_automation(account_id):
         send_email_with_settings(account_id, [client["email"]], subject, body)
 
     set_account_setting(account_id, "last_birthday_run_date", today)
+
+
+def get_primary_notification_recipients(account_id):
+    settings = get_account_settings(account_id)
+    recipients = []
+
+    notification_email = (settings.get("notification_email") or "").strip()
+    if notification_email:
+        recipients.append(notification_email)
+
+    auth_conn = get_auth_connection()
+    owner = auth_conn.execute(
+        "SELECT email FROM users WHERE account_id = %s AND role = 'owner' LIMIT 1",
+        (account_id,),
+    ).fetchone()
+    auth_conn.close()
+
+    owner_email = (owner.get("email") if owner else "") or ""
+    owner_email = owner_email.strip()
+    if owner_email and owner_email not in recipients:
+        recipients.append(owner_email)
+
+    return recipients
 
 
 @app.route("/set_language/<lang_code>")
@@ -1120,17 +1180,18 @@ def parametros():
     if request.method == "POST":
         if request.form.get("action") == "test_smtp":
             test_email = (request.form.get("test_email") or "").strip()
-            if not test_email:
-                flash("Informe um e-mail de teste.", "error")
+            recipients = [test_email] if test_email else get_primary_notification_recipients(account_id)
+            if not recipients:
+                flash("Informe um e-mail de teste ou preencha o e-mail de destino principal.", "error")
                 return redirect(url_for("parametros"))
             sent, err = send_email_with_settings(
                 account_id,
-                [test_email],
+                recipients,
                 "Teste SMTP - Kdc Systems",
                 "Este é um e-mail de teste enviado pela tela de parâmetros.",
             )
             if sent:
-                flash(f"Teste SMTP enviado para {test_email}.", "success")
+                flash(f"Teste SMTP enviado para: {', '.join(recipients)}.", "success")
             else:
                 flash(f"Falha no teste SMTP: {err}", "error")
             return redirect(url_for("parametros"))
@@ -1647,13 +1708,8 @@ def vendas():
                     low_stock_items.append(product_state)
 
             if low_stock_items:
-                auth_conn = get_auth_connection()
-                owner = auth_conn.execute(
-                    "SELECT email, name FROM users WHERE account_id = %s AND role = 'owner' LIMIT 1",
-                    (account_id,),
-                ).fetchone()
-                auth_conn.close()
-                if owner and owner.get("email"):
+                recipients = get_primary_notification_recipients(account_id)
+                if recipients:
                     alert_lines = [
                         f"- {row['name']}: estoque atual {row['stock']} (mínimo {row['stock_min']})"
                         for row in low_stock_items
@@ -1665,7 +1721,7 @@ def vendas():
                     )
                     sent, err = send_email_with_settings(
                         account_id,
-                        [owner["email"]],
+                        recipients,
                         "Alerta de estoque mínimo",
                         alert_body,
                     )
@@ -1731,18 +1787,11 @@ def fechar_caixa():
         (account_id, f"{today}%", "Dinheiro"),
     ).fetchone()[0]
     total_day = sum(float(sale["total"] or 0) for sale in sales_today)
-    auth_conn = get_auth_connection()
-    owner = auth_conn.execute(
-        "SELECT email, name FROM users WHERE account_id = %s AND role = 'owner' LIMIT 1",
-        (account_id,),
-    ).fetchone()
-    auth_conn.close()
-
-    email = owner["email"] if owner else None
+    recipients = get_primary_notification_recipients(account_id)
     email_sent = False
     email_error = None
 
-    if email:
+    if recipients:
         lines = [
             f"{sale['date']} | Venda #{sale['id']} | {sale['payment_method'] or 'N/A'} | R$ {float(sale['total'] or 0):.2f}"
             for sale in sales_today
@@ -1757,17 +1806,17 @@ def fechar_caixa():
         )
         email_sent, email_error = send_email_with_settings(
             account_id,
-            [email],
+            recipients,
             f"Fechamento de caixa - {today}",
             body,
         )
 
     conn.close()
     cash_summary = f"{translate('cash_total_message')} {cash_total:.2f}. Total geral do dia: {total_day:.2f}. "
-    if email and email_sent:
-        cash_summary += f"{translate('email_sent_to')} {email}."
-    elif email and not email_sent:
-        cash_summary += f"Falha ao enviar e-mail para {email}: {email_error}."
+    if recipients and email_sent:
+        cash_summary += f"{translate('email_sent_to')} {', '.join(recipients)}."
+    elif recipients and not email_sent:
+        cash_summary += f"Falha ao enviar e-mail para {', '.join(recipients)}: {email_error}."
     else:
         cash_summary += translate('email_not_configured')
     return render_template(

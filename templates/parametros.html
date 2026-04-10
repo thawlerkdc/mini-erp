@@ -2,8 +2,35 @@
 
 {% block content %}
   <div class="form-card">
-    <h3>Automacoes</h3>
+    <h3>Configuracao de notificacoes por e-mail</h3>
+    <div class="parametros-hint">
+      <strong>Forma simples (recomendada):</strong>
+      <p>1) Escolha o provedor, 2) informe e-mail de origem + senha de aplicativo, 3) informe e-mail de destino principal.</p>
+      <p>Para Gmail e Outlook, use senha de aplicativo (não use sua senha normal da conta).</p>
+    </div>
+
     <form method="post" action="{{ url_for('parametros') }}">
+      <h3>Configuracao rapida</h3>
+      <label>Provedor de e-mail</label>
+      <select name="smtp_provider">
+        <option value="gmail" {% if settings.get('smtp_provider', 'gmail') == 'gmail' %}selected{% endif %}>Gmail</option>
+        <option value="outlook" {% if settings.get('smtp_provider') == 'outlook' %}selected{% endif %}>Outlook / Microsoft 365</option>
+        <option value="yahoo" {% if settings.get('smtp_provider') == 'yahoo' %}selected{% endif %}>Yahoo</option>
+        <option value="custom" {% if settings.get('smtp_provider') == 'custom' %}selected{% endif %}>Outro (manual)</option>
+      </select>
+
+      <label>E-mail de origem *</label>
+      <input type="email" name="smtp_from_email" value="{{ settings.get('smtp_from_email', '') }}" required>
+
+      <label>Senha de aplicativo *</label>
+      <input type="password" name="smtp_password" value="{{ settings.get('smtp_password', '') }}" placeholder="Cole aqui a senha de aplicativo" required>
+
+      <label>E-mail de destino principal</label>
+      <input type="email" name="notification_email" value="{{ settings.get('notification_email', '') }}" placeholder="Receber alertas e fechamento de caixa">
+
+      <label>Nome exibido no remetente</label>
+      <input type="text" name="smtp_from_name" value="{{ settings.get('smtp_from_name', 'Kdc Systems') }}">
+
       <label>
         <input type="checkbox" name="send_sale_thank_you" {% if settings.get('send_sale_thank_you') == '1' %}checked{% endif %}>
         Enviar e-mail de agradecimento ao cliente apos a venda
@@ -16,7 +43,7 @@
 
       <label>
         <input type="checkbox" name="send_birthday_email" {% if settings.get('send_birthday_email') == '1' %}checked{% endif %}>
-        Enviar e-mail de aniversario para clientes (parametro habilitado para expansao futura)
+        Enviar e-mail de aniversario para clientes
       </label>
 
       <label>Assunto do e-mail de aniversario</label>
@@ -27,29 +54,23 @@
 
       <input type="hidden" name="last_birthday_run_date" value="{{ settings.get('last_birthday_run_date', '') }}">
 
-      <h3>Configuracao SMTP</h3>
-      <label>Servidor SMTP *</label>
-      <input type="text" name="smtp_host" placeholder="smtp.seuprovedor.com" value="{{ settings.get('smtp_host', '') }}">
+      <details class="smtp-advanced-block">
+        <summary>Configuracao avancada SMTP (somente se necessario)</summary>
 
-      <label>Porta SMTP</label>
-      <input type="number" name="smtp_port" value="{{ settings.get('smtp_port', '587') }}">
+        <label>Servidor SMTP</label>
+        <input type="text" name="smtp_host" placeholder="smtp.seuprovedor.com" value="{{ settings.get('smtp_host', '') }}">
 
-      <label>Usuario SMTP</label>
-      <input type="text" name="smtp_username" value="{{ settings.get('smtp_username', '') }}">
+        <label>Porta SMTP</label>
+        <input type="number" name="smtp_port" value="{{ settings.get('smtp_port', '587') }}">
 
-      <label>Senha SMTP</label>
-      <input type="password" name="smtp_password" value="{{ settings.get('smtp_password', '') }}">
+        <label>Usuario SMTP (se vazio, usa o e-mail de origem)</label>
+        <input type="text" name="smtp_username" value="{{ settings.get('smtp_username', '') }}">
 
-      <label>E-mail remetente *</label>
-      <input type="email" name="smtp_from_email" value="{{ settings.get('smtp_from_email', '') }}">
-
-      <label>Nome remetente</label>
-      <input type="text" name="smtp_from_name" value="{{ settings.get('smtp_from_name', 'Kdc Systems') }}">
-
-      <label>
-        <input type="checkbox" name="smtp_use_tls" {% if settings.get('smtp_use_tls') == '1' %}checked{% endif %}>
-        Usar STARTTLS
-      </label>
+        <label>
+          <input type="checkbox" name="smtp_use_tls" {% if settings.get('smtp_use_tls') == '1' %}checked{% endif %}>
+          Usar STARTTLS
+        </label>
+      </details>
 
       <button type="submit" class="btn-add">Salvar parametros</button>
     </form>
@@ -59,8 +80,8 @@
     <h3>Teste SMTP</h3>
     <form method="post" action="{{ url_for('parametros') }}">
       <input type="hidden" name="action" value="test_smtp">
-      <label>E-mail para teste</label>
-      <input type="email" name="test_email" placeholder="seuemail@dominio.com" required>
+      <label>E-mail para teste (opcional)</label>
+      <input type="email" name="test_email" placeholder="Se vazio, usa e-mail de destino principal">
       <button type="submit" class="btn-add">Enviar e-mail de teste</button>
     </form>
   </div>
