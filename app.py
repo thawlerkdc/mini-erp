@@ -876,6 +876,40 @@ def _sanitize_provider(raw_provider):
     return provider if provider in SMTP_PROVIDER_PRESETS else "custom"
 
 
+def _humanize_email_error(error_text, settings=None):
+    message = (error_text or "").strip()
+    lowered = message.lower()
+    provider = _sanitize_provider((settings or {}).get("smtp_provider") if settings else "")
+
+    if "badcredentials" in lowered or "535" in lowered or "authentication" in lowered:
+        provider_hint = "do provedor"
+        if provider == "gmail":
+            provider_hint = "do Gmail"
+        elif provider == "outlook":
+            provider_hint = "do Outlook/Microsoft 365"
+        elif provider == "yahoo":
+            provider_hint = "do Yahoo"
+        return (
+            f"Falha de autenticação no SMTP {provider_hint}. "
+            "Verifique o e-mail de origem e gere uma senha de aplicativo no provedor. "
+            "A senha normal da conta geralmente não funciona."
+        )
+
+    if "timed out" in lowered or "timeout" in lowered:
+        return "Tempo de conexão esgotado com o servidor de e-mail. Verifique internet, servidor SMTP e porta configurada."
+
+    if "name or service not known" in lowered or "getaddrinfo failed" in lowered:
+        return "Servidor SMTP inválido ou indisponível. Revise o provedor selecionado e, se manual, confira o host SMTP."
+
+    if "connection refused" in lowered:
+        return "Conexão recusada pelo servidor SMTP. Verifique host, porta e se o uso de TLS está correto."
+
+    if "sender address rejected" in lowered or "from address not verified" in lowered:
+        return "O e-mail de origem foi recusado pelo provedor. Confirme se ele está autorizado na conta SMTP."
+
+    return "Não foi possível enviar e-mail com as configurações atuais. Revise provedor, e-mail de origem e senha de aplicativo."
+
+
 def save_account_settings(account_id, form_data):
     provider = _sanitize_provider(form_data.get("smtp_provider"))
     preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
@@ -982,7 +1016,7 @@ def send_email_with_settings(account_id, recipients, subject, body):
         return True, "E-mail enviado com sucesso"
     except Exception as exc:
         logger.error("Falha ao enviar e-mail: %s", exc)
-        return False, str(exc)
+        return False, _humanize_email_error(str(exc), settings)
 
 
 def run_daily_birthday_automation(account_id):
@@ -1796,13 +1830,26 @@ def fechar_caixa():
             f"{sale['date']} | Venda #{sale['id']} | {sale['payment_method'] or 'N/A'} | R$ {float(sale['total'] or 0):.2f}"
             for sale in sales_today
         ]
+
+        totals_by_method = {}
+        for sale in sales_today:
+            method = sale["payment_method"] or "N/A"
+            totals_by_method[method] = totals_by_method.get(method, 0.0) + float(sale["total"] or 0)
+
+        method_lines = [
+            f"- {method}: R$ {amount:.2f}"
+            for method, amount in sorted(totals_by_method.items(), key=lambda row: row[0])
+        ]
+
         body = (
             f"Fechamento de caixa - {today}\n\n"
-            f"Total em dinheiro: R$ {cash_total:.2f}\n"
-            f"Total geral do dia: R$ {total_day:.2f}\n"
-            f"Quantidade de vendas: {len(sales_today)}\n\n"
             "Vendas do dia:\n"
             + ("\n".join(lines) if lines else "Nenhuma venda registrada hoje.")
+            + "\n\nTotalizador final:\n"
+            + ("\n".join(method_lines) if method_lines else "- Nenhuma venda no período")
+            + f"\n- Total em dinheiro: R$ {cash_total:.2f}"
+            + f"\n- Total geral do dia: R$ {total_day:.2f}"
+            + f"\n- Quantidade de vendas: {len(sales_today)}"
         )
         email_sent, email_error = send_email_with_settings(
             account_id,

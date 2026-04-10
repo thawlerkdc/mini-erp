@@ -1,53 +1,60 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="dashboard-grid">
-    <div class="welcome-card">
-      <h2>{{ t('dashboard_welcome') }}, {{ user }}</h2>
-      <p>{{ welcome_text }}</p>
-      <div class="quick-stats">
-        <div class="stat">
-          <span class="stat-number">{{ total_clients or 0 }}</span>
-          <span class="stat-label">{{ t('menu_clients') }}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-number">{{ total_products or 0 }}</span>
-          <span class="stat-label">{{ t('menu_products') }}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-number">{{ total_sales or 0 }}</span>
-          <span class="stat-label">{{ t('menu_sales') }}</span>
-        </div>
+  <section class="hero-banner">
+    <h2>{{ t('dashboard_welcome') }}, {{ user }}</h2>
+    <p>{{ welcome_text }}</p>
+  </section>
+
+  <section class="metrics-row">
+    <article class="metric-card">
+      <div>
+        <h3>{{ t('menu_clients') }}</h3>
+        <p>Clientes cadastrados</p>
       </div>
-    </div>
+      <strong>{{ total_clients or 0 }}</strong>
+    </article>
+    <article class="metric-card">
+      <div>
+        <h3>{{ t('menu_products') }}</h3>
+        <p>Produtos ativos</p>
+      </div>
+      <strong>{{ total_products or 0 }}</strong>
+    </article>
+    <article class="metric-card">
+      <div>
+        <h3>{{ t('menu_sales') }}</h3>
+        <p>Vendas registradas</p>
+      </div>
+      <strong>{{ total_sales or 0 }}</strong>
+    </article>
+  </section>
+
+  <div class="dashboard-grid dashboard-grid-restyled">
     <div class="dashboard-actions">
-      <a class="dashboard-card" href="{{ url_for('cadastro', entity='clientes') }}">
-        <div class="card-head"><div class="card-icon">👥</div><h3>{{ t('menu_clients') }}</h3></div>
-        <p>Cadastre e consulte clientes por cidade, estado e CEP.</p>
+      <a class="dashboard-card neutral" href="{{ url_for('cadastro', entity='clientes') }}">
+        <div class="card-head"><div class="card-icon">👥</div><h3>Gerenciar {{ t('menu_clients') }}</h3></div>
+        <p>Cadastrar, consultar e editar clientes.</p>
       </a>
-      <a class="dashboard-card" href="{{ url_for('cadastro', entity='fornecedores') }}">
+      <a class="dashboard-card neutral" href="{{ url_for('cadastro', entity='produtos') }}">
+        <div class="card-head"><div class="card-icon">📦</div><h3>Gerenciar {{ t('menu_products') }}</h3></div>
+        <p>Cadastrar, editar e controlar estoque.</p>
+      </a>
+      <a class="dashboard-card neutral" href="{{ url_for('vendas') }}">
+        <div class="card-head"><div class="card-icon">🛒</div><h3>Registrar {{ t('menu_sales') }}</h3></div>
+        <p>Adicionar itens e concluir vendas com rapidez.</p>
+      </a>
+      <a class="dashboard-card primary" href="{{ url_for('cadastro', entity='fornecedores') }}">
         <div class="card-head"><div class="card-icon">🏢</div><h3>{{ t('menu_suppliers') }}</h3></div>
-        <p>Cadastre fornecedores com categoria selecionável.</p>
+        <p>Cadastrar e gerenciar fornecedores.</p>
       </a>
-      <a class="dashboard-card" href="{{ url_for('cadastro', entity='produtos') }}">
-        <div class="card-head"><div class="card-icon">📦</div><h3>{{ t('menu_products') }}</h3></div>
-        <p>Cadastre produtos com categoria, unidade e preço.</p>
+      <a class="dashboard-card secondary" href="{{ url_for('relatorios') }}">
+        <div class="card-head"><div class="card-icon">📊</div><h3>Ver {{ t('menu_reports') }}</h3></div>
+        <p>Analisar dados e gerar relatórios.</p>
       </a>
-      <a class="dashboard-card" href="{{ url_for('cadastro', entity='unidades') }}">
-        <div class="card-head"><div class="card-icon">⚖️</div><h3>{{ t('unit_label') }}</h3></div>
-        <p>Gerencie unidades de medida usadas nos produtos.</p>
-      </a>
-      <a class="dashboard-card" href="{{ url_for('vendas') }}">
-        <div class="card-head"><div class="card-icon">💰</div><h3>{{ t('menu_sales') }}</h3></div>
-        <p>Registre vendas e controle o estoque em tempo real.</p>
-      </a>
-      <a class="dashboard-card" href="{{ url_for('relatorios') }}">
-        <div class="card-head"><div class="card-icon">📊</div><h3>{{ t('menu_reports') }}</h3></div>
-        <p>Veja relatórios práticos por período e cliente.</p>
-      </a>
-      <a class="dashboard-card" href="{{ url_for('manual') }}">
+      <a class="dashboard-card tertiary" href="{{ url_for('manual') }}">
         <div class="card-head"><div class="card-icon">📖</div><h3>{{ t('menu_manual') }}</h3></div>
-        <p>Acesse o manual com orientações do sistema.</p>
+        <p>Acesse o guia com orientações.</p>
       </a>
     </div>
   </div>
