@@ -1783,21 +1783,22 @@ def vendas():
 
             if payment_parts:
                 paid_total = sum(part["amount"] for part in payment_parts)
+                # Compute authoritative card fees using embedded-fee formula:
+                # each row amount is final (base*(1+rate/100)), so fee = final - final/(1+rate/100)
                 credit_fees = 0.0
                 for part in payment_parts:
-                    if part["method"] == "Crédito" and _to_bool(settings.get("card_credit_enabled")):
+                    rate = 0.0
+                    if part["method"] == "Crédito" and settings.get("card_credit_surcharge_enabled") == "1":
                         rate = _safe_float(settings.get(f"card_credit_rate_{part['installments']}", 0))
-                        credit_fees += part["amount"] * rate / 100
-                    elif part["method"] == "Débito" and _to_bool(settings.get("card_debit_enabled")):
+                    elif part["method"] == "Débito" and settings.get("card_debit_surcharge_enabled") == "1":
                         rate = _safe_float(settings.get("card_debit_rate", 0))
-                        credit_fees += part["amount"] * rate / 100
-                expected_total = total + credit_fees
-                if abs(paid_total - total) > 0.05 and abs(paid_total - expected_total) > 0.05:
+                    if rate > 0:
+                        credit_fees += part["amount"] - part["amount"] / (1 + rate / 100)
+                if abs(paid_total - total) > 0.05:
                     flash("A soma das formas de pagamento deve ser igual ao total da venda (com ou sem juros).", "error")
                     conn.close()
                     return redirect(url_for("vendas"))
-                if abs(paid_total - expected_total) < 0.05:
-                    surcharge = credit_fees
+                surcharge = round(credit_fees, 2)
                 payment_method = "Múltiplos"
             else:
                 if payment_method == "Crédito":
