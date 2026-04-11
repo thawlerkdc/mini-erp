@@ -1,19 +1,6 @@
 {% extends "base.html" %}
 
 {% block content %}
-  {% if sale_done %}
-  <div id="sale-toast" class="sale-toast">{{ t('sale_success') }}</div>
-  <script>
-    (function () {
-      var toast = document.getElementById('sale-toast');
-      if (toast) {
-        toast.classList.add('sale-toast-visible');
-        setTimeout(function () { toast.classList.remove('sale-toast-visible'); }, 2000);
-      }
-    })();
-  </script>
-  {% endif %}
-
   <div class="form-card sale-card">
     <div class="sale-header">
       <h2 class="sale-title">Nova Venda</h2>

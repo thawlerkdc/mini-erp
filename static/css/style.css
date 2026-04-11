@@ -1169,31 +1169,6 @@ body {
   background: #1640a8;
 }
 
-/* Sale success toast */
-.sale-toast {
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #10b981;
-  color: #fff;
-  padding: 14px 28px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 1rem;
-  box-shadow: 0 8px 24px rgba(16, 42, 89, 0.18);
-  z-index: 9999;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-  white-space: nowrap;
-}
-
-.sale-toast.sale-toast-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .sale-row {

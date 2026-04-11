@@ -1785,7 +1785,6 @@ def vendas():
             clients=clients,
             pix_code=pix_code,
             cash_summary=None,
-            sale_done=True,
         )
 
     conn.close()
@@ -2351,6 +2350,38 @@ def relatorios():
         tuple(sales_params),
     ).fetchall()
 
+    sales_period_payment_cards = [
+        {"key": "dinheiro", "label": "Dinheiro", "qty": 0, "total": 0.0},
+        {"key": "pix", "label": "Pix", "qty": 0, "total": 0.0},
+        {"key": "credito", "label": "Crédito", "qty": 0, "total": 0.0},
+        {"key": "debito", "label": "Débito", "qty": 0, "total": 0.0},
+    ]
+    card_index = {item["key"]: item for item in sales_period_payment_cards}
+    sales_period_grand_qty = 0
+    sales_period_grand_total = 0.0
+
+    for row in sales_period_payment_totals:
+        method_text = (row["payment_method"] or "").strip().lower()
+        qty = int(row["qty"] or 0)
+        total = float(row["total"] or 0)
+
+        sales_period_grand_qty += qty
+        sales_period_grand_total += total
+
+        if "pix" in method_text:
+            card_key = "pix"
+        elif "dinh" in method_text:
+            card_key = "dinheiro"
+        elif "cred" in method_text:
+            card_key = "credito"
+        elif "deb" in method_text:
+            card_key = "debito"
+        else:
+            continue
+
+        card_index[card_key]["qty"] += qty
+        card_index[card_key]["total"] += total
+
     chart_data = None
     if report in ["payment_sales_value", "category_sales_value"]:
         chart_data = [{"label": row[0], "value": float(row[1])} for row in report_rows]
@@ -2389,6 +2420,9 @@ def relatorios():
         client_purchase_rows=client_purchase_rows,
         chart_data_json=chart_data_json,
         sales_period_payment_totals=sales_period_payment_totals,
+        sales_period_payment_cards=sales_period_payment_cards,
+        sales_period_grand_qty=sales_period_grand_qty,
+        sales_period_grand_total=sales_period_grand_total,
     )
 
 

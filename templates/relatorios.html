@@ -241,25 +241,21 @@
         <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date) }}" class="outline-button small">{{ t('back_to_reports') }}</a>
       </div>
 
-      {% if sales_period_payment_totals %}
+      {% if sales_period_payment_cards %}
         <div class="payment-summary-block">
           <h4 class="payment-summary-title">Resumo por forma de pagamento</h4>
           <div class="payment-summary-grid">
-            {% set grand_total = namespace(v=0) %}
-            {% set grand_qty = namespace(v=0) %}
-            {% for row in sales_period_payment_totals %}
-              {% set grand_total.v = grand_total.v + row['total']|float %}
-              {% set grand_qty.v = grand_qty.v + row['qty']|int %}
-              <div class="payment-summary-card">
-                <span class="pscard-method">{{ row['payment_method'] or 'N/A' }}</span>
-                <span class="pscard-qty">{{ row['qty'] }} venda{{ 's' if row['qty']|int > 1 else '' }}</span>
-                <span class="pscard-total">R$ {{ "%.2f"|format(row['total']|float)|replace('.', ',') }}</span>
+            {% for card in sales_period_payment_cards %}
+              <div class="payment-summary-card pscard-{{ card['key'] }}">
+                <span class="pscard-method">{{ card['label'] }}</span>
+                <span class="pscard-qty">{{ card['qty'] }} venda{{ 's' if card['qty']|int > 1 else '' }}</span>
+                <span class="pscard-total">R$ {{ "%.2f"|format(card['total']|float)|replace('.', ',') }}</span>
               </div>
             {% endfor %}
             <div class="payment-summary-card pscard-total-geral">
               <span class="pscard-method">Total geral</span>
-              <span class="pscard-qty">{{ grand_qty.v }} venda{{ 's' if grand_qty.v > 1 else '' }}</span>
-              <span class="pscard-total">R$ {{ "%.2f"|format(grand_total.v)|replace('.', ',') }}</span>
+              <span class="pscard-qty">{{ sales_period_grand_qty }} venda{{ 's' if sales_period_grand_qty > 1 else '' }}</span>
+              <span class="pscard-total">R$ {{ "%.2f"|format(sales_period_grand_total)|replace('.', ',') }}</span>
             </div>
           </div>
         </div>
@@ -275,7 +271,7 @@
         <tbody>
           {% for row in sales %}
             <tr>
-              <td>{{ row['date'][:10] }}</td>
+              <td>{{ row['date'][8:10] }}/{{ row['date'][5:7] }}/{{ row['date'][0:4] }}</td>
               <td>{{ row['client_name'] or t('no_client') }}</td>
               <td>{{ row['payment_method'] }}</td>
               <td>R$ {{ "%.2f"|format(row['total']|float)|replace('.', ',') }}</td>
@@ -313,10 +309,27 @@
       padding: 12px 16px;
       min-width: 160px;
     }
+    .pscard-dinheiro {
+      background: #eefbf3;
+      border-color: #a7e0be;
+    }
+    .pscard-pix {
+      background: #e6f4ff;
+      border-color: #9dd1f8;
+    }
+    .pscard-credito {
+      background: #f3ecff;
+      border-color: #c8b2ee;
+    }
+    .pscard-debito {
+      background: #fff7e6;
+      border-color: #f0cf8f;
+    }
     .pscard-total-geral {
-      background: #e0e7f3;
-      border-color: #a0b4d6;
+      background: #0f3270;
+      border-color: #0a2553;
       font-weight: 700;
+      box-shadow: 0 8px 18px rgba(15, 50, 112, 0.25);
     }
     .pscard-method {
       font-size: 0.82rem;
@@ -333,6 +346,11 @@
       font-size: 1.05rem;
       font-weight: 800;
       color: #123f86;
+    }
+    .pscard-total-geral .pscard-method,
+    .pscard-total-geral .pscard-qty,
+    .pscard-total-geral .pscard-total {
+      color: #ffffff;
     }
     .report-filter-card {
       margin-bottom: 20px;
