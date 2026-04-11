@@ -21,6 +21,7 @@ import re
 import json
 import logging
 import smtplib
+import unicodedata
 import psycopg
 from email.message import EmailMessage
 
@@ -2362,6 +2363,7 @@ def relatorios():
 
     for row in sales_period_payment_totals:
         method_text = (row["payment_method"] or "").strip().lower()
+        method_text = unicodedata.normalize("NFKD", method_text).encode("ascii", "ignore").decode("ascii")
         qty = int(row["qty"] or 0)
         total = float(row["total"] or 0)
 
