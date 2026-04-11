@@ -2,120 +2,154 @@
 
 {% block content %}
   <div class="form-card">
-    <h3>Configuracao de notificacoes por e-mail</h3>
-    <div class="parametros-hint">
-      <strong>Forma simples (recomendada):</strong>
-      <p>1) Escolha o provedor, 2) informe e-mail de origem + senha de aplicativo, 3) informe e-mail de destino principal.</p>
-      <p>Para Gmail e Outlook, use senha de aplicativo (não use sua senha normal da conta).</p>
-    </div>
-
     <form method="post" action="{{ url_for('parametros') }}">
-      <h3>Configuracao rapida</h3>
-      <label>Provedor de e-mail</label>
-      <select name="smtp_provider">
-        <option value="gmail" {% if settings.get('smtp_provider', 'gmail') == 'gmail' %}selected{% endif %}>Gmail</option>
-        <option value="outlook" {% if settings.get('smtp_provider') == 'outlook' %}selected{% endif %}>Outlook / Microsoft 365</option>
-        <option value="yahoo" {% if settings.get('smtp_provider') == 'yahoo' %}selected{% endif %}>Yahoo</option>
-        <option value="custom" {% if settings.get('smtp_provider') == 'custom' %}selected{% endif %}>Outro (manual)</option>
-      </select>
-
-      <label>E-mail de origem *</label>
-      <input type="email" name="smtp_from_email" value="{{ settings.get('smtp_from_email', '') }}" required>
-
-      <label>Senha de aplicativo *</label>
-      <input type="password" name="smtp_password" value="{{ settings.get('smtp_password', '') }}" placeholder="Cole aqui a senha de aplicativo" required>
-
-      <label>E-mail de destino principal</label>
-      <input type="email" name="notification_email" value="{{ settings.get('notification_email', '') }}" placeholder="Receber alertas e fechamento de caixa">
-
-      <label>Nome exibido no remetente</label>
-      <input type="text" name="smtp_from_name" value="{{ settings.get('smtp_from_name', 'Kdc Systems') }}">
-
-      <div class="param-check-row">
-        <input type="checkbox" name="send_sale_thank_you" id="send_sale_thank_you" {% if settings.get('send_sale_thank_you') == '1' %}checked{% endif %}>
-        <label for="send_sale_thank_you">Enviar e-mail de agradecimento ao cliente apos a venda</label>
-      </div>
-
-      <div class="param-check-row">
-        <input type="checkbox" name="send_stock_min_alert" id="send_stock_min_alert" {% if settings.get('send_stock_min_alert') == '1' %}checked{% endif %}>
-        <label for="send_stock_min_alert">Enviar alerta ao e-mail da conta principal quando produto atingir estoque minimo</label>
-      </div>
-
-      <div class="param-check-row">
-        <input type="checkbox" name="send_birthday_email" id="send_birthday_email" {% if settings.get('send_birthday_email') == '1' %}checked{% endif %}>
-        <label for="send_birthday_email">Enviar e-mail de aniversario para clientes</label>
-      </div>
-
-      <label>Assunto do e-mail de aniversario</label>
-      <input type="text" name="birthday_email_subject" value="{{ settings.get('birthday_email_subject', 'Feliz aniversário!') }}">
-
-      <label>Mensagem do e-mail de aniversario (use {name} para nome do cliente)</label>
-      <textarea name="birthday_email_body" rows="4">{{ settings.get('birthday_email_body', 'Olá {name}, desejamos um feliz aniversário! Obrigado por ser nosso cliente.') }}</textarea>
-
-      <input type="hidden" name="last_birthday_run_date" value="{{ settings.get('last_birthday_run_date', '') }}">
-
-      <details class="smtp-advanced-block">
-        <summary>Configuracao avancada SMTP (somente se necessario)</summary>
-
-        <label>Servidor SMTP</label>
-        <input type="text" name="smtp_host" placeholder="smtp.seuprovedor.com" value="{{ settings.get('smtp_host', '') }}">
-
-        <label>Porta SMTP</label>
-        <input type="number" name="smtp_port" value="{{ settings.get('smtp_port', '587') }}">
-
-        <label>Usuario SMTP (se vazio, usa o e-mail de origem)</label>
-        <input type="text" name="smtp_username" value="{{ settings.get('smtp_username', '') }}">
+      <section class="param-section">
+        <h3>Vendas e pagamentos</h3>
 
         <div class="param-check-row">
-          <input type="checkbox" name="smtp_use_tls" id="smtp_use_tls" {% if settings.get('smtp_use_tls') == '1' %}checked{% endif %}>
-          <label for="smtp_use_tls">Usar STARTTLS</label>
+          <input type="checkbox" name="allow_multi_payment_sale" id="allow_multi_payment_sale" {% if settings.get('allow_multi_payment_sale') == '1' %}checked{% endif %}>
+          <label for="allow_multi_payment_sale">Permitir mais de um tipo de pagamento na venda</label>
         </div>
-      </details>
 
-      <hr>
+        <h4 class="param-subtitle">Acréscimo por cartão</h4>
 
-      <h3>Acréscimo por forma de pagamento</h3>
+        <div class="param-check-row">
+          <input type="checkbox" name="card_credit_surcharge_enabled" id="card_credit_surcharge_enabled"
+            {% if settings.get('card_credit_surcharge_enabled') == '1' %}checked{% endif %}
+            onchange="toggleCreditRates(this.checked)">
+          <label for="card_credit_surcharge_enabled">Habilitar acréscimo no cartão de crédito</label>
+        </div>
 
-      <div class="param-check-row">
-        <input type="checkbox" name="card_credit_surcharge_enabled" id="card_credit_surcharge_enabled"
-          {% if settings.get('card_credit_surcharge_enabled') == '1' %}checked{% endif %}
-          onchange="toggleCreditRates(this.checked)">
-        <label for="card_credit_surcharge_enabled">Habilitar acréscimo no cartão de crédito</label>
-      </div>
+        <div id="credit-rates-block" style="{{ '' if settings.get('card_credit_surcharge_enabled') == '1' else 'display:none' }}">
+          <p class="param-hint-small">Informe o percentual de acréscimo (%) para cada número de parcelas. Use 0 para não cobrar acréscimo naquela parcela.</p>
+          <div class="credit-rates-grid">
+            {% for i in range(1, 13) %}
+            <div class="rate-field">
+              <label>{{ i }}x</label>
+              <div class="rate-input-wrap">
+                <input type="number" name="card_credit_rate_{{ i }}" min="0" max="100" step="0.01"
+                  value="{{ settings.get('card_credit_rate_' ~ i, '0') }}" class="rate-input">
+                <span class="rate-pct">%</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
 
-      <div id="credit-rates-block" style="{{ '' if settings.get('card_credit_surcharge_enabled') == '1' else 'display:none' }}">
-        <p class="param-hint-small">Informe o percentual de acréscimo (%) para cada número de parcelas. Use 0 para não cobrar acréscimo naquela parcela.</p>
-        <div class="credit-rates-grid">
-          {% for i in range(1, 13) %}
-          <div class="rate-field">
-            <label>{{ i }}x</label>
+        <div class="param-check-row" style="margin-top:1rem">
+          <input type="checkbox" name="card_debit_surcharge_enabled" id="card_debit_surcharge_enabled"
+            {% if settings.get('card_debit_surcharge_enabled') == '1' %}checked{% endif %}
+            onchange="toggleDebitRate(this.checked)">
+          <label for="card_debit_surcharge_enabled">Habilitar acréscimo no cartão de débito</label>
+        </div>
+
+        <div id="debit-rate-block" style="{{ '' if settings.get('card_debit_surcharge_enabled') == '1' else 'display:none' }}">
+          <div class="field-group" style="max-width:220px">
+            <label>Percentual de acréscimo no débito (%)</label>
             <div class="rate-input-wrap">
-              <input type="number" name="card_credit_rate_{{ i }}" min="0" max="100" step="0.01"
-                value="{{ settings.get('card_credit_rate_' ~ i, '0') }}" class="rate-input">
+              <input type="number" name="card_debit_rate" min="0" max="100" step="0.01"
+                value="{{ settings.get('card_debit_rate', '0') }}" class="rate-input">
               <span class="rate-pct">%</span>
             </div>
           </div>
-          {% endfor %}
         </div>
-      </div>
 
-      <div class="param-check-row" style="margin-top:1rem">
-        <input type="checkbox" name="card_debit_surcharge_enabled" id="card_debit_surcharge_enabled"
-          {% if settings.get('card_debit_surcharge_enabled') == '1' %}checked{% endif %}
-          onchange="toggleDebitRate(this.checked)">
-        <label for="card_debit_surcharge_enabled">Habilitar acréscimo no cartão de débito</label>
-      </div>
+        <h4 class="param-subtitle">Pix</h4>
+        <p class="param-hint-small">Defina os dados para gerar QR Code de cobrança Pix na tela de venda.</p>
 
-      <div id="debit-rate-block" style="{{ '' if settings.get('card_debit_surcharge_enabled') == '1' else 'display:none' }}">
-        <div class="field-group" style="max-width:200px">
-          <label>Percentual de acréscimo no débito (%)</label>
-          <div class="rate-input-wrap">
-            <input type="number" name="card_debit_rate" min="0" max="100" step="0.01"
-              value="{{ settings.get('card_debit_rate', '0') }}" class="rate-input">
-            <span class="rate-pct">%</span>
+        <label>Tipo da chave Pix</label>
+        <select name="pix_key_type">
+          <option value="" {% if not settings.get('pix_key_type') %}selected{% endif %}>Não configurar agora</option>
+          <option value="cpf" {% if settings.get('pix_key_type') == 'cpf' %}selected{% endif %}>CPF</option>
+          <option value="telefone" {% if settings.get('pix_key_type') == 'telefone' %}selected{% endif %}>Telefone</option>
+          <option value="email" {% if settings.get('pix_key_type') == 'email' %}selected{% endif %}>E-mail</option>
+          <option value="aleatoria" {% if settings.get('pix_key_type') == 'aleatoria' %}selected{% endif %}>Chave aleatória</option>
+        </select>
+
+        <label>Chave Pix</label>
+        <input type="text" name="pix_key_value" value="{{ settings.get('pix_key_value', '') }}" placeholder="Informe a chave correspondente ao tipo acima">
+
+        <div class="param-inline-grid">
+          <div>
+            <label>Nome do recebedor (Pix)</label>
+            <input type="text" name="pix_receiver_name" value="{{ settings.get('pix_receiver_name', '') }}" placeholder="Nome para o QR Code">
+          </div>
+          <div>
+            <label>Cidade (Pix)</label>
+            <input type="text" name="pix_receiver_city" value="{{ settings.get('pix_receiver_city', 'SAO PAULO') }}" placeholder="SAO PAULO">
           </div>
         </div>
-      </div>
+      </section>
+
+      <section class="param-section param-section-email">
+        <h3>E-mail e notificações</h3>
+        <div class="parametros-hint">
+          <strong>Forma simples (recomendada):</strong>
+          <p>1) Escolha o provedor, 2) informe e-mail de origem + senha de aplicativo, 3) informe e-mail de destino principal.</p>
+          <p>Esses dados só são necessários para envio de e-mails; os demais parâmetros funcionam sem eles.</p>
+        </div>
+
+        <label>Provedor de e-mail</label>
+        <select name="smtp_provider">
+          <option value="gmail" {% if settings.get('smtp_provider', 'gmail') == 'gmail' %}selected{% endif %}>Gmail</option>
+          <option value="outlook" {% if settings.get('smtp_provider') == 'outlook' %}selected{% endif %}>Outlook / Microsoft 365</option>
+          <option value="yahoo" {% if settings.get('smtp_provider') == 'yahoo' %}selected{% endif %}>Yahoo</option>
+          <option value="custom" {% if settings.get('smtp_provider') == 'custom' %}selected{% endif %}>Outro (manual)</option>
+        </select>
+
+        <label>E-mail de origem</label>
+        <input type="email" name="smtp_from_email" value="{{ settings.get('smtp_from_email', '') }}">
+
+        <label>Senha de aplicativo</label>
+        <input type="password" name="smtp_password" value="{{ settings.get('smtp_password', '') }}" placeholder="Cole aqui a senha de aplicativo">
+
+        <label>E-mail de destino principal</label>
+        <input type="email" name="notification_email" value="{{ settings.get('notification_email', '') }}" placeholder="Receber alertas e fechamento de caixa">
+
+        <label>Nome exibido no remetente</label>
+        <input type="text" name="smtp_from_name" value="{{ settings.get('smtp_from_name', 'Kdc Systems') }}">
+
+        <div class="param-check-row">
+          <input type="checkbox" name="send_sale_thank_you" id="send_sale_thank_you" {% if settings.get('send_sale_thank_you') == '1' %}checked{% endif %}>
+          <label for="send_sale_thank_you">Enviar e-mail de agradecimento ao cliente após a venda</label>
+        </div>
+
+        <div class="param-check-row">
+          <input type="checkbox" name="send_stock_min_alert" id="send_stock_min_alert" {% if settings.get('send_stock_min_alert') == '1' %}checked{% endif %}>
+          <label for="send_stock_min_alert">Enviar alerta ao e-mail principal quando produto atingir estoque mínimo</label>
+        </div>
+
+        <div class="param-check-row">
+          <input type="checkbox" name="send_birthday_email" id="send_birthday_email" {% if settings.get('send_birthday_email') == '1' %}checked{% endif %}>
+          <label for="send_birthday_email">Enviar e-mail de aniversário para clientes</label>
+        </div>
+
+        <label>Assunto do e-mail de aniversário</label>
+        <input type="text" name="birthday_email_subject" value="{{ settings.get('birthday_email_subject', 'Feliz aniversário!') }}">
+
+        <label>Mensagem do e-mail de aniversário (use {name} para nome do cliente)</label>
+        <textarea name="birthday_email_body" rows="4">{{ settings.get('birthday_email_body', 'Olá {name}, desejamos um feliz aniversário! Obrigado por ser nosso cliente.') }}</textarea>
+
+        <input type="hidden" name="last_birthday_run_date" value="{{ settings.get('last_birthday_run_date', '') }}">
+
+        <details class="smtp-advanced-block">
+          <summary>Configuração avançada SMTP (somente se necessário)</summary>
+
+          <label>Servidor SMTP</label>
+          <input type="text" name="smtp_host" placeholder="smtp.seuprovedor.com" value="{{ settings.get('smtp_host', '') }}">
+
+          <label>Porta SMTP</label>
+          <input type="number" name="smtp_port" value="{{ settings.get('smtp_port', '587') }}">
+
+          <label>Usuário SMTP (se vazio, usa o e-mail de origem)</label>
+          <input type="text" name="smtp_username" value="{{ settings.get('smtp_username', '') }}">
+
+          <div class="param-check-row">
+            <input type="checkbox" name="smtp_use_tls" id="smtp_use_tls" {% if settings.get('smtp_use_tls') == '1' %}checked{% endif %}>
+            <label for="smtp_use_tls">Usar STARTTLS</label>
+          </div>
+        </details>
+      </section>
 
       <button type="submit" class="btn-add">Salvar parametros</button>
     </form>

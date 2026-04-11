@@ -243,6 +243,32 @@
             </tbody>
           </table>
         {% else %}
+          {% if section == 'produtos' and report == 'product_gender_share' and product_gender_overall %}
+            <div class="payment-summary-block" style="margin-bottom:1rem">
+              <h4 class="payment-summary-title">Percentual geral por gênero (todas as vendas do período)</h4>
+              <div class="payment-summary-grid">
+                <div class="payment-summary-card pscard-dinheiro">
+                  <span class="pscard-method">{{ t('gender_male') }}</span>
+                  <span class="pscard-qty">Qtd: {{ "%.2f"|format(product_gender_overall.male) }}</span>
+                  <span class="pscard-total">{{ "%.1f"|format(product_gender_overall.male_pct) }}%</span>
+                </div>
+                <div class="payment-summary-card pscard-credito">
+                  <span class="pscard-method">{{ t('gender_female') }}</span>
+                  <span class="pscard-qty">Qtd: {{ "%.2f"|format(product_gender_overall.female) }}</span>
+                  <span class="pscard-total">{{ "%.1f"|format(product_gender_overall.female_pct) }}%</span>
+                </div>
+                <div class="payment-summary-card pscard-debito">
+                  <span class="pscard-method">{{ t('gender_not_informed') }}</span>
+                  <span class="pscard-qty">Qtd: {{ "%.2f"|format(product_gender_overall.na) }}</span>
+                  <span class="pscard-total">{{ "%.1f"|format(product_gender_overall.na_pct) }}%</span>
+                </div>
+                <div class="payment-summary-card pscard-total-geral">
+                  <span class="pscard-method">Total de unidades vendidas</span>
+                  <span class="pscard-total">{{ "%.2f"|format(product_gender_overall.total) }}</span>
+                </div>
+              </div>
+            </div>
+          {% endif %}
         <table>
           <thead>
             <tr>

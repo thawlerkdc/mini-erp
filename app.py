@@ -862,6 +862,11 @@ SETTINGS_DEFAULTS = {
     "card_credit_rate_12": "0",
     "card_debit_surcharge_enabled": "0",
     "card_debit_rate": "0",
+    "allow_multi_payment_sale": "0",
+    "pix_key_type": "",
+    "pix_key_value": "",
+    "pix_receiver_name": "",
+    "pix_receiver_city": "SAO PAULO",
 }
 
 SMTP_PROVIDER_PRESETS = {
@@ -879,8 +884,30 @@ def _clamp_rate(raw):
         return "0.00"
 
 
+def _safe_float(raw, default=0.0):
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(raw, default=0):
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
 def _to_bool(value):
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _sanitize_pix_key(raw_key_type, raw_key_value):
+    key_type = (raw_key_type or "").strip().lower()
+    key_value = (raw_key_value or "").strip()
+    if key_type not in {"cpf", "telefone", "email", "aleatoria"}:
+        return "", ""
+    return key_type, key_value
 
 
 def get_account_settings(account_id):
@@ -953,6 +980,8 @@ def save_account_settings(account_id, form_data):
         smtp_username = from_email
 
     keys = list(SETTINGS_DEFAULTS.keys())
+    pix_key_type, pix_key_value = _sanitize_pix_key(form_data.get("pix_key_type"), form_data.get("pix_key_value"))
+
     values = {
         "smtp_provider": provider,
         "send_sale_thank_you": "1" if form_data.get("send_sale_thank_you") else "0",
@@ -973,6 +1002,11 @@ def save_account_settings(account_id, form_data):
         "card_debit_surcharge_enabled": "1" if form_data.get("card_debit_surcharge_enabled") else "0",
         "card_debit_rate": _clamp_rate(form_data.get("card_debit_rate")),
         **{f"card_credit_rate_{i}": _clamp_rate(form_data.get(f"card_credit_rate_{i}")) for i in range(1, 13)},
+        "allow_multi_payment_sale": "1" if form_data.get("allow_multi_payment_sale") else "0",
+        "pix_key_type": pix_key_type,
+        "pix_key_value": pix_key_value,
+        "pix_receiver_name": (form_data.get("pix_receiver_name") or "").strip(),
+        "pix_receiver_city": (form_data.get("pix_receiver_city") or "SAO PAULO").strip().upper(),
     }
 
     conn = get_tenant_connection()
@@ -1651,15 +1685,30 @@ def vendas():
     clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     pix_code = None
     cash_summary = None
+    settings = get_account_settings(account_id)
+    card_settings_json = json.dumps({
+        "credit_enabled": settings.get("card_credit_surcharge_enabled") == "1",
+        "debit_enabled": settings.get("card_debit_surcharge_enabled") == "1",
+        "debit_rate": float(settings.get("card_debit_rate") or 0),
+        "credit_rates": {str(i): float(settings.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
+    })
+    payment_ui_settings_json = json.dumps({
+        "allow_multi": settings.get("allow_multi_payment_sale") == "1",
+        "pix_key_type": settings.get("pix_key_type") or "",
+        "pix_key_value": settings.get("pix_key_value") or "",
+        "pix_receiver_name": settings.get("pix_receiver_name") or (session.get("account_name") or "KDC SYSTEMS"),
+        "pix_receiver_city": settings.get("pix_receiver_city") or "SAO PAULO",
+    })
 
     if request.method == "POST":
         product_ids = request.form.getlist("product_id[]")
         quantities = request.form.getlist("quantity[]")
         unit_prices = request.form.getlist("unit_price[]")
-        discount = float(request.form.get("discount") or 0)
-        surcharge = float(request.form.get("surcharge") or 0)
-        payment_method = request.form.get("payment_method")
-        payment_received = float(request.form.get("payment_received") or 0)
+        discount = _safe_float(request.form.get("discount") or 0)
+        surcharge = _safe_float(request.form.get("surcharge") or 0)
+        payment_method = request.form.get("payment_method") or "Dinheiro"
+        payment_received = _safe_float(request.form.get("payment_received") or 0)
+        installments_single = _safe_int(request.form.get("installments") or 1, 1)
         client_id = request.form.get("client_id") or None
         items = []
         total = 0
@@ -1672,8 +1721,8 @@ def vendas():
             product = conn.execute("SELECT * FROM products WHERE id = %s AND account_id = %s", (pid, account_id)).fetchone()
             if not product:
                 continue
-            quantity = float(qty or 0)
-            unit_price = float(price or 0)
+            quantity = _safe_float(qty or 0)
+            unit_price = _safe_float(price or 0)
             if quantity <= 0:
                 continue
             if product["stock"] < quantity:
@@ -1701,6 +1750,54 @@ def vendas():
             return redirect(url_for("vendas"))
 
         total = total - discount + surcharge
+        if total <= 0:
+            flash("O total final da venda precisa ser maior que zero.", "error")
+            conn.close()
+            return redirect(url_for("vendas"))
+
+        allow_multi = settings.get("allow_multi_payment_sale") == "1"
+        payment_parts = []
+        payment_methods = request.form.getlist("pay_method[]")
+        payment_amounts = request.form.getlist("pay_amount[]")
+        payment_installments = request.form.getlist("pay_installments[]")
+
+        if allow_multi:
+            for idx, method_name in enumerate(payment_methods):
+                method_name = (method_name or "").strip()
+                amount = _safe_float(payment_amounts[idx] if idx < len(payment_amounts) else 0)
+                installments = _safe_int(payment_installments[idx] if idx < len(payment_installments) else 1, 1)
+                if not method_name or amount <= 0:
+                    continue
+                payment_parts.append({"method": method_name, "amount": amount, "installments": max(1, installments)})
+
+            if payment_parts:
+                paid_total = sum(part["amount"] for part in payment_parts)
+                if abs(paid_total - total) > 0.05:
+                    flash("A soma das formas de pagamento deve ser igual ao total da venda.", "error")
+                    conn.close()
+                    return redirect(url_for("vendas"))
+                payment_method = "Múltiplos"
+            else:
+                if payment_method == "Crédito":
+                    payment_method = f"Crédito ({max(1, installments_single)}x)"
+        else:
+            if payment_method == "Crédito":
+                payment_method = f"Crédito ({max(1, installments_single)}x)"
+
+        has_pix_in_sale = payment_method.startswith("Pix") or any(part["method"] == "Pix" for part in payment_parts)
+        if has_pix_in_sale and request.form.get("pix_confirmed") != "1":
+            flash("Confirme o recebimento via Pix para concluir a venda.", "error")
+            conn.close()
+            return redirect(url_for("vendas"))
+
+        if payment_method == "Múltiplos":
+            payment_method = " | ".join(
+                [
+                    f"{part['method']} R$ {part['amount']:.2f}" + (f" ({part['installments']}x)" if part["method"] == "Crédito" else "")
+                    for part in payment_parts
+                ]
+            )
+
         profit = total - cost_total
         sale_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -1726,8 +1823,6 @@ def vendas():
 
         conn.commit()
         flash(translate("sale_success"), "success")
-
-        settings = get_account_settings(account_id)
 
         if _to_bool(settings.get("send_sale_thank_you")) and client_id:
             client = conn.execute(
@@ -1791,7 +1886,7 @@ def vendas():
                     if not sent:
                         flash(f"Falha ao enviar alerta de estoque mínimo: {err}", "error")
 
-        if payment_method == "Pix":
+        if payment_method.startswith("Pix"):
             pix_code = f"PIX-{int(total * 100)}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
         # Recarrega os produtos para refletir o estoque atualizado na nova venda.
@@ -1805,13 +1900,6 @@ def vendas():
         ).fetchall()
 
         conn.close()
-        _vs = get_account_settings(account_id)
-        _card_settings_json = json.dumps({
-            "credit_enabled": _vs.get("card_credit_surcharge_enabled") == "1",
-            "debit_enabled": _vs.get("card_debit_surcharge_enabled") == "1",
-            "debit_rate": float(_vs.get("card_debit_rate") or 0),
-            "credit_rates": {str(i): float(_vs.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
-        })
         return render_template(
             "vendas.html",
             title=translate("menu_sales"),
@@ -1819,16 +1907,10 @@ def vendas():
             clients=clients,
             pix_code=pix_code,
             cash_summary=None,
-            card_settings_json=_card_settings_json,
+            card_settings_json=card_settings_json,
+            payment_ui_settings_json=payment_ui_settings_json,
         )
 
-    _vs = get_account_settings(account_id)
-    _card_settings_json = json.dumps({
-        "credit_enabled": _vs.get("card_credit_surcharge_enabled") == "1",
-        "debit_enabled": _vs.get("card_debit_surcharge_enabled") == "1",
-        "debit_rate": float(_vs.get("card_debit_rate") or 0),
-        "credit_rates": {str(i): float(_vs.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
-    })
     conn.close()
     return render_template(
         "vendas.html",
@@ -1837,7 +1919,8 @@ def vendas():
         clients=clients,
         pix_code=pix_code,
         cash_summary=cash_summary,
-        card_settings_json=_card_settings_json,
+        card_settings_json=card_settings_json,
+        payment_ui_settings_json=payment_ui_settings_json,
     )
 
 
@@ -1999,6 +2082,7 @@ def relatorios():
     section_title = None
     report_total = None
     report_row_classes = []
+    product_gender_overall = None
     stock_categories = conn.execute(
         "SELECT id, name FROM categories WHERE account_id = %s ORDER BY name ASC",
         (account_id,),
@@ -2236,8 +2320,14 @@ def relatorios():
             report_total = sum(float(row[1] or 0) for row in report_rows)
         elif report == "product_gender_share":
             report_title = translate("product_gender_share")
-            report_description = "Percentual de compras por gênero para cada produto."
-            report_headers = [translate("product_name"), translate("gender_male"), translate("gender_female"), translate("gender_not_informed")]
+            report_description = "Quantidade vendida por produto com percentual por gênero e percentual geral."
+            report_headers = [
+                translate("product_name"),
+                "Quantidade vendida",
+                translate("gender_male"),
+                translate("gender_female"),
+                translate("gender_not_informed"),
+            ]
             report_rows = conn.execute(
                 "SELECT p.name AS product_name, "
                 "COALESCE(SUM(CASE WHEN c.gender = 'masculino' THEN si.quantity ELSE 0 END), 0) AS qty_male, "
@@ -2252,21 +2342,45 @@ def relatorios():
                 tuple(sales_params),
             ).fetchall()
 
+            qty_male_total = 0.0
+            qty_female_total = 0.0
+            qty_na_total = 0.0
             percent_rows = []
             for row in report_rows:
-                total_qty = float(row[1] or 0) + float(row[2] or 0) + float(row[3] or 0)
+                qty_male = float(row[1] or 0)
+                qty_female = float(row[2] or 0)
+                qty_na = float(row[3] or 0)
+                total_qty = qty_male + qty_female + qty_na
+
+                qty_male_total += qty_male
+                qty_female_total += qty_female
+                qty_na_total += qty_na
+
                 if total_qty <= 0:
-                    percent_rows.append((row[0], "0.0%", "0.0%", "0.0%"))
+                    percent_rows.append((row[0], "0", "0 (0.0%)", "0 (0.0%)", "0 (0.0%)"))
                 else:
                     percent_rows.append(
                         (
                             row[0],
-                            f"{(float(row[1]) / total_qty) * 100:.1f}%",
-                            f"{(float(row[2]) / total_qty) * 100:.1f}%",
-                            f"{(float(row[3]) / total_qty) * 100:.1f}%",
+                            f"{total_qty:.2f}",
+                            f"{qty_male:.2f} ({(qty_male / total_qty) * 100:.1f}%)",
+                            f"{qty_female:.2f} ({(qty_female / total_qty) * 100:.1f}%)",
+                            f"{qty_na:.2f} ({(qty_na / total_qty) * 100:.1f}%)",
                         )
                     )
             report_rows = percent_rows
+
+            qty_total_geral = qty_male_total + qty_female_total + qty_na_total
+            if qty_total_geral > 0:
+                product_gender_overall = {
+                    "total": qty_total_geral,
+                    "male": qty_male_total,
+                    "female": qty_female_total,
+                    "na": qty_na_total,
+                    "male_pct": (qty_male_total / qty_total_geral) * 100,
+                    "female_pct": (qty_female_total / qty_total_geral) * 100,
+                    "na_pct": (qty_na_total / qty_total_geral) * 100,
+                }
     elif section == "estoque":
         section_title = "Relatórios de estoque"
         report_options = [
@@ -2484,6 +2598,7 @@ def relatorios():
         sales_period_grand_qty=sales_period_grand_qty,
         sales_period_grand_total=sales_period_grand_total,
         filter_category_name=filter_category_name,
+        product_gender_overall=product_gender_overall,
     )
 
 
@@ -2495,14 +2610,14 @@ def manual():
 
 
 ADJUSTMENT_REASONS = [
+    ("ajuste_inventario_add", "Ajuste de inventário (acréscimo)", "add"),
+    ("devolucao_cliente", "Devolução de cliente", "add"),
+    ("ajuste_inventario_sub", "Ajuste de inventário (redução)", "subtract"),
+    ("devolucao_fornecedor", "Devolução ao fornecedor", "subtract"),
     ("perda", "Perda (perdas gerais)", "subtract"),
+    ("quebra", "Quebra / Danificado", "subtract"),
     ("roubo", "Roubo", "subtract"),
     ("vencimento", "Vencimento / Produto vencido", "subtract"),
-    ("quebra", "Quebra / Danificado", "subtract"),
-    ("devolucao_cliente", "Devolução de cliente", "add"),
-    ("devolucao_fornecedor", "Devolução ao fornecedor", "subtract"),
-    ("ajuste_inventario_add", "Ajuste de inventário (acréscimo)", "add"),
-    ("ajuste_inventario_sub", "Ajuste de inventário (redução)", "subtract"),
 ]
 
 
@@ -2653,7 +2768,8 @@ def estoque_ajuste():
         title="Ajuste de Estoque",
         products=products,
         recent=recent,
-        adjustment_reasons=ADJUSTMENT_REASONS,
+        adjustment_reasons_add=sorted([r for r in ADJUSTMENT_REASONS if r[2] == "add"], key=lambda x: x[1].lower()),
+        adjustment_reasons_sub=sorted([r for r in ADJUSTMENT_REASONS if r[2] == "subtract"], key=lambda x: x[1].lower()),
         today=datetime.now().strftime("%Y-%m-%d"),
     )
 

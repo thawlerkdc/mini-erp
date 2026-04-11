@@ -26,11 +26,22 @@
         <label>Motivo do ajuste *</label>
         <select name="reason" id="reason-select" required onchange="updateAdjustPreview()">
           <option value="">Selecione o motivo</option>
-          {% for key, label, effect in adjustment_reasons %}
-            <option value="{{ key }}" data-effect="{{ effect }}">{{ label }}</option>
-          {% endfor %}
+          <optgroup label="Adicionar ao estoque">
+            {% for key, label, effect in adjustment_reasons_add %}
+              <option value="{{ key }}" data-effect="{{ effect }}" class="reason-add">{{ label }}</option>
+            {% endfor %}
+          </optgroup>
+          <optgroup label="Remover do estoque">
+            {% for key, label, effect in adjustment_reasons_sub %}
+              <option value="{{ key }}" data-effect="{{ effect }}" class="reason-sub">{{ label }}</option>
+            {% endfor %}
+          </optgroup>
         </select>
         <span id="adj-effect-hint" class="field-hint"></span>
+        <div class="stock-reason-legend">
+          <span class="legend-add">&#9679; Verde: motivos que aumentam estoque</span>
+          <span class="legend-sub">&#9679; Vermelho: motivos que reduzem estoque</span>
+        </div>
       </div>
 
       <div class="field-group">
