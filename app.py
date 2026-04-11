@@ -2066,6 +2066,7 @@ def relatorios():
         "SELECT s.*, c.name AS client_name FROM sales s LEFT JOIN clients c ON s.client_id = c.id" + sales_where + " ORDER BY s.date DESC",
         tuple(sales_params),
     ).fetchall()
+    sales = [{**dict(r), "date_display": _format_date_br(r["date"])} for r in sales]
 
     top_customers = conn.execute(
         "SELECT c.name, COALESCE(SUM(s.total), 0) AS total FROM sales s LEFT JOIN clients c ON s.client_id = c.id"

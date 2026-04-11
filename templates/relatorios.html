@@ -342,17 +342,21 @@
           <th>{{ t('client_label') }}</th>
           <th>{{ t('payment_method') }}</th>
           <th>{{ t('total_label') }}</th>
+          <th>Acréscimo (juros)</th>
+          <th>Desconto</th>
         </tr></thead>
         <tbody>
           {% for row in sales %}
             <tr>
-              <td>{{ row['date'][8:10] }}/{{ row['date'][5:7] }}/{{ row['date'][0:4] }}</td>
+              <td>{{ row['date_display'] }}</td>
               <td>{{ row['client_name'] or t('no_client') }}</td>
               <td>{{ row['payment_method'] }}</td>
               <td>R$ {{ "%.2f"|format(row['total']|float)|replace('.', ',') }}</td>
+              <td>{% if row['surcharge']|float > 0 %}R$ {{ "%.2f"|format(row['surcharge']|float)|replace('.', ',') }}{% else %}—{% endif %}</td>
+              <td>{% if row['discount']|float > 0 %}R$ {{ "%.2f"|format(row['discount']|float)|replace('.', ',') }}{% else %}—{% endif %}</td>
             </tr>
           {% else %}
-            <tr><td colspan="4">{{ t('no_records_found') }}</td></tr>
+            <tr><td colspan="6">{{ t('no_records_found') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
