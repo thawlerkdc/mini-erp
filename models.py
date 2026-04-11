@@ -181,6 +181,39 @@ _TENANT_MIGRATIONS = [
 
 ADMIN_USER = ("admin", "admin123", "admin@kdcsystems.local", 1)
 
+DEFAULT_CATEGORIES = [
+    "Alimentos e Bebidas",
+    "Automotivo",
+    "Brinquedos e Jogos",
+    "Casa e Decoração",
+    "Eletrônicos",
+    "Esportes e Lazer",
+    "Farmácia",
+    "Ferramentas e Construção",
+    "Higiene e Beleza",
+    "Informática",
+    "Limpeza",
+    "Papelaria e Escritório",
+    "Pet Shop",
+    "Serviços",
+    "Vestuário e Acessórios",
+]
+
+DEFAULT_UNITS = ["CX", "KG", "PC", "PT", "UN"]
+
+
+def seed_default_data(account_id: int, conn) -> None:
+    for cat in DEFAULT_CATEGORIES:
+        conn.execute(
+            "INSERT INTO categories (account_id, name) VALUES (%s, %s) ON CONFLICT (account_id, name) DO NOTHING",
+            (account_id, cat),
+        )
+    for unit in DEFAULT_UNITS:
+        conn.execute(
+            "INSERT INTO units (account_id, name) VALUES (%s, %s) ON CONFLICT (account_id, name) DO NOTHING",
+            (account_id, unit),
+        )
+
 
 # ---------------------------------------------------------------------------
 # Connection
@@ -380,9 +413,20 @@ def create_account_with_owner(
         "VALUES (%s, %s, %s, %s, %s, 'owner', 1, %s)",
         (account_id, username.strip(), owner_name.strip(), password, email, timestamp),
     )
+    seed_default_data(account_id, conn)
     conn.commit()
     conn.close()
     return account_id
+
+
+def seed_all_accounts_default_data() -> None:
+    """Ensures all existing accounts have the default categories and units seeded."""
+    conn = get_db_connection()
+    accounts = conn.execute("SELECT id FROM accounts").fetchall()
+    for row in accounts:
+        seed_default_data(row[0], conn)
+    conn.commit()
+    conn.close()
 
 
 def seed_admin(db_path=None):

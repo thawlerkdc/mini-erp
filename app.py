@@ -13,6 +13,7 @@ from models import (
     init_tenant_db,
     migrate_legacy_database,
     seed_admin,
+    seed_all_accounts_default_data,
 )
 from datetime import datetime
 from calendar import monthrange
@@ -782,6 +783,7 @@ try:
     init_tenant_db()
     migrate_legacy_database()
     seed_admin()
+    seed_all_accounts_default_data()
     DB_STATUS["available"] = True
     DB_STATUS["mode"] = "online"
     logger.info("✅ Banco de dados conectado e inicializado")
@@ -1783,6 +1785,7 @@ def vendas():
             clients=clients,
             pix_code=pix_code,
             cash_summary=None,
+            sale_done=True,
         )
 
     conn.close()

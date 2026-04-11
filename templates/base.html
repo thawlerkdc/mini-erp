@@ -24,8 +24,8 @@
             <a href="{{ url_for('cadastro', entity='produtos') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'produtos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128230;</span><span>{{ t('menu_products') }}</span></a>
             <a href="{{ url_for('cadastro', entity='clientes') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'clientes' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128100;</span><span>{{ t('menu_clients') }}</span></a>
             <a href="{{ url_for('cadastro', entity='fornecedores') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'fornecedores' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127970;</span><span>{{ t('menu_suppliers') }}</span></a>
-            <a href="{{ url_for('cadastro', entity='categorias') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128451;</span><span>{{ t('category_label') }}</span></a>
-            <a href="{{ url_for('cadastro', entity='unidades') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'unidades' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9878;</span><span>{{ t('unit_label') }}</span></a>
+            <a href="{{ url_for('cadastro', entity='categorias') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128451;</span><span>Categorias</span></a>
+            <a href="{{ url_for('cadastro', entity='unidades') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'unidades' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9878;</span><span>Unidades de Medida</span></a>
             <a href="{{ url_for('vendas') }}" class="nav-link {% if request.endpoint == 'vendas' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128722;</span><span>{{ t('menu_sales') }}</span></a>
             <a href="{{ url_for('relatorios') }}" class="nav-link {% if request.endpoint == 'relatorios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128202;</span><span>{{ t('menu_reports') }}</span></a>
             <a href="{{ url_for('manual') }}" class="nav-link {% if request.endpoint == 'manual' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128214;</span><span>{{ t('menu_manual') }}</span></a>
@@ -163,12 +163,11 @@
                 closeAllDropdowns(dropdown);
 
                 if (willOpen) {
+                  measureAndPositionLanguageDropdown(dropdown);
                   dropdown.classList.add('is-open');
                 } else {
                   dropdown.classList.remove('is-open');
                 }
-
-                measureAndPositionLanguageDropdown(dropdown);
               });
 
               button.addEventListener('keydown', function (event) {

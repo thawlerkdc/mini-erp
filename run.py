@@ -38,10 +38,10 @@ def main():
     # Inicializar banco de dados
     logger.info("Inicializando banco de dados...")
     try:
-        from models import init_db, seed_admin
-        db_path = str(project_dir / "kdc_systems.db")
-        init_db(db_path)
-        seed_admin(db_path)
+        from models import init_auth_db, init_tenant_db, seed_admin
+        init_auth_db()
+        init_tenant_db()
+        seed_admin()
         logger.info("✓ Banco de dados pronto")
     except Exception as e:
         logger.error(f"✗ Erro ao inicializar banco de dados: {e}")

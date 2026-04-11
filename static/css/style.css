@@ -1,4 +1,4 @@
-* {
+﻿* {
   box-sizing: border-box;
 }
 
@@ -1025,5 +1025,195 @@ body {
 
   .dashboard-actions {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ========================================================
+   Sale screen - Nova Venda layout
+   ======================================================== */
+.sale-card {
+  padding: 28px;
+}
+
+.sale-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sale-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.sale-add-btn {
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  border-radius: 10px;
+}
+
+/* Product row */
+.sale-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 3fr) minmax(70px, 1fr) minmax(90px, 1fr) minmax(90px, 1fr) 48px;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 16px 14px;
+}
+
+.product-select-wrapper {
+  position: relative;
+}
+
+.product-select-wrapper select {
+  padding-right: 36px;
+  width: 100%;
+}
+
+.product-search-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 1rem;
+  opacity: 0.5;
+}
+
+.sale-field-del {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 2px;
+}
+
+.btn-icon-del {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  font-size: 1rem !important;
+  border-radius: 10px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Controls row */
+.sale-lower {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.sale-controls-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+/* Client + Summary */
+.sale-client-summary {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.sale-client-field {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+.totals-section {
+  flex: 0 0 320px;
+  min-width: 260px;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 18px 20px;
+  border: 1px solid #e5e7eb;
+}
+
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+.totals-row strong {
+  font-size: 1.15rem;
+  color: var(--brand-700);
+}
+
+.btn-confirm-sale {
+  width: 100%;
+  margin-top: 8px;
+  background: #1e4fc7;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  padding: 12px;
+}
+
+.btn-confirm-sale:hover {
+  background: #1640a8;
+}
+
+/* Sale success toast */
+.sale-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #10b981;
+  color: #fff;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 8px 24px rgba(16, 42, 89, 0.18);
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
+}
+
+.sale-toast.sale-toast-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sale-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .sale-field-del {
+    grid-column: span 2;
+    justify-content: flex-end;
+  }
+  .sale-controls-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .sale-client-summary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .totals-section {
+    flex: none;
+    width: 100%;
   }
 }
