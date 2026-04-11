@@ -15,7 +15,15 @@
             <span class="brand-subtitle">ERP</span>
           </div>
 
-          <nav class="sidebar-nav" id="sidebar-nav">
+          <div class="menu-group">
+            <div class="menu-group-title">Favoritos</div>
+            <nav class="sidebar-nav sidebar-nav-favorites" id="sidebar-nav-favorites"></nav>
+            <div class="menu-empty-hint" id="sidebar-fav-empty">Marque com estrela para fixar atalhos aqui.</div>
+          </div>
+
+          <div class="menu-group">
+            <div class="menu-group-title">Todos os menus</div>
+            <nav class="sidebar-nav" id="sidebar-nav">
             <a href="{{ url_for('estoque_ajuste') }}" data-menu-key="ajuste_estoque" class="nav-link {% if request.endpoint == 'estoque_ajuste' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9881;</span><span>Ajuste de Estoque</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
             <a href="{{ url_for('cadastro', entity='categorias') }}" data-menu-key="categorias" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128451;</span><span>Categorias</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
             <a href="{{ url_for('cadastro', entity='clientes') }}" data-menu-key="clientes" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'clientes' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128100;</span><span>{{ t('menu_clients') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
@@ -33,7 +41,8 @@
               <a href="{{ url_for('cadastro', entity='usuarios') }}" data-menu-key="usuarios" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'usuarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>{{ t('menu_users') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
             {% endif %}
             <a href="{{ url_for('vendas') }}" data-menu-key="vendas" class="nav-link {% if request.endpoint == 'vendas' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128722;</span><span>{{ t('menu_sales') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
-          </nav>
+            </nav>
+          </div>
 
           <div class="sidebar-footer">
             <button type="button" class="menu-sort-toggle" id="menu-sort-toggle">Favoritos primeiro: desligado</button>
@@ -226,6 +235,8 @@
 
         function bindMenuFavorites() {
           var nav = document.getElementById('sidebar-nav');
+          var favoritesNav = document.getElementById('sidebar-nav-favorites');
+          var favoritesEmpty = document.getElementById('sidebar-fav-empty');
           if (!nav) return;
 
           var account = '{{ session.get("account_id") or "global" }}';
@@ -266,6 +277,26 @@
                 star.textContent = fav ? '★' : '☆';
               }
             });
+            rebuildFavoritesSection(favorites);
+          }
+
+          function rebuildFavoritesSection(favorites) {
+            if (!favoritesNav) return;
+            favoritesNav.innerHTML = '';
+            var links = Array.prototype.slice.call(nav.querySelectorAll('.nav-link[data-menu-key]'));
+            links.forEach(function (link) {
+              var key = link.getAttribute('data-menu-key');
+              if (favorites.indexOf(key) < 0) return;
+              var clone = link.cloneNode(true);
+              var star = clone.querySelector('.menu-fav-toggle');
+              if (star) {
+                star.remove();
+              }
+              favoritesNav.appendChild(clone);
+            });
+            if (favoritesEmpty) {
+              favoritesEmpty.style.display = favoritesNav.children.length ? 'none' : '';
+            }
           }
 
           function sortMenuByFavorites() {

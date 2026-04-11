@@ -6,7 +6,7 @@
       <h2 class="sale-title">Nova Venda</h2>
       <div class="sale-header-actions">
         <button type="button" class="btn-add sale-add-btn" onclick="addSaleRow()">+ {{ t('add_item') }}</button>
-        <button type="button" class="outline-button sale-clear-btn" onclick="clearSaleData()">Limpar venda</button>
+        <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()">Limpar venda</button>
       </div>
     </div>
 
@@ -539,6 +539,12 @@
       onPaymentMethodChange('Dinheiro');
       updateTotals();
     }
+
+    function confirmClearSaleData() {
+      if (confirm('Deseja realmente limpar os dados da venda atual?')) {
+        clearSaleData();
+      }
+    }
     function updateChange(orderTotal) {
       if (PAYMENT_UI_SETTINGS.allow_multi) {
         document.getElementById('order-change').innerText = 'R$ ' + formatCurrency(0);
@@ -578,6 +584,29 @@
       return clean.substring(0, maxLen);
     }
 
+    function normalizePixKey(keyType, keyValue) {
+      let raw = (keyValue || '').trim();
+      if (!raw) return '';
+      if (keyType === 'cpf') {
+        let digits = raw.replace(/\D/g, '').slice(0, 11);
+        return digits.length === 11 ? digits : '';
+      }
+      if (keyType === 'telefone') {
+        let digits = raw.replace(/\D/g, '');
+        if (digits.startsWith('55')) {
+          return (digits.length >= 12 && digits.length <= 13) ? ('+' + digits) : '';
+        }
+        return (digits.length >= 10 && digits.length <= 11) ? ('+55' + digits) : '';
+      }
+      if (keyType === 'email') {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw.toLowerCase() : '';
+      }
+      if (keyType === 'aleatoria') {
+        return raw.length >= 32 ? raw : '';
+      }
+      return '';
+    }
+
     function getPixAmountForQr(orderTotal) {
       if (!PAYMENT_UI_SETTINGS.allow_multi) {
         return document.getElementById('payment-method-select').value === 'Pix' ? orderTotal : 0;
@@ -598,7 +627,7 @@
 
     function buildPixPayload(amount) {
       let keyType = PAYMENT_UI_SETTINGS.pix_key_type || '';
-      let keyValue = (PAYMENT_UI_SETTINGS.pix_key_value || '').trim();
+      let keyValue = normalizePixKey(keyType, PAYMENT_UI_SETTINGS.pix_key_value || '');
       if (!keyType || !keyValue) {
         return '';
       }
@@ -609,7 +638,7 @@
       let key = tlv('01', keyValue);
       let merchantInfo = tlv('26', gui + key);
       let valueField = tlv('54', Number(amount).toFixed(2));
-      let txid = tlv('05', 'VENDA' + Date.now().toString().slice(-8));
+      let txid = tlv('05', ('VENDA' + Date.now().toString().slice(-8)).substring(0, 25));
 
       let payloadSemCrc =
         tlv('00', '01') +
@@ -703,7 +732,7 @@
       let payload = buildPixPayload(pixAmount);
       if (!payload) {
         event.preventDefault();
-        alert('Configure a chave Pix nos parâmetros antes de vender com Pix.');
+        alert('Chave Pix inválida ou não configurada. Revise tipo e valor da chave nos parâmetros.');
         return;
       }
       event.preventDefault();
