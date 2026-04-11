@@ -2401,7 +2401,8 @@ def relatorios():
         section_title = translate("sales_period_report_card")
 
     # Expose category-drill-down filter for template
-    filter_category_name = request.args.get("filter_category_name") or "" = conn.execute(
+    filter_category_name = request.args.get("filter_category_name") or ""
+    sales_period_payment_totals = conn.execute(
         "SELECT payment_method, COUNT(*) AS qty, COALESCE(SUM(total), 0) AS total FROM sales s"
         + sales_where
         + " GROUP BY payment_method ORDER BY total DESC",
