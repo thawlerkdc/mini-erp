@@ -148,7 +148,6 @@
     var CARD_SETTINGS = {{ card_settings_json|safe }};
     var PAYMENT_UI_SETTINGS = {{ payment_ui_settings_json|safe }};
     var PIX_QR_INSTANCE = null;
-    var MULTI_TARGET_TOTAL = null;
 
     function formatCurrency(value) {
       return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -159,6 +158,28 @@
     function parseNumber(value) {
       if (value === null || value === undefined) return 0;
       return parseFloat(String(value).replace(',', '.')) || 0;
+    }
+
+    function getMethodRate(method, installments) {
+      if (method === 'Crédito' && CARD_SETTINGS.credit_enabled) {
+        return parseFloat(CARD_SETTINGS.credit_rates[String(Math.max(1, installments || 1))]) || 0;
+      }
+      if (method === 'Débito' && CARD_SETTINGS.debit_enabled) {
+        return parseFloat(CARD_SETTINGS.debit_rate) || 0;
+      }
+      return 0;
+    }
+
+    function rowFinalToBase(finalAmount, method, installments) {
+      let rate = getMethodRate(method, installments);
+      if (rate <= 0) return finalAmount;
+      return finalAmount / (1 + rate / 100);
+    }
+
+    function rowBaseToFinal(baseAmount, method, installments) {
+      let rate = getMethodRate(method, installments);
+      if (rate <= 0) return baseAmount;
+      return baseAmount * (1 + rate / 100);
     }
     function getSubtotal() {
       let rows = document.querySelectorAll('.sale-row');
@@ -226,8 +247,9 @@
 
       if (container.querySelectorAll('.payment-row').length === 0) {
         // Primeira adição: mantém a forma principal como primeira linha e abre uma segunda linha vazia.
-        MULTI_TARGET_TOTAL = getOrderTotal();
-        buildPaymentRow(defaultMethod, defaultInstallments, getOrderTotal());
+        let orderBase = getOrderBase();
+        let firstFinal = rowBaseToFinal(orderBase, defaultMethod, defaultInstallments);
+        buildPaymentRow(defaultMethod, defaultInstallments, firstFinal);
         buildPaymentRow(defaultMethod, 1, 0);
       } else {
         buildPaymentRow(defaultMethod, 1, 0);
@@ -262,9 +284,7 @@
     function removePaymentRow(button) {
       button.closest('.payment-row').remove();
       let rows = document.querySelectorAll('#payment-rows .payment-row');
-      if (!rows.length) {
-        MULTI_TARGET_TOTAL = null;
-      } else {
+      if (rows.length) {
         rebalanceSplitRows();
       }
       onPaymentMethodChange(document.getElementById('payment-method-select').value);
@@ -283,9 +303,7 @@
         return;
       }
       let index = rows.indexOf(row);
-      if (index === 0) {
-        MULTI_TARGET_TOTAL = getSplitPaidTotal();
-      } else {
+      if (index > 0) {
         rebalanceSplitRows();
       }
       applyCardSurcharge();
@@ -294,18 +312,21 @@
     function rebalanceSplitRows() {
       let rows = Array.from(document.querySelectorAll('#payment-rows .payment-row'));
       if (!rows.length) return;
-      if (MULTI_TARGET_TOTAL === null) {
-        MULTI_TARGET_TOTAL = getOrderTotal();
-      }
-
-      let sumOthers = 0;
+      let orderBase = getOrderBase();
+      let consumedBase = 0;
       rows.forEach((row, index) => {
         if (index === 0) return;
-        sumOthers += parseNumber(row.querySelector('input[name="pay_amount[]"]').value);
+        let method = row.querySelector('select[name="pay_method[]"]').value;
+        let installments = parseInt(row.querySelector('select[name="pay_installments[]"]').value) || 1;
+        let finalAmount = parseNumber(row.querySelector('input[name="pay_amount[]"]').value);
+        consumedBase += rowFinalToBase(finalAmount, method, installments);
       });
 
-      let firstAmount = Math.max(MULTI_TARGET_TOTAL - sumOthers, 0);
-      rows[0].querySelector('input[name="pay_amount[]"]').value = formatNumber(firstAmount);
+      let remainingBase = Math.max(orderBase - consumedBase, 0);
+      let firstMethod = rows[0].querySelector('select[name="pay_method[]"]').value;
+      let firstInstallments = parseInt(rows[0].querySelector('select[name="pay_installments[]"]').value) || 1;
+      let firstFinal = rowBaseToFinal(remainingBase, firstMethod, firstInstallments);
+      rows[0].querySelector('input[name="pay_amount[]"]').value = formatNumber(firstFinal);
     }
 
     function onPaymentRowChange(el) {
@@ -439,9 +460,6 @@
       let quantity = parseNumber(quantityInput.value);
       let price = parseNumber(row.querySelector('input[name="unit_price[]"]').value);
       row.querySelector('input[name="line_total[]"]').value = formatNumber(quantity * price);
-      if (PAYMENT_UI_SETTINGS.allow_multi && document.querySelectorAll('#payment-rows .payment-row').length > 0) {
-        MULTI_TARGET_TOTAL = getOrderTotal();
-      }
       applyCardSurcharge();
     }
     function buildSaleRow() {
