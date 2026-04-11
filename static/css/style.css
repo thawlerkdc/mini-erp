@@ -1450,6 +1450,17 @@ body {
   justify-content: center;
 }
 
+.pix-confirm-btn {
+  background: #dc2626 !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+}
+
+.pix-confirm-btn:hover {
+  background: #b91c1c !important;
+  border-color: #991b1b !important;
+}
+
 .report-table-wrap {
   overflow-x: auto;
 }
