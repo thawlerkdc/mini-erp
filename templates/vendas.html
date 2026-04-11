@@ -189,6 +189,7 @@
 
     function addPaymentRow() {
       let container = document.getElementById('payment-rows');
+      let defaultMethod = document.getElementById('payment-method-select').value || 'Dinheiro';
       let row = document.createElement('div');
       row.className = 'payment-row';
       row.innerHTML =
@@ -205,7 +206,15 @@
         '<div class="pay-installments-wrap" style="display:none">' + buildInstallmentsSelect('pay_installments[]', 1) + '</div>' +
         '<button type="button" class="btn-delete btn-icon-del" onclick="removePaymentRow(this)">&#128465;</button>';
       container.appendChild(row);
-      syncPaymentRowsFromTotal();
+      let methodSelect = row.querySelector('select[name="pay_method[]"]');
+      methodSelect.value = defaultMethod;
+      if (defaultMethod === 'Crédito') {
+        row.querySelector('.pay-installments-wrap').style.display = '';
+      }
+      if (container.querySelectorAll('.payment-row').length === 1) {
+        row.querySelector('input[name="pay_amount[]"]').value = formatNumber(getOrderTotal());
+      }
+      applyCardSurcharge();
     }
 
     function updatePaymentFeeHint(row) {
@@ -228,23 +237,9 @@
       }
     }
 
-    function addFirstPaymentRow() {
-      let method = document.getElementById('payment-method-select').value;
-      let installments = parseInt(document.getElementById('installments-select').value) || 1;
-      addPaymentRow();
-      let firstRow = document.querySelector('#payment-rows .payment-row');
-      if (firstRow) {
-        firstRow.querySelector('select[name="pay_method[]"]').value = method;
-        onPaymentRowChange(firstRow.querySelector('select[name="pay_method[]"]'));
-      }
-    }
-
     function removePaymentRow(button) {
-      let container = document.getElementById('payment-rows');
-      if (container.querySelectorAll('.payment-row').length > 1) {
-        button.closest('.payment-row').remove();
-        applyCardSurcharge();
-      }
+      button.closest('.payment-row').remove();
+      applyCardSurcharge();
     }
 
     function onPaymentRowChange(el) {
@@ -254,19 +249,6 @@
       installmentWrap.style.display = method === 'Crédito' ? '' : 'none';
       updatePaymentFeeHint(row);
       applyCardSurcharge();
-    }
-
-    function syncPaymentRowsFromTotal() {
-      let rows = document.querySelectorAll('#payment-rows .payment-row');
-      if (!rows.length) return;
-      let target = getOrderTotal();
-      let sumOthers = 0;
-      rows.forEach((row, idx) => {
-        if (idx === 0) return;
-        sumOthers += parseFloat(row.querySelector('input[name="pay_amount[]"]').value) || 0;
-      });
-      let firstAmount = Math.max(target - sumOthers, 0);
-      rows[0].querySelector('input[name="pay_amount[]"]').value = formatNumber(firstAmount);
     }
 
     function computeSurchargeForSplit() {
@@ -339,9 +321,6 @@
       let orderTotal = subtotal - discount + surcharge;
       document.getElementById('order-total').innerText = 'R$ ' + formatCurrency(orderTotal);
       updateChange(orderTotal);
-      if (PAYMENT_UI_SETTINGS.allow_multi) {
-        syncPaymentRowsFromTotal();
-      }
     }
     function updatePrice(select) {
       let option = select.options[select.selectedIndex];
@@ -544,7 +523,6 @@
     });
 
     if (PAYMENT_UI_SETTINGS.allow_multi) {
-      addFirstPaymentRow();
       document.getElementById('multi-payment-block').style.display = '';
       document.getElementById('installment-row').style.display = 'none';
       document.getElementById('payment-received-row').style.display = 'none';

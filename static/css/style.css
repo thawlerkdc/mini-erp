@@ -1120,6 +1120,14 @@ body {
   gap: 14px;
 }
 
+#installment-row {
+  grid-column: 4;
+}
+
+#payment-received-row {
+  grid-column: 1;
+}
+
 /* Client + Summary */
 .sale-client-summary {
   display: flex;
@@ -1181,6 +1189,10 @@ body {
   }
   .sale-controls-row {
     grid-template-columns: 1fr 1fr;
+  }
+  #installment-row,
+  #payment-received-row {
+    grid-column: auto;
   }
   .sale-client-summary {
     flex-direction: column;
@@ -1300,6 +1312,11 @@ body {
   grid-template-columns: 1.1fr 1fr 0.9fr auto;
   gap: 10px;
   margin-bottom: 8px;
+}
+
+.payment-amount-wrap {
+  display: flex;
+  align-items: center;
 }
 
 .pay-installments-wrap {
