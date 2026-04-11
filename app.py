@@ -1772,10 +1772,21 @@ def vendas():
 
             if payment_parts:
                 paid_total = sum(part["amount"] for part in payment_parts)
-                if abs(paid_total - total) > 0.05:
-                    flash("A soma das formas de pagamento deve ser igual ao total da venda.", "error")
+                credit_fees = 0.0
+                for part in payment_parts:
+                    if part["method"] == "Crédito" and _to_bool(settings.get("card_credit_enabled")):
+                        rate = _safe_float(settings.get(f"card_credit_rate_{part['installments']}", 0))
+                        credit_fees += part["amount"] * rate / 100
+                    elif part["method"] == "Débito" and _to_bool(settings.get("card_debit_enabled")):
+                        rate = _safe_float(settings.get("card_debit_rate", 0))
+                        credit_fees += part["amount"] * rate / 100
+                expected_total = total + credit_fees
+                if abs(paid_total - total) > 0.05 and abs(paid_total - expected_total) > 0.05:
+                    flash("A soma das formas de pagamento deve ser igual ao total da venda (com ou sem juros).", "error")
                     conn.close()
                     return redirect(url_for("vendas"))
+                if abs(paid_total - expected_total) < 0.05:
+                    surcharge = credit_fees
                 payment_method = "Múltiplos"
             else:
                 if payment_method == "Crédito":
@@ -2610,14 +2621,14 @@ def manual():
 
 
 ADJUSTMENT_REASONS = [
-    ("ajuste_inventario_add", "Ajuste de inventário (acréscimo)", "add"),
-    ("devolucao_cliente", "Devolução de cliente", "add"),
-    ("ajuste_inventario_sub", "Ajuste de inventário (redução)", "subtract"),
-    ("devolucao_fornecedor", "Devolução ao fornecedor", "subtract"),
-    ("perda", "Perda (perdas gerais)", "subtract"),
-    ("quebra", "Quebra / Danificado", "subtract"),
-    ("roubo", "Roubo", "subtract"),
-    ("vencimento", "Vencimento / Produto vencido", "subtract"),
+    ("ajuste_inventario_add", "✓ Ajuste de inventário (acréscimo)", "add"),
+    ("devolucao_cliente", "✓ Devolução de cliente", "add"),
+    ("ajuste_inventario_sub", "✗ Ajuste de inventário (redução)", "subtract"),
+    ("devolucao_fornecedor", "✗ Devolução ao fornecedor", "subtract"),
+    ("perda", "✗ Perda (perdas gerais)", "subtract"),
+    ("quebra", "✗ Quebra / Danificado", "subtract"),
+    ("roubo", "✗ Roubo", "subtract"),
+    ("vencimento", "✗ Vencimento / Produto vencido", "subtract"),
 ]
 
 

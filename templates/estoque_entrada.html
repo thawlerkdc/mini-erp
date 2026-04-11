@@ -79,7 +79,7 @@
           <td>{{ r['id'] }}</td>
           <td>{{ r['product_name'] or '—' }}</td>
           <td>{{ r['quantity'] }} {{ r['unit_name'] or '' }}</td>
-          <td>{{ r['date'] or '—' }}</td>
+          <td>{{ r['date'].strftime('%d/%m/%Y') if r['date'] else '—' }}</td>
           <td>{{ r['notes'] or '—' }}</td>
         </tr>
         {% endfor %}
