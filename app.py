@@ -847,6 +847,21 @@ SETTINGS_DEFAULTS = {
     "smtp_from_email": "",
     "smtp_from_name": "Kdc Systems",
     "smtp_use_tls": "1",
+    "card_credit_surcharge_enabled": "0",
+    "card_credit_rate_1": "0",
+    "card_credit_rate_2": "0",
+    "card_credit_rate_3": "0",
+    "card_credit_rate_4": "0",
+    "card_credit_rate_5": "0",
+    "card_credit_rate_6": "0",
+    "card_credit_rate_7": "0",
+    "card_credit_rate_8": "0",
+    "card_credit_rate_9": "0",
+    "card_credit_rate_10": "0",
+    "card_credit_rate_11": "0",
+    "card_credit_rate_12": "0",
+    "card_debit_surcharge_enabled": "0",
+    "card_debit_rate": "0",
 }
 
 SMTP_PROVIDER_PRESETS = {
@@ -855,6 +870,13 @@ SMTP_PROVIDER_PRESETS = {
     "yahoo": {"host": "smtp.mail.yahoo.com", "port": "587", "use_tls": "1"},
     "custom": {"host": "", "port": "587", "use_tls": "1"},
 }
+
+
+def _clamp_rate(raw):
+    try:
+        return f"{min(max(float(raw or 0), 0), 100):.2f}"
+    except (ValueError, TypeError):
+        return "0.00"
 
 
 def _to_bool(value):
@@ -947,6 +969,10 @@ def save_account_settings(account_id, form_data):
         "smtp_from_email": from_email,
         "smtp_from_name": (form_data.get("smtp_from_name") or "Kdc Systems").strip(),
         "smtp_use_tls": smtp_use_tls,
+        "card_credit_surcharge_enabled": "1" if form_data.get("card_credit_surcharge_enabled") else "0",
+        "card_debit_surcharge_enabled": "1" if form_data.get("card_debit_surcharge_enabled") else "0",
+        "card_debit_rate": _clamp_rate(form_data.get("card_debit_rate")),
+        **{f"card_credit_rate_{i}": _clamp_rate(form_data.get(f"card_credit_rate_{i}")) for i in range(1, 13)},
     }
 
     conn = get_tenant_connection()
@@ -1779,6 +1805,13 @@ def vendas():
         ).fetchall()
 
         conn.close()
+        _vs = get_account_settings(account_id)
+        _card_settings_json = json.dumps({
+            "credit_enabled": _vs.get("card_credit_surcharge_enabled") == "1",
+            "debit_enabled": _vs.get("card_debit_surcharge_enabled") == "1",
+            "debit_rate": float(_vs.get("card_debit_rate") or 0),
+            "credit_rates": {str(i): float(_vs.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
+        })
         return render_template(
             "vendas.html",
             title=translate("menu_sales"),
@@ -1786,8 +1819,16 @@ def vendas():
             clients=clients,
             pix_code=pix_code,
             cash_summary=None,
+            card_settings_json=_card_settings_json,
         )
 
+    _vs = get_account_settings(account_id)
+    _card_settings_json = json.dumps({
+        "credit_enabled": _vs.get("card_credit_surcharge_enabled") == "1",
+        "debit_enabled": _vs.get("card_debit_surcharge_enabled") == "1",
+        "debit_rate": float(_vs.get("card_debit_rate") or 0),
+        "credit_rates": {str(i): float(_vs.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
+    })
     conn.close()
     return render_template(
         "vendas.html",
@@ -1796,6 +1837,7 @@ def vendas():
         clients=clients,
         pix_code=pix_code,
         cash_summary=cash_summary,
+        card_settings_json=_card_settings_json,
     )
 
 
@@ -2006,17 +2048,31 @@ def relatorios():
             },
         ]
         if report == "supplier_by_category":
+            filter_category_name = request.args.get("filter_category_name") or ""
             report_title = translate("supplier_by_category")
             report_description = translate("supplier_by_category_desc")
-            report_headers = [translate("category_label"), translate("total_label")]
-            report_rows = conn.execute(
-                "SELECT COALESCE(cat.name, %s) AS category, COUNT(sup.id) AS total "
-                "FROM suppliers sup "
-                "LEFT JOIN categories cat ON sup.category_id = cat.id "
-                "WHERE sup.account_id = %s "
-                "GROUP BY cat.name ORDER BY total DESC",
-                (translate("no_records_found"), account_id),
-            ).fetchall()
+            if filter_category_name:
+                # drill-down: list suppliers in that category
+                report_headers = ["Fornecedor", "CNPJ", "Categoria"]
+                supplier_drill_rows = conn.execute(
+                    "SELECT sup.name, COALESCE(sup.cnpj, '—') AS cnpj, COALESCE(cat.name, '—') AS cat_name "
+                    "FROM suppliers sup "
+                    "LEFT JOIN categories cat ON sup.category_id = cat.id "
+                    "WHERE sup.account_id = %s AND COALESCE(cat.name, '') = %s "
+                    "ORDER BY sup.name",
+                    (account_id, filter_category_name),
+                ).fetchall()
+                report_rows = [(r["name"], r["cnpj"], r["cat_name"]) for r in supplier_drill_rows]
+            else:
+                report_headers = [translate("category_label"), "Total de Categorias"]
+                report_rows = conn.execute(
+                    "SELECT COALESCE(cat.name, %s) AS category, COUNT(sup.id) AS total "
+                    "FROM suppliers sup "
+                    "LEFT JOIN categories cat ON sup.category_id = cat.id "
+                    "WHERE sup.account_id = %s "
+                    "GROUP BY cat.name ORDER BY total DESC",
+                    (translate("no_records_found"), account_id),
+                ).fetchall()
         elif report == "supplier_product_quantity":
             report_title = translate("supplier_product_quantity")
             report_description = translate("supplier_product_quantity_desc")
@@ -2344,7 +2400,8 @@ def relatorios():
     elif section == "vendas_periodo":
         section_title = translate("sales_period_report_card")
 
-    sales_period_payment_totals = conn.execute(
+    # Expose category-drill-down filter for template
+    filter_category_name = request.args.get("filter_category_name") or "" = conn.execute(
         "SELECT payment_method, COUNT(*) AS qty, COALESCE(SUM(total), 0) AS total FROM sales s"
         + sales_where
         + " GROUP BY payment_method ORDER BY total DESC",
@@ -2425,6 +2482,7 @@ def relatorios():
         sales_period_payment_cards=sales_period_payment_cards,
         sales_period_grand_qty=sales_period_grand_qty,
         sales_period_grand_total=sales_period_grand_total,
+        filter_category_name=filter_category_name,
     )
 
 
@@ -2433,6 +2491,170 @@ def manual():
     if not session.get("user"):
         return redirect(url_for("login"))
     return render_template("manual.html", title=translate("manual_title"))
+
+
+ADJUSTMENT_REASONS = [
+    ("perda", "Perda (perdas gerais)", "subtract"),
+    ("roubo", "Roubo", "subtract"),
+    ("vencimento", "Vencimento / Produto vencido", "subtract"),
+    ("quebra", "Quebra / Danificado", "subtract"),
+    ("devolucao_cliente", "Devolução de cliente", "add"),
+    ("devolucao_fornecedor", "Devolução ao fornecedor", "subtract"),
+    ("ajuste_inventario_add", "Ajuste de inventário (acréscimo)", "add"),
+    ("ajuste_inventario_sub", "Ajuste de inventário (redução)", "subtract"),
+]
+
+
+@app.route("/estoque/entrada", methods=["GET", "POST"])
+def estoque_entrada():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+    account_id = get_current_account_id()
+    conn = get_tenant_connection()
+    products = conn.execute(
+        "SELECT p.*, u.name AS unit_name FROM products p "
+        "LEFT JOIN units u ON p.unit_id = u.id "
+        "WHERE p.account_id = %s ORDER BY p.name",
+        (account_id,),
+    ).fetchall()
+    suppliers = conn.execute(
+        "SELECT id, name FROM suppliers WHERE account_id = %s ORDER BY name",
+        (account_id,),
+    ).fetchall()
+
+    if request.method == "POST":
+        product_id = request.form.get("product_id")
+        try:
+            quantity = float(request.form.get("quantity") or 0)
+        except ValueError:
+            quantity = 0
+        date_val = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
+        supplier_id = request.form.get("supplier_id") or None
+        notes = (request.form.get("notes") or "").strip()
+        try:
+            cost_per_unit = float(request.form.get("cost_per_unit") or 0)
+        except ValueError:
+            cost_per_unit = 0
+
+        if not product_id or quantity <= 0:
+            flash("Produto e quantidade são obrigatórios.", "error")
+        else:
+            conn.execute(
+                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (account_id, product_id, quantity, "entrada", date_val, notes),
+            )
+            conn.execute(
+                "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
+                (quantity, product_id, account_id),
+            )
+            if cost_per_unit > 0:
+                conn.execute(
+                    "UPDATE products SET cost = %s WHERE id = %s AND account_id = %s",
+                    (cost_per_unit, product_id, account_id),
+                )
+            conn.commit()
+            flash("Entrada de mercadoria registrada com sucesso.", "success")
+        products = conn.execute(
+            "SELECT p.*, u.name AS unit_name FROM products p "
+            "LEFT JOIN units u ON p.unit_id = u.id "
+            "WHERE p.account_id = %s ORDER BY p.name",
+            (account_id,),
+        ).fetchall()
+
+    recent = conn.execute(
+        "SELECT sm.id, sm.quantity, sm.date, sm.notes, "
+        "p.name AS product_name, u.name AS unit_name "
+        "FROM stock_movements sm "
+        "LEFT JOIN products p ON sm.product_id = p.id "
+        "LEFT JOIN units u ON p.unit_id = u.id "
+        "WHERE sm.account_id = %s AND sm.movement_type = 'entrada' "
+        "ORDER BY sm.id DESC LIMIT 30",
+        (account_id,),
+    ).fetchall()
+
+    conn.close()
+    return render_template(
+        "estoque_entrada.html",
+        title="Entrada de Mercadoria",
+        products=products,
+        suppliers=suppliers,
+        recent=recent,
+        today=datetime.now().strftime("%Y-%m-%d"),
+    )
+
+
+@app.route("/estoque/ajuste", methods=["GET", "POST"])
+def estoque_ajuste():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+    account_id = get_current_account_id()
+    conn = get_tenant_connection()
+    products = conn.execute(
+        "SELECT p.*, u.name AS unit_name FROM products p "
+        "LEFT JOIN units u ON p.unit_id = u.id "
+        "WHERE p.account_id = %s ORDER BY p.name",
+        (account_id,),
+    ).fetchall()
+
+    if request.method == "POST":
+        product_id = request.form.get("product_id")
+        reason = request.form.get("reason") or ""
+        try:
+            quantity = float(request.form.get("quantity") or 0)
+        except ValueError:
+            quantity = 0
+        date_val = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
+        notes = (request.form.get("notes") or "").strip()
+
+        reason_map = {r[0]: r[2] for r in ADJUSTMENT_REASONS}
+        effect = reason_map.get(reason, "subtract")
+
+        if not product_id or quantity <= 0:
+            flash("Produto, motivo e quantidade são obrigatórios.", "error")
+        else:
+            delta = quantity if effect == "add" else -quantity
+            label = next((r[1] for r in ADJUSTMENT_REASONS if r[0] == reason), reason)
+            movement_type = "ajuste_entrada" if effect == "add" else "ajuste_saida"
+            full_notes = f"{label}" + (f" — {notes}" if notes else "")
+            conn.execute(
+                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (account_id, product_id, quantity, movement_type, date_val, full_notes),
+            )
+            conn.execute(
+                "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
+                (delta, product_id, account_id),
+            )
+            conn.commit()
+            flash("Ajuste de estoque registrado com sucesso.", "success")
+        products = conn.execute(
+            "SELECT p.*, u.name AS unit_name FROM products p "
+            "LEFT JOIN units u ON p.unit_id = u.id "
+            "WHERE p.account_id = %s ORDER BY p.name",
+            (account_id,),
+        ).fetchall()
+
+    recent = conn.execute(
+        "SELECT sm.id, sm.quantity, sm.movement_type, sm.date, sm.notes, "
+        "p.name AS product_name, u.name AS unit_name "
+        "FROM stock_movements sm "
+        "LEFT JOIN products p ON sm.product_id = p.id "
+        "LEFT JOIN units u ON p.unit_id = u.id "
+        "WHERE sm.account_id = %s AND sm.movement_type IN ('ajuste_entrada', 'ajuste_saida') "
+        "ORDER BY sm.id DESC LIMIT 30",
+        (account_id,),
+    ).fetchall()
+
+    conn.close()
+    return render_template(
+        "estoque_ajuste.html",
+        title="Ajuste de Estoque",
+        products=products,
+        recent=recent,
+        adjustment_reasons=ADJUSTMENT_REASONS,
+        today=datetime.now().strftime("%Y-%m-%d"),
+    )
 
 
 if __name__ == "__main__":

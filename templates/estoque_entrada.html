@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-card">
+  <h3>Registrar Entrada de Mercadoria</h3>
+
+  <form method="post" action="{{ url_for('estoque_entrada') }}">
+    <div class="stock-form-grid">
+      <div class="field-group stock-field-product">
+        <label>Produto *</label>
+        <div class="product-select-wrapper">
+          <select name="product_id" class="product-select" required onchange="updateStock(this)">
+            <option value="">Selecione o produto</option>
+            {% for p in products %}
+              <option value="{{ p['id'] }}" data-stock="{{ p['stock'] }}" data-unit="{{ p['unit_name'] or '' }}" data-cost="{{ p['cost'] or '0' }}">
+                {{ p['name'] }} — estoque atual: {{ p['stock'] }} {{ p['unit_name'] or '' }}
+              </option>
+            {% endfor %}
+          </select>
+          <span class="product-search-icon" aria-hidden="true">&#128269;</span>
+        </div>
+        <span id="current-stock-hint" class="field-hint"></span>
+      </div>
+
+      <div class="field-group">
+        <label>Quantidade recebida *</label>
+        <input type="number" name="quantity" min="0.001" step="0.001" value="" required placeholder="0" oninput="updatePreview()">
+        <span id="stock-preview" class="field-hint"></span>
+      </div>
+
+      <div class="field-group">
+        <label>Custo unitário (R$)</label>
+        <input type="number" name="cost_per_unit" id="cost-per-unit" min="0" step="0.01" value="" placeholder="Deixe em branco para não atualizar">
+        <span class="field-hint">Se preenchido, atualiza o custo do produto.</span>
+      </div>
+
+      <div class="field-group">
+        <label>Fornecedor (opcional)</label>
+        <select name="supplier_id">
+          <option value="">Nenhum</option>
+          {% for s in suppliers %}
+            <option value="{{ s['id'] }}">{{ s['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>Data de recebimento</label>
+        <input type="date" name="date" value="{{ today }}">
+      </div>
+
+      <div class="field-group stock-field-notes">
+        <label>Observações</label>
+        <input type="text" name="notes" placeholder="NF, lote, observações livres...">
+      </div>
+    </div>
+
+    <button type="submit" class="btn-add" style="margin-top:1.25rem">&#10003; Registrar Entrada</button>
+  </form>
+</div>
+
+{% if recent %}
+<div class="form-card" style="margin-top:1.5rem">
+  <h3>Últimas entradas registradas</h3>
+  <div class="report-table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Produto</th>
+          <th>Qtd</th>
+          <th>Data</th>
+          <th>Observações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent %}
+        <tr>
+          <td>{{ r['id'] }}</td>
+          <td>{{ r['product_name'] or '—' }}</td>
+          <td>{{ r['quantity'] }} {{ r['unit_name'] or '' }}</td>
+          <td>{{ r['date'] or '—' }}</td>
+          <td>{{ r['notes'] or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  function updateStock(select) {
+    let opt = select.options[select.selectedIndex];
+    let stock = opt.dataset.stock;
+    let unit = opt.dataset.unit || '';
+    let cost = opt.dataset.cost || '0';
+    let hint = document.getElementById('current-stock-hint');
+    if (opt.value) {
+      hint.textContent = 'Estoque atual: ' + stock + (unit ? ' ' + unit : '');
+      let costInput = document.getElementById('cost-per-unit');
+      if (costInput && !costInput.value) {
+        costInput.placeholder = 'Custo atual: R$ ' + parseFloat(cost).toFixed(2);
+      }
+    } else {
+      hint.textContent = '';
+    }
+    updatePreview();
+  }
+  function updatePreview() {
+    let select = document.querySelector('select[name="product_id"]');
+    let opt = select ? select.options[select.selectedIndex] : null;
+    let qtyInput = document.querySelector('input[name="quantity"]');
+    let preview = document.getElementById('stock-preview');
+    if (!opt || !opt.value || !qtyInput) { if (preview) preview.textContent = ''; return; }
+    let currentStock = parseFloat(opt.dataset.stock) || 0;
+    let qty = parseFloat(qtyInput.value) || 0;
+    let unit = opt.dataset.unit || '';
+    if (preview && qty > 0) {
+      preview.textContent = 'Estoque após entrada: ' + (currentStock + qty).toFixed(2) + (unit ? ' ' + unit : '');
+    } else if (preview) {
+      preview.textContent = '';
+    }
+  }
+</script>
+{% endblock %}

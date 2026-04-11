@@ -31,20 +31,20 @@
       <label>Nome exibido no remetente</label>
       <input type="text" name="smtp_from_name" value="{{ settings.get('smtp_from_name', 'Kdc Systems') }}">
 
-      <label>
-        <input type="checkbox" name="send_sale_thank_you" {% if settings.get('send_sale_thank_you') == '1' %}checked{% endif %}>
-        Enviar e-mail de agradecimento ao cliente apos a venda
-      </label>
+      <div class="param-check-row">
+        <input type="checkbox" name="send_sale_thank_you" id="send_sale_thank_you" {% if settings.get('send_sale_thank_you') == '1' %}checked{% endif %}>
+        <label for="send_sale_thank_you">Enviar e-mail de agradecimento ao cliente apos a venda</label>
+      </div>
 
-      <label>
-        <input type="checkbox" name="send_stock_min_alert" {% if settings.get('send_stock_min_alert') == '1' %}checked{% endif %}>
-        Enviar alerta ao e-mail da conta principal quando produto atingir estoque minimo
-      </label>
+      <div class="param-check-row">
+        <input type="checkbox" name="send_stock_min_alert" id="send_stock_min_alert" {% if settings.get('send_stock_min_alert') == '1' %}checked{% endif %}>
+        <label for="send_stock_min_alert">Enviar alerta ao e-mail da conta principal quando produto atingir estoque minimo</label>
+      </div>
 
-      <label>
-        <input type="checkbox" name="send_birthday_email" {% if settings.get('send_birthday_email') == '1' %}checked{% endif %}>
-        Enviar e-mail de aniversario para clientes
-      </label>
+      <div class="param-check-row">
+        <input type="checkbox" name="send_birthday_email" id="send_birthday_email" {% if settings.get('send_birthday_email') == '1' %}checked{% endif %}>
+        <label for="send_birthday_email">Enviar e-mail de aniversario para clientes</label>
+      </div>
 
       <label>Assunto do e-mail de aniversario</label>
       <input type="text" name="birthday_email_subject" value="{{ settings.get('birthday_email_subject', 'Feliz aniversário!') }}">
@@ -66,11 +66,56 @@
         <label>Usuario SMTP (se vazio, usa o e-mail de origem)</label>
         <input type="text" name="smtp_username" value="{{ settings.get('smtp_username', '') }}">
 
-        <label>
-          <input type="checkbox" name="smtp_use_tls" {% if settings.get('smtp_use_tls') == '1' %}checked{% endif %}>
-          Usar STARTTLS
-        </label>
+        <div class="param-check-row">
+          <input type="checkbox" name="smtp_use_tls" id="smtp_use_tls" {% if settings.get('smtp_use_tls') == '1' %}checked{% endif %}>
+          <label for="smtp_use_tls">Usar STARTTLS</label>
+        </div>
       </details>
+
+      <hr>
+
+      <h3>Acréscimo por forma de pagamento</h3>
+
+      <div class="param-check-row">
+        <input type="checkbox" name="card_credit_surcharge_enabled" id="card_credit_surcharge_enabled"
+          {% if settings.get('card_credit_surcharge_enabled') == '1' %}checked{% endif %}
+          onchange="toggleCreditRates(this.checked)">
+        <label for="card_credit_surcharge_enabled">Habilitar acréscimo no cartão de crédito</label>
+      </div>
+
+      <div id="credit-rates-block" style="{{ '' if settings.get('card_credit_surcharge_enabled') == '1' else 'display:none' }}">
+        <p class="param-hint-small">Informe o percentual de acréscimo (%) para cada número de parcelas. Use 0 para não cobrar acréscimo naquela parcela.</p>
+        <div class="credit-rates-grid">
+          {% for i in range(1, 13) %}
+          <div class="rate-field">
+            <label>{{ i }}x</label>
+            <div class="rate-input-wrap">
+              <input type="number" name="card_credit_rate_{{ i }}" min="0" max="100" step="0.01"
+                value="{{ settings.get('card_credit_rate_' ~ i, '0') }}" class="rate-input">
+              <span class="rate-pct">%</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="param-check-row" style="margin-top:1rem">
+        <input type="checkbox" name="card_debit_surcharge_enabled" id="card_debit_surcharge_enabled"
+          {% if settings.get('card_debit_surcharge_enabled') == '1' %}checked{% endif %}
+          onchange="toggleDebitRate(this.checked)">
+        <label for="card_debit_surcharge_enabled">Habilitar acréscimo no cartão de débito</label>
+      </div>
+
+      <div id="debit-rate-block" style="{{ '' if settings.get('card_debit_surcharge_enabled') == '1' else 'display:none' }}">
+        <div class="field-group" style="max-width:200px">
+          <label>Percentual de acréscimo no débito (%)</label>
+          <div class="rate-input-wrap">
+            <input type="number" name="card_debit_rate" min="0" max="100" step="0.01"
+              value="{{ settings.get('card_debit_rate', '0') }}" class="rate-input">
+            <span class="rate-pct">%</span>
+          </div>
+        </div>
+      </div>
 
       <button type="submit" class="btn-add">Salvar parametros</button>
     </form>
@@ -85,4 +130,13 @@
       <button type="submit" class="btn-add">Enviar e-mail de teste</button>
     </form>
   </div>
+
+  <script>
+    function toggleCreditRates(enabled) {
+      document.getElementById('credit-rates-block').style.display = enabled ? '' : 'none';
+    }
+    function toggleDebitRate(enabled) {
+      document.getElementById('debit-rate-block').style.display = enabled ? '' : 'none';
+    }
+  </script>
 {% endblock %}

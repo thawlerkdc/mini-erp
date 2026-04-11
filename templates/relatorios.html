@@ -195,6 +195,54 @@
           </div>
         {% endif %}
       {% else %}
+        {% if section == 'fornecedores' and report == 'supplier_by_category' and not filter_category_name %}
+          <table>
+            <thead>
+              <tr>
+                {% for header in report_headers %}
+                  <th>{{ header }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in report_rows %}
+                <tr>
+                  <td>
+                    <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='fornecedores', report='supplier_by_category', filter_category_name=row[0]) }}" class="report-drill-link">{{ row[0] }}</a>
+                  </td>
+                  <td>{{ row[1] }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="2">{{ t('no_records_found') }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% elif section == 'fornecedores' and report == 'supplier_by_category' and filter_category_name %}
+          <div class="report-drill-header">
+            <span>Fornecedores da categoria: <strong>{{ filter_category_name }}</strong></span>
+            <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='fornecedores', report='supplier_by_category') }}" class="outline-button small">&#8592; Voltar a todas as categorias</a>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                {% for header in report_headers %}
+                  <th>{{ header }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in report_rows %}
+                <tr>
+                  {% for cell in row %}
+                    <td>{{ cell }}</td>
+                  {% endfor %}
+                </tr>
+              {% else %}
+                <tr><td colspan="{{ report_headers|length }}">{{ t('no_records_found') }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
         <table>
           <thead>
             <tr>
@@ -221,6 +269,7 @@
             {% endif %}
           </tbody>
         </table>
+        {% endif %}
       {% endif %}
 
       {% if chart_data_json %}
@@ -351,6 +400,25 @@
     .pscard-total-geral .pscard-qty,
     .pscard-total-geral .pscard-total {
       color: #ffffff;
+    }
+    .report-drill-link {
+      color: #0b4a82;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .report-drill-link:hover {
+      color: #1a6ecf;
+    }
+    .report-drill-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+      font-size: 0.95rem;
+      color: #334155;
     }
     .report-filter-card {
       margin-bottom: 20px;
