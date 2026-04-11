@@ -93,7 +93,7 @@
               <span class="badge-sub">&#8595; Saída</span>
             {% endif %}
           </td>
-          <td>{{ r['date'].strftime('%d/%m/%Y') if r['date'] else '—' }}</td>
+          <td>{{ r['date_display'] or '—' }}</td>
           <td>{{ r['notes'] or '—' }}</td>
         </tr>
         {% endfor %}

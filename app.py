@@ -910,6 +910,17 @@ def _sanitize_pix_key(raw_key_type, raw_key_value):
     return key_type, key_value
 
 
+def _format_date_br(value):
+    if not value:
+        return "-"
+    if hasattr(value, "strftime"):
+        return value.strftime("%d/%m/%Y")
+    text = str(value)
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        return f"{text[8:10]}/{text[5:7]}/{text[0:4]}"
+    return text
+
+
 def get_account_settings(account_id):
     conn = get_tenant_connection()
     rows = conn.execute(
@@ -2699,6 +2710,10 @@ def estoque_entrada():
         "ORDER BY sm.id DESC LIMIT 30",
         (account_id,),
     ).fetchall()
+    recent = [
+        {**dict(r), "date_display": _format_date_br(r["date"])}
+        for r in recent
+    ]
 
     conn.close()
     return render_template(
@@ -2772,6 +2787,10 @@ def estoque_ajuste():
         "ORDER BY sm.id DESC LIMIT 30",
         (account_id,),
     ).fetchall()
+    recent = [
+        {**dict(r), "date_display": _format_date_br(r["date"])}
+        for r in recent
+    ]
 
     conn.close()
     return render_template(
