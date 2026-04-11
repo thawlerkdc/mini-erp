@@ -2341,6 +2341,16 @@ def relatorios():
             ).fetchall()
             report_total = sum(float(row[1] or 0) for row in report_rows)
 
+    elif section == "vendas_periodo":
+        section_title = translate("sales_period_report_card")
+
+    sales_period_payment_totals = conn.execute(
+        "SELECT payment_method, COUNT(*) AS qty, COALESCE(SUM(total), 0) AS total FROM sales s"
+        + sales_where
+        + " GROUP BY payment_method ORDER BY total DESC",
+        tuple(sales_params),
+    ).fetchall()
+
     chart_data = None
     if report in ["payment_sales_value", "category_sales_value"]:
         chart_data = [{"label": row[0], "value": float(row[1])} for row in report_rows]
@@ -2378,6 +2388,7 @@ def relatorios():
         selected_client_id=client_id,
         client_purchase_rows=client_purchase_rows,
         chart_data_json=chart_data_json,
+        sales_period_payment_totals=sales_period_payment_totals,
     )
 
 
