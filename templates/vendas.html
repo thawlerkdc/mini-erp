@@ -244,12 +244,14 @@
       if (method === 'Crédito' && CARD_SETTINGS.credit_enabled && amount > 0) {
         let installments = parseInt(row.querySelector('select[name="pay_installments[]"]').value) || 1;
         let rate = parseFloat(CARD_SETTINGS.credit_rates[String(installments)]) || 0;
-        let fee = amount * rate / 100;
+        // In split mode, entered amount is treated as final paid amount (with fee embedded).
+        // Derive the fee portion so it matches the sale surcharge shown above.
+        let fee = rate > 0 ? (amount - (amount / (1 + rate / 100))) : 0;
         hint.innerText = `(+${fee.toFixed(2)})`;
         hint.style.display = '';
       } else if (method === 'Débito' && CARD_SETTINGS.debit_enabled && amount > 0) {
         let rate = parseFloat(CARD_SETTINGS.debit_rate) || 0;
-        let fee = amount * rate / 100;
+        let fee = rate > 0 ? (amount - (amount / (1 + rate / 100))) : 0;
         hint.innerText = `(+${fee.toFixed(2)})`;
         hint.style.display = '';
       } else {
