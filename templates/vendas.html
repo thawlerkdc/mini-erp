@@ -4,7 +4,10 @@
   <div class="form-card sale-card">
     <div class="sale-header">
       <h2 class="sale-title">Nova Venda</h2>
-      <button type="button" class="btn-add sale-add-btn" onclick="addSaleRow()">+ {{ t('add_item') }}</button>
+      <div class="sale-header-actions">
+        <button type="button" class="btn-add sale-add-btn" onclick="addSaleRow()">+ {{ t('add_item') }}</button>
+        <button type="button" class="outline-button sale-clear-btn" onclick="clearSaleData()">Limpar venda</button>
+      </div>
     </div>
 
     <form method="post" action="{{ url_for('vendas') }}" id="sale-form">
@@ -202,6 +205,24 @@
       let discount = parseNumber(document.querySelector('input[name="discount"]').value);
       let surcharge = parseNumber(document.querySelector('input[name="surcharge"]').value);
       return Math.max(subtotal - discount + surcharge, 0);
+    }
+
+    function updateInstallmentOptions() {
+      let select = document.getElementById('installments-select');
+      if (!select) return;
+      let base = getOrderBase();
+      for (let i = 1; i <= 12; i++) {
+        let opt = select.querySelector('option[value="' + i + '"]');
+        if (!opt) continue;
+        let rate = parseFloat(CARD_SETTINGS.credit_rates[String(i)]) || 0;
+        let total = (CARD_SETTINGS.credit_enabled && rate > 0) ? rowBaseToFinal(base, 'Crédito', i) : base;
+        let perInstallment = i > 0 ? (total / i) : total;
+        if (i === 1) {
+          opt.textContent = '1x (à vista) - Total R$ ' + formatCurrency(total);
+        } else {
+          opt.textContent = i + 'x de R$ ' + formatCurrency(perInstallment) + ' (Total R$ ' + formatCurrency(total) + ')';
+        }
+      }
     }
 
     function buildInstallmentsSelect(name, selected) {
@@ -410,6 +431,7 @@
       let installmentRow = document.getElementById('installment-row');
       let receivedRow = document.getElementById('payment-received-row');
       let multiBlock = document.getElementById('multi-payment-block');
+      updateInstallmentOptions();
 
       if (PAYMENT_UI_SETTINGS.allow_multi) {
         let hasRows = document.querySelectorAll('#payment-rows .payment-row').length > 0;
@@ -447,6 +469,7 @@
 
       document.getElementById('order-total').innerText = 'R$ ' + formatCurrency(orderTotal);
       updateChange(orderTotal);
+      updateInstallmentOptions();
     }
     function updatePrice(select) {
       let option = select.options[select.selectedIndex];
@@ -484,6 +507,37 @@
         button.closest('.sale-row').remove();
         applyCardSurcharge();
       }
+    }
+
+    function clearSaleData() {
+      let form = document.getElementById('sale-form');
+      let saleItems = document.getElementById('sale-items');
+      let firstRow = saleItems.querySelector('.sale-row');
+
+      if (saleItems && firstRow) {
+        saleItems.innerHTML = '';
+        saleItems.appendChild(firstRow);
+      }
+
+      form.reset();
+      document.getElementById('pix-confirmed').value = '0';
+      document.getElementById('payment-rows').innerHTML = '';
+
+      let row = document.querySelector('#sale-items .sale-row');
+      if (row) {
+        row.querySelector('select.product-select').selectedIndex = 0;
+        row.querySelector('input[name="quantity[]"]').value = '1';
+        row.querySelector('input[name="unit_price[]"]').value = '0.00';
+        row.querySelector('input[name="line_total[]"]').value = '0.00';
+      }
+
+      document.querySelector('input[name="discount"]').value = '0.00';
+      document.querySelector('input[name="surcharge"]').value = '0.00';
+      document.querySelector('input[name="payment_received"]').value = '0.00';
+      document.getElementById('payment-method-select').value = 'Dinheiro';
+      document.getElementById('installments-select').value = '1';
+      onPaymentMethodChange('Dinheiro');
+      updateTotals();
     }
     function updateChange(orderTotal) {
       if (PAYMENT_UI_SETTINGS.allow_multi) {
@@ -661,6 +715,7 @@
       document.getElementById('installment-row').style.display = 'none';
       document.getElementById('payment-received-row').style.display = 'none';
     }
+    updateInstallmentOptions();
     onPaymentMethodChange(document.getElementById('payment-method-select').value);
   </script>
 {% endblock %}

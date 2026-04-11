@@ -15,25 +15,29 @@
             <span class="brand-subtitle">ERP</span>
           </div>
 
-          <nav class="sidebar-nav">
-            <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127968;</span><span>{{ t('menu_dashboard') }}</span></a>
+          <nav class="sidebar-nav" id="sidebar-nav">
+            <a href="{{ url_for('estoque_ajuste') }}" data-menu-key="ajuste_estoque" class="nav-link {% if request.endpoint == 'estoque_ajuste' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9881;</span><span>Ajuste de Estoque</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            <a href="{{ url_for('cadastro', entity='categorias') }}" data-menu-key="categorias" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128451;</span><span>Categorias</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            <a href="{{ url_for('cadastro', entity='clientes') }}" data-menu-key="clientes" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'clientes' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128100;</span><span>{{ t('menu_clients') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            <a href="{{ url_for('dashboard') }}" data-menu-key="dashboard" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127968;</span><span>{{ t('menu_dashboard') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            <a href="{{ url_for('estoque_entrada') }}" data-menu-key="entrada_mercadoria" class="nav-link {% if request.endpoint == 'estoque_entrada' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128666;</span><span>Entrada de Mercadoria</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            <a href="{{ url_for('financeiro') }}" data-menu-key="financeiro" class="nav-link {% if request.endpoint == 'financeiro' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128184;</span><span>{{ t('menu_finance') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            <a href="{{ url_for('cadastro', entity='fornecedores') }}" data-menu-key="fornecedores" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'fornecedores' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127970;</span><span>{{ t('menu_suppliers') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
             {% if session.get('role') == 'owner' %}
-              <a href="{{ url_for('cadastro', entity='usuarios') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'usuarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>{{ t('menu_users') }}</span></a>
-              <a href="{{ url_for('parametros') }}" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9881;</span><span>Parâmetros</span></a>
+              <a href="{{ url_for('parametros') }}" data-menu-key="parametros" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9881;</span><span>Parâmetros</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
             {% endif %}
-            <a href="{{ url_for('cadastro', entity='produtos') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'produtos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128230;</span><span>{{ t('menu_products') }}</span></a>
-            <a href="{{ url_for('estoque_entrada') }}" class="nav-link {% if request.endpoint == 'estoque_entrada' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128666;</span><span>Entrada de Mercadoria</span></a>
-            <a href="{{ url_for('estoque_ajuste') }}" class="nav-link {% if request.endpoint == 'estoque_ajuste' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9881;</span><span>Ajuste de Estoque</span></a>
-            <a href="{{ url_for('cadastro', entity='clientes') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'clientes' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128100;</span><span>{{ t('menu_clients') }}</span></a>
-            <a href="{{ url_for('cadastro', entity='fornecedores') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'fornecedores' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127970;</span><span>{{ t('menu_suppliers') }}</span></a>
-            <a href="{{ url_for('cadastro', entity='categorias') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128451;</span><span>Categorias</span></a>
-            <a href="{{ url_for('cadastro', entity='unidades') }}" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'unidades' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9878;</span><span>Unidades de Medida</span></a>
-            <a href="{{ url_for('vendas') }}" class="nav-link {% if request.endpoint == 'vendas' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128722;</span><span>{{ t('menu_sales') }}</span></a>
-            <a href="{{ url_for('relatorios') }}" class="nav-link {% if request.endpoint == 'relatorios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128202;</span><span>{{ t('menu_reports') }}</span></a>
-            <a href="{{ url_for('manual') }}" class="nav-link {% if request.endpoint == 'manual' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128214;</span><span>{{ t('menu_manual') }}</span></a>
+            <a href="{{ url_for('cadastro', entity='produtos') }}" data-menu-key="produtos" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'produtos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128230;</span><span>{{ t('menu_products') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            <a href="{{ url_for('relatorios') }}" data-menu-key="relatorios" class="nav-link {% if request.endpoint == 'relatorios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128202;</span><span>{{ t('menu_reports') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            <a href="{{ url_for('cadastro', entity='unidades') }}" data-menu-key="unidades" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'unidades' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9878;</span><span>Unidades de Medida</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            {% if session.get('role') == 'owner' %}
+              <a href="{{ url_for('cadastro', entity='usuarios') }}" data-menu-key="usuarios" class="nav-link {% if request.endpoint == 'cadastro' and request.view_args.get('entity') == 'usuarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>{{ t('menu_users') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
+            {% endif %}
+            <a href="{{ url_for('vendas') }}" data-menu-key="vendas" class="nav-link {% if request.endpoint == 'vendas' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128722;</span><span>{{ t('menu_sales') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
           </nav>
 
           <div class="sidebar-footer">
+            <button type="button" class="menu-sort-toggle" id="menu-sort-toggle">Favoritos primeiro: desligado</button>
+            <a class="logout" href="{{ url_for('manual') }}"><span class="menu-icon" aria-hidden="true">&#128214;</span><span>{{ t('menu_manual') }}</span></a>
             <div class="language-dropdown">
               <button type="button"><span class="menu-icon" aria-hidden="true">&#127760;</span><span>{{ t('select_language') }}</span></button>
               <div class="language-dropdown-menu">
@@ -220,10 +224,118 @@
           }, true);
         }
 
+        function bindMenuFavorites() {
+          var nav = document.getElementById('sidebar-nav');
+          if (!nav) return;
+
+          var account = '{{ session.get("account_id") or "global" }}';
+          var user = '{{ session.get("user") or "anon" }}';
+          var storageKey = 'menu_favorites_' + account + '_' + user;
+          var sortKey = storageKey + '_sort';
+          var sortToggle = document.getElementById('menu-sort-toggle');
+
+          function loadFavorites() {
+            try {
+              var parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+              return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+              return [];
+            }
+          }
+
+          function saveFavorites(list) {
+            localStorage.setItem(storageKey, JSON.stringify(list));
+          }
+
+          function isSortOn() {
+            return localStorage.getItem(sortKey) === '1';
+          }
+
+          function saveSort(on) {
+            localStorage.setItem(sortKey, on ? '1' : '0');
+          }
+
+          function applyFavoriteStyles() {
+            var favorites = loadFavorites();
+            nav.querySelectorAll('.nav-link[data-menu-key]').forEach(function (link) {
+              var key = link.getAttribute('data-menu-key');
+              var star = link.querySelector('.menu-fav-toggle');
+              var fav = favorites.indexOf(key) >= 0;
+              link.classList.toggle('is-favorite', fav);
+              if (star) {
+                star.textContent = fav ? '★' : '☆';
+              }
+            });
+          }
+
+          function sortMenuByFavorites() {
+            if (!isSortOn()) return;
+            var favorites = loadFavorites();
+            var links = Array.prototype.slice.call(nav.querySelectorAll('.nav-link[data-menu-key]'));
+            links.sort(function (a, b) {
+              var aKey = a.getAttribute('data-menu-key');
+              var bKey = b.getAttribute('data-menu-key');
+              var aFav = favorites.indexOf(aKey) >= 0 ? 0 : 1;
+              var bFav = favorites.indexOf(bKey) >= 0 ? 0 : 1;
+              if (aFav !== bFav) return aFav - bFav;
+              return 0;
+            });
+            links.forEach(function (link) {
+              nav.appendChild(link);
+            });
+          }
+
+          function updateSortLabel() {
+            if (!sortToggle) return;
+            sortToggle.textContent = 'Favoritos primeiro: ' + (isSortOn() ? 'ligado' : 'desligado');
+          }
+
+          nav.addEventListener('click', function (event) {
+            var star = event.target.closest('.menu-fav-toggle');
+            if (!star) return;
+            event.preventDefault();
+            event.stopPropagation();
+            var link = star.closest('.nav-link[data-menu-key]');
+            if (!link) return;
+            var key = link.getAttribute('data-menu-key');
+            var favorites = loadFavorites();
+            var index = favorites.indexOf(key);
+            if (index >= 0) {
+              favorites.splice(index, 1);
+            } else {
+              favorites.push(key);
+            }
+            saveFavorites(favorites);
+            applyFavoriteStyles();
+            sortMenuByFavorites();
+          });
+
+          if (sortToggle) {
+            sortToggle.addEventListener('click', function () {
+              var next = !isSortOn();
+              saveSort(next);
+              updateSortLabel();
+              if (next) {
+                sortMenuByFavorites();
+              } else {
+                window.location.reload();
+              }
+            });
+          }
+
+          applyFavoriteStyles();
+          sortMenuByFavorites();
+          updateSortLabel();
+        }
+
         if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', bindLanguageDropdownAutoDirection);
+          document.addEventListener('DOMContentLoaded', function () {
+            bindLanguageDropdownAutoDirection();
+            bindMenuFavorites();
+          });
         } else {
           bindLanguageDropdownAutoDirection();
+          bindMenuFavorites();
         }
       })();
     </script>

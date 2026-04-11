@@ -1,15 +1,105 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="manual-card">
-    <p>{{ t('manual_intro') }}</p>
+  <div class="table-card">
+    <h2>Documentação do Sistema</h2>
+    <p>Este guia descreve o uso de cada tela, campos obrigatórios e validações para manter o ERP seguro e confiável.</p>
+  </div>
+
+  <div class="table-card">
+    <h3>Dashboard</h3>
+    <p>Apresenta visão geral (clientes, produtos, vendas) e atalhos.</p>
+    <p>Sem campos de cadastro nesta tela.</p>
+  </div>
+
+  <div class="table-card">
+    <h3>Clientes</h3>
     <ul>
-      <li>{{ t('manual_login') }}</li>
-      <li>{{ t('manual_register') }}</li>
-      <li>{{ t('manual_sales') }}</li>
-      <li>{{ t('manual_reports') }}</li>
-      <li>{{ t('manual_language') }}</li>
+      <li>Obrigatório: Nome.</li>
+      <li>CPF: apenas números, até 11 dígitos.</li>
+      <li>UF: apenas letras, até 2 caracteres.</li>
+      <li>CEP: apenas números, até 8 dígitos.</li>
+      <li>E-mail, data de nascimento e endereço são opcionais.</li>
     </ul>
-    <p>{{ t('manual_footer') }}</p>
+  </div>
+
+  <div class="table-card">
+    <h3>Fornecedores</h3>
+    <ul>
+      <li>Obrigatório: Nome e Categoria.</li>
+      <li>CNPJ: apenas números, até 14 dígitos.</li>
+      <li>UF: apenas letras, até 2 caracteres.</li>
+      <li>CEP: apenas números, até 8 dígitos.</li>
+      <li>E-mail e demais campos de endereço são opcionais.</li>
+    </ul>
+  </div>
+
+  <div class="table-card">
+    <h3>Produtos</h3>
+    <ul>
+      <li>Obrigatório: Nome, Categoria e Unidade.</li>
+      <li>Preço de custo e venda: numéricos, com casas decimais.</li>
+      <li>Estoque e estoque mínimo: inteiros.</li>
+      <li>Validade é opcional.</li>
+    </ul>
+  </div>
+
+  <div class="table-card">
+    <h3>Vendas</h3>
+    <ul>
+      <li>Obrigatório: pelo menos 1 item com produto e quantidade maior que zero.</li>
+      <li>Desconto e acréscimo: valores numéricos.</li>
+      <li>Se pagamento for crédito, as parcelas exibem o total final da venda por opção.</li>
+      <li>Em múltiplos pagamentos, a soma deve bater com o total final.</li>
+      <li>Se houver Pix, o recebimento deve ser confirmado para concluir.</li>
+      <li>Botão Limpar venda remove os dados preenchidos para reiniciar a operação.</li>
+    </ul>
+  </div>
+
+  <div class="table-card">
+    <h3>Estoque (Entrada e Ajuste)</h3>
+    <ul>
+      <li>Entrada de mercadoria: atualiza estoque para mais.</li>
+      <li>Ajuste de estoque: aplica acréscimo ou redução com motivo registrado.</li>
+      <li>As movimentações refletem em todas as telas que consomem estoque.</li>
+    </ul>
+  </div>
+
+  <div class="table-card">
+    <h3>Relatórios</h3>
+    <ul>
+      <li>Use período inicial e final para filtrar.</li>
+      <li>No relatório de vendas no período, há separação de total, acréscimo (juros) e desconto.</li>
+      <li>Os dados são sempre lidos das tabelas atualizadas do sistema.</li>
+    </ul>
+  </div>
+
+  <div class="table-card">
+    <h3>Parâmetros</h3>
+    <ul>
+      <li>Configurações de e-mail, Pix e taxas de cartão.</li>
+      <li>Taxas de cartão: numéricas de 0 a 100.</li>
+      <li>Somente usuário principal (owner) pode alterar.</li>
+    </ul>
+  </div>
+
+  <div class="table-card">
+    <h3>Financeiro</h3>
+    <ul>
+      <li>Contas a pagar e a receber com status: pago, pendente e vencido.</li>
+      <li>Categorias financeiras e lançamentos recorrentes.</li>
+      <li>Fluxo diário consolidado com entradas e saídas pagas.</li>
+      <li>Importação XML com prévia obrigatória antes da confirmação.</li>
+      <li>Ao confirmar XML: pode gerar conta a pagar, atualizar estoque e criar fornecedor/produtos conforme opção.</li>
+    </ul>
+  </div>
+
+  <div class="table-card">
+    <h3>Boas práticas</h3>
+    <ul>
+      <li>Revise dados antes de salvar e use a pré-visualização no XML.</li>
+      <li>Evite cadastros duplicados de fornecedor/produto.</li>
+      <li>Mantenha categorias organizadas para relatórios gerenciais confiáveis.</li>
+    </ul>
   </div>
 {% endblock %}

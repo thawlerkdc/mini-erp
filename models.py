@@ -170,6 +170,48 @@ _TENANT_STATEMENTS = [
         UNIQUE (account_id, setting_key)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS financial_categories (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'both',
+        UNIQUE (account_id, name, kind)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS financial_entries (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        entry_type TEXT NOT NULL,
+        description TEXT NOT NULL,
+        category_id INTEGER REFERENCES financial_categories(id),
+        supplier_id INTEGER REFERENCES suppliers(id),
+        client_id INTEGER REFERENCES clients(id),
+        amount DOUBLE PRECISION NOT NULL,
+        due_date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pendente',
+        is_recurring INTEGER DEFAULT 0,
+        recurrence_days INTEGER DEFAULT 30,
+        source TEXT DEFAULT 'manual',
+        source_ref TEXT,
+        created_at TEXT NOT NULL,
+        paid_at TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS nfe_imports (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        invoice_key TEXT,
+        invoice_number TEXT,
+        issue_date TEXT,
+        supplier_cnpj TEXT,
+        supplier_name TEXT,
+        total_amount DOUBLE PRECISION DEFAULT 0,
+        created_at TEXT NOT NULL
+    )
+    """,
 ]
 
 _TENANT_MIGRATIONS = [
@@ -177,6 +219,11 @@ _TENANT_MIGRATIONS = [
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS email TEXT",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_date TEXT",
     "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS email TEXT",
+    "ALTER TABLE financial_entries ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'",
+    "ALTER TABLE financial_entries ADD COLUMN IF NOT EXISTS source_ref TEXT",
+    "ALTER TABLE financial_entries ADD COLUMN IF NOT EXISTS is_recurring INTEGER DEFAULT 0",
+    "ALTER TABLE financial_entries ADD COLUMN IF NOT EXISTS recurrence_days INTEGER DEFAULT 30",
+    "ALTER TABLE nfe_imports ADD COLUMN IF NOT EXISTS invoice_key TEXT",
 ]
 
 ADMIN_USER = ("admin", "admin123", "admin@kdcsystems.local", 1)

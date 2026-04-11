@@ -23,6 +23,7 @@ import logging
 import smtplib
 import unicodedata
 import psycopg
+import xml.etree.ElementTree as ET
 from email.message import EmailMessage
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,8 @@ TRANSLATIONS = {
         "menu_suppliers": "Fornecedores",
         "menu_sales": "Vendas",
         "menu_reports": "Relatórios",
-        "menu_manual": "Manual do sistema",
+        "menu_finance": "Financeiro",
+        "menu_manual": "Documentação",
         "menu_logout": "Sair",
         "user_list": "Lista de usuários",
         "add_user": "Adicionar usuário",
@@ -122,7 +124,7 @@ TRANSLATIONS = {
         "cash_total_message": "Total em dinheiro do dia:",
         "email_sent_to": "E-mail enviado para",
         "email_not_configured": "E-mail não configurado.",
-        "manual_title": "Manual de uso",
+        "manual_title": "Documentação do sistema",
         "manual_intro": "Este manual apresenta os principais processos do sistema Kdc Systems.",
         "manual_login": "Faça login com usuário e senha para acessar o sistema.",
         "manual_register": "Cadastre produtos, clientes, fornecedores, categorias e unidades.",
@@ -212,6 +214,7 @@ TRANSLATIONS = {
         "menu_sales": "Sales",
         "menu_reports": "Reports",
         "menu_manual": "Manual",
+        "menu_finance": "Finance",
         "menu_logout": "Logout",
         "user_list": "User list",
         "add_user": "Add user",
@@ -332,6 +335,7 @@ TRANSLATIONS = {
         "menu_sales": "Ventas",
         "menu_reports": "Informes",
         "menu_manual": "Manual",
+        "menu_finance": "Finanzas",
         "menu_logout": "Salir",
         "user_list": "Lista de usuarios",
         "add_user": "Agregar usuario",
@@ -434,6 +438,7 @@ TRANSLATIONS = {
         "menu_sales": "Ventes",
         "menu_reports": "Rapports",
         "menu_manual": "Manuel",
+        "menu_finance": "Finances",
         "menu_logout": "Déconnexion",
         "user_list": "Liste des utilisateurs",
         "add_user": "Ajouter un utilisateur",
@@ -536,6 +541,7 @@ TRANSLATIONS = {
         "menu_sales": "Verkäufe",
         "menu_reports": "Berichte",
         "menu_manual": "Handbuch",
+        "menu_finance": "Finanzen",
         "menu_logout": "Abmelden",
         "user_list": "Benutzerliste",
         "add_user": "Benutzer hinzufügen",
@@ -638,6 +644,7 @@ TRANSLATIONS = {
         "menu_sales": "销售",
         "menu_reports": "报表",
         "menu_manual": "手册",
+        "menu_finance": "财务",
         "menu_logout": "退出",
         "user_list": "用户列表",
         "add_user": "添加用户",
@@ -919,6 +926,88 @@ def _format_date_br(value):
     if len(text) >= 10 and text[4] == "-" and text[7] == "-":
         return f"{text[8:10]}/{text[5:7]}/{text[0:4]}"
     return text
+
+
+def _safe_money(raw, default=0.0):
+    if raw is None:
+        return default
+    text = str(raw).strip().replace(".", "").replace(",", ".") if isinstance(raw, str) and "," in str(raw) else str(raw).strip().replace(",", ".")
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return default
+
+
+def _xml_local_name(tag):
+    return tag.split("}", 1)[-1] if "}" in tag else tag
+
+
+def _xml_find_first_text(node, local_names):
+    targets = set(local_names)
+    for child in node.iter():
+        if _xml_local_name(child.tag) in targets:
+            text = (child.text or "").strip()
+            if text:
+                return text
+    return ""
+
+
+def _parse_nfe_xml(xml_bytes):
+    root = ET.fromstring(xml_bytes)
+
+    invoice_number = _xml_find_first_text(root, ["nNF"])
+    issue_raw = _xml_find_first_text(root, ["dhEmi", "dEmi"])
+    issue_date = issue_raw[:10] if issue_raw else datetime.now().strftime("%Y-%m-%d")
+    supplier_name = _xml_find_first_text(root, ["xNome"])
+    supplier_cnpj = re.sub(r"\D", "", _xml_find_first_text(root, ["CNPJ"]))[:14]
+    total_amount = _safe_money(_xml_find_first_text(root, ["vNF"]), 0)
+
+    invoice_key = ""
+    for node in root.iter():
+        if _xml_local_name(node.tag) == "infNFe":
+            invoice_key = (node.attrib.get("Id") or "").replace("NFe", "").strip()
+            break
+
+    items = []
+    for det in root.iter():
+        if _xml_local_name(det.tag) != "det":
+            continue
+        prod = None
+        for child in det:
+            if _xml_local_name(child.tag) == "prod":
+                prod = child
+                break
+        if prod is None:
+            continue
+        code = _xml_find_first_text(prod, ["cProd"])
+        name = _xml_find_first_text(prod, ["xProd"])
+        quantity = _safe_money(_xml_find_first_text(prod, ["qCom"]), 0)
+        unit_price = _safe_money(_xml_find_first_text(prod, ["vUnCom"]), 0)
+        item_total = _safe_money(_xml_find_first_text(prod, ["vProd"]), quantity * unit_price)
+        if not name:
+            continue
+        items.append(
+            {
+                "code": code,
+                "name": name,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "total": item_total,
+            }
+        )
+
+    if total_amount <= 0:
+        total_amount = sum(float(item["total"] or 0) for item in items)
+
+    return {
+        "invoice_key": invoice_key,
+        "invoice_number": invoice_number,
+        "issue_date": issue_date,
+        "supplier_name": supplier_name,
+        "supplier_cnpj": supplier_cnpj,
+        "total_amount": float(total_amount or 0),
+        "items": items,
+    }
 
 
 def get_account_settings(account_id):
@@ -2024,6 +2113,356 @@ def fechar_caixa():
         clients=clients,
         pix_code=None,
         cash_summary=cash_summary,
+    )
+
+
+@app.route("/financeiro", methods=["GET", "POST"])
+def financeiro():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+
+    account_id = get_current_account_id()
+    conn = get_tenant_connection()
+
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip()
+        try:
+            if action == "add_category":
+                name = (request.form.get("name") or "").strip()
+                kind = (request.form.get("kind") or "both").strip().lower()
+                if kind not in {"payable", "receivable", "both"}:
+                    kind = "both"
+                if not name:
+                    flash("Informe o nome da categoria financeira.", "error")
+                else:
+                    conn.execute(
+                        "INSERT INTO financial_categories (account_id, name, kind) VALUES (%s, %s, %s)",
+                        (account_id, name, kind),
+                    )
+                    conn.commit()
+                    flash("Categoria financeira cadastrada.", "success")
+
+            elif action == "add_entry":
+                entry_type = (request.form.get("entry_type") or "payable").strip().lower()
+                description = (request.form.get("description") or "").strip()
+                category_id = request.form.get("category_id") or None
+                supplier_id = request.form.get("supplier_id") or None
+                client_id = request.form.get("client_id") or None
+                amount = _safe_money(request.form.get("amount"), 0)
+                due_date = (request.form.get("due_date") or "").strip()
+                status = (request.form.get("status") or "pendente").strip().lower()
+                is_recurring = 1 if request.form.get("is_recurring") else 0
+                recurrence_days = _safe_int(request.form.get("recurrence_days") or 30, 30)
+
+                if entry_type not in {"payable", "receivable"}:
+                    entry_type = "payable"
+                if status not in {"pago", "pendente", "vencido"}:
+                    status = "pendente"
+
+                if not description or amount <= 0 or not due_date:
+                    flash("Preencha descrição, valor e vencimento para lançar o título.", "error")
+                else:
+                    paid_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "pago" else None
+                    conn.execute(
+                        "INSERT INTO financial_entries (account_id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, status, is_recurring, recurrence_days, source, created_at, paid_at) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'manual', %s, %s)",
+                        (
+                            account_id,
+                            entry_type,
+                            description,
+                            category_id,
+                            supplier_id,
+                            client_id,
+                            amount,
+                            due_date,
+                            status,
+                            is_recurring,
+                            max(1, recurrence_days),
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            paid_at,
+                        ),
+                    )
+                    conn.commit()
+                    flash("Lançamento financeiro salvo.", "success")
+
+            elif action == "mark_status":
+                entry_id = request.form.get("entry_id")
+                status = (request.form.get("status") or "pendente").strip().lower()
+                if status not in {"pago", "pendente", "vencido"}:
+                    status = "pendente"
+                paid_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "pago" else None
+                conn.execute(
+                    "UPDATE financial_entries SET status = %s, paid_at = %s WHERE id = %s AND account_id = %s",
+                    (status, paid_at, entry_id, account_id),
+                )
+                conn.commit()
+                flash("Status financeiro atualizado.", "success")
+
+            elif action == "preview_xml":
+                xml_file = request.files.get("xml_file")
+                if not xml_file or not xml_file.filename:
+                    flash("Selecione um arquivo XML da NF-e para importar.", "error")
+                else:
+                    preview = _parse_nfe_xml(xml_file.read())
+                    if not preview.get("items"):
+                        flash("Não foi possível extrair itens do XML informado.", "error")
+                    else:
+                        session["finance_xml_preview"] = preview
+                        flash("Pré-visualização do XML gerada. Revise e confirme.", "success")
+
+            elif action == "confirm_xml":
+                preview = session.get("finance_xml_preview")
+                if not preview:
+                    flash("Gere a pré-visualização do XML antes de confirmar.", "error")
+                else:
+                    existing = None
+                    if preview.get("invoice_key"):
+                        existing = conn.execute(
+                            "SELECT id FROM nfe_imports WHERE account_id = %s AND invoice_key = %s LIMIT 1",
+                            (account_id, preview["invoice_key"]),
+                        ).fetchone()
+                    if existing:
+                        flash("Este XML já foi importado anteriormente.", "error")
+                    else:
+                        create_supplier = request.form.get("create_supplier") == "1"
+                        create_products = request.form.get("create_products") == "1"
+                        create_payable = request.form.get("create_payable") != "0"
+
+                        supplier_id = None
+                        if preview.get("supplier_cnpj"):
+                            supplier_row = conn.execute(
+                                "SELECT id FROM suppliers WHERE account_id = %s AND cnpj = %s LIMIT 1",
+                                (account_id, preview["supplier_cnpj"]),
+                            ).fetchone()
+                            if supplier_row:
+                                supplier_id = supplier_row["id"]
+
+                        if create_supplier and not supplier_id and preview.get("supplier_name"):
+                            conn.execute(
+                                "INSERT INTO suppliers (account_id, name, cnpj) VALUES (%s, %s, %s)",
+                                (account_id, preview.get("supplier_name"), preview.get("supplier_cnpj") or None),
+                            )
+                            supplier_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('suppliers', 'id'))").fetchone()[0]
+
+                        category_row = conn.execute(
+                            "SELECT id FROM categories WHERE account_id = %s AND name = %s LIMIT 1",
+                            (account_id, "Importação XML"),
+                        ).fetchone()
+                        if category_row:
+                            xml_category_id = category_row["id"]
+                        else:
+                            conn.execute(
+                                "INSERT INTO categories (account_id, name) VALUES (%s, %s)",
+                                (account_id, "Importação XML"),
+                            )
+                            xml_category_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('categories', 'id'))").fetchone()[0]
+
+                        unit_row = conn.execute(
+                            "SELECT id FROM units WHERE account_id = %s AND name = %s LIMIT 1",
+                            (account_id, "UN"),
+                        ).fetchone()
+                        if unit_row:
+                            xml_unit_id = unit_row["id"]
+                        else:
+                            conn.execute(
+                                "INSERT INTO units (account_id, name) VALUES (%s, %s)",
+                                (account_id, "UN"),
+                            )
+                            xml_unit_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('units', 'id'))").fetchone()[0]
+
+                        for item in preview.get("items", []):
+                            qty = max(_safe_int(round(float(item.get("quantity") or 0))), 0)
+                            unit_price = float(item.get("unit_price") or 0)
+                            if qty <= 0:
+                                continue
+
+                            existing_product = conn.execute(
+                                "SELECT id FROM products WHERE account_id = %s AND LOWER(name) = LOWER(%s) LIMIT 1",
+                                (account_id, item.get("name")),
+                            ).fetchone()
+
+                            if existing_product:
+                                conn.execute(
+                                    "UPDATE products SET stock = stock + %s, cost = %s, supplier_id = COALESCE(supplier_id, %s) WHERE id = %s AND account_id = %s",
+                                    (qty, unit_price, supplier_id, existing_product["id"], account_id),
+                                )
+                                product_id = existing_product["id"]
+                            elif create_products:
+                                conn.execute(
+                                    "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)",
+                                    (account_id, item.get("name"), xml_category_id, xml_unit_id, supplier_id, unit_price, unit_price, qty),
+                                )
+                                product_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('products', 'id'))").fetchone()[0]
+                            else:
+                                product_id = None
+
+                            if product_id:
+                                conn.execute(
+                                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) VALUES (%s, %s, %s, %s, %s, %s)",
+                                    (
+                                        account_id,
+                                        product_id,
+                                        qty,
+                                        "xml_import",
+                                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        f"Importação XML NF {preview.get('invoice_number') or '-'}",
+                                    ),
+                                )
+
+                        if create_payable:
+                            conn.execute(
+                                "INSERT INTO financial_entries (account_id, entry_type, description, category_id, supplier_id, amount, due_date, status, source, source_ref, created_at) "
+                                "VALUES (%s, 'payable', %s, %s, %s, %s, %s, 'pendente', 'xml_import', %s, %s)",
+                                (
+                                    account_id,
+                                    f"NF-e {preview.get('invoice_number') or '-'} - {preview.get('supplier_name') or 'Fornecedor'}",
+                                    None,
+                                    supplier_id,
+                                    float(preview.get("total_amount") or 0),
+                                    preview.get("issue_date") or datetime.now().strftime("%Y-%m-%d"),
+                                    preview.get("invoice_key") or preview.get("invoice_number") or "",
+                                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                ),
+                            )
+
+                        conn.execute(
+                            "INSERT INTO nfe_imports (account_id, invoice_key, invoice_number, issue_date, supplier_cnpj, supplier_name, total_amount, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                            (
+                                account_id,
+                                preview.get("invoice_key") or None,
+                                preview.get("invoice_number") or None,
+                                preview.get("issue_date") or None,
+                                preview.get("supplier_cnpj") or None,
+                                preview.get("supplier_name") or None,
+                                float(preview.get("total_amount") or 0),
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            ),
+                        )
+                        conn.commit()
+                        session.pop("finance_xml_preview", None)
+                        flash("XML importado com sucesso: estoque, financeiro e histórico foram atualizados.", "success")
+
+        except psycopg.IntegrityError:
+            conn.rollback()
+            flash("Registro já existe para esta conta. Revise os dados informados.", "error")
+        except ET.ParseError:
+            conn.rollback()
+            flash("Arquivo XML inválido. Verifique se o arquivo é uma NF-e válida.", "error")
+        except Exception as error:
+            conn.rollback()
+            logger.error(f"Erro em financeiro: {error}")
+            flash("Não foi possível processar a operação financeira solicitada.", "error")
+
+        conn.close()
+        return redirect(url_for("financeiro"))
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    start_date = request.args.get("start_date") or datetime.now().replace(day=1).strftime("%Y-%m-%d")
+    end_date = request.args.get("end_date") or today
+
+    categories = conn.execute(
+        "SELECT * FROM financial_categories WHERE account_id = %s ORDER BY name",
+        (account_id,),
+    ).fetchall()
+    suppliers = conn.execute("SELECT id, name FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+    clients = conn.execute("SELECT id, name FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+
+    entries = conn.execute(
+        "SELECT e.*, fc.name AS category_name, s.name AS supplier_name, c.name AS client_name "
+        "FROM financial_entries e "
+        "LEFT JOIN financial_categories fc ON e.category_id = fc.id "
+        "LEFT JOIN suppliers s ON e.supplier_id = s.id "
+        "LEFT JOIN clients c ON e.client_id = c.id "
+        "WHERE e.account_id = %s "
+        "ORDER BY CASE e.status WHEN 'vencido' THEN 0 WHEN 'pendente' THEN 1 ELSE 2 END, e.due_date ASC, e.id DESC "
+        "LIMIT 200",
+        (account_id,),
+    ).fetchall()
+    entries = [{**dict(r), "due_date_display": _format_date_br(r["due_date"])} for r in entries]
+
+    summary_rows = conn.execute(
+        "SELECT entry_type, status, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS qty "
+        "FROM financial_entries WHERE account_id = %s GROUP BY entry_type, status",
+        (account_id,),
+    ).fetchall()
+
+    summary = {
+        "payable": {"pago": 0.0, "pendente": 0.0, "vencido": 0.0},
+        "receivable": {"pago": 0.0, "pendente": 0.0, "vencido": 0.0},
+    }
+    for row in summary_rows:
+        etype = row["entry_type"] if row["entry_type"] in {"payable", "receivable"} else "payable"
+        st = row["status"] if row["status"] in {"pago", "pendente", "vencido"} else "pendente"
+        summary[etype][st] = float(row["total"] or 0)
+
+    sales_cashflow = conn.execute(
+        "SELECT SUBSTRING(date, 1, 10) AS day, COALESCE(SUM(total), 0) AS inflow "
+        "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s "
+        "GROUP BY SUBSTRING(date, 1, 10)",
+        (account_id, start_date, end_date),
+    ).fetchall()
+    receivable_cashflow = conn.execute(
+        "SELECT due_date AS day, COALESCE(SUM(amount), 0) AS inflow "
+        "FROM financial_entries WHERE account_id = %s AND entry_type = 'receivable' AND status = 'pago' AND due_date BETWEEN %s AND %s "
+        "GROUP BY due_date",
+        (account_id, start_date, end_date),
+    ).fetchall()
+    payable_cashflow = conn.execute(
+        "SELECT due_date AS day, COALESCE(SUM(amount), 0) AS outflow "
+        "FROM financial_entries WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s "
+        "GROUP BY due_date",
+        (account_id, start_date, end_date),
+    ).fetchall()
+
+    flow_map = {}
+    for row in sales_cashflow:
+        day = row["day"]
+        flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
+        flow_map[day]["inflow"] += float(row["inflow"] or 0)
+    for row in receivable_cashflow:
+        day = row["day"]
+        flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
+        flow_map[day]["inflow"] += float(row["inflow"] or 0)
+    for row in payable_cashflow:
+        day = row["day"]
+        flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
+        flow_map[day]["outflow"] += float(row["outflow"] or 0)
+
+    cashflow_rows = []
+    for day in sorted(flow_map.keys()):
+        inflow = flow_map[day]["inflow"]
+        outflow = flow_map[day]["outflow"]
+        cashflow_rows.append(
+            {
+                "day": day,
+                "inflow": inflow,
+                "outflow": outflow,
+                "balance": inflow - outflow,
+            }
+        )
+
+    imports_history = conn.execute(
+        "SELECT * FROM nfe_imports WHERE account_id = %s ORDER BY id DESC LIMIT 30",
+        (account_id,),
+    ).fetchall()
+    imports_history = [{**dict(r), "created_date_display": _format_date_br(r["created_at"])} for r in imports_history]
+
+    xml_preview = session.get("finance_xml_preview")
+
+    conn.close()
+    return render_template(
+        "financeiro.html",
+        title=translate("menu_finance"),
+        entries=entries,
+        categories=categories,
+        suppliers=suppliers,
+        clients=clients,
+        summary=summary,
+        start_date=start_date,
+        end_date=end_date,
+        cashflow_rows=cashflow_rows,
+        xml_preview=xml_preview,
+        imports_history=imports_history,
     )
 
 
