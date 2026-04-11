@@ -715,6 +715,7 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar-brand {
@@ -783,6 +784,8 @@ body {
   border-radius: 10px;
   border: 1px solid transparent;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  opacity: 1;
+  min-height: 42px;
 }
 
 .menu-fav-toggle {
@@ -809,14 +812,23 @@ body {
   color: #fff;
 }
 
+.sidebar-nav-favorites .nav-link {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
 .sidebar-footer {
   margin-top: auto;
   display: grid;
   gap: 10px;
   padding: 12px;
   border-radius: 12px;
-  background: rgba(8, 21, 49, 0.4);
+  background: rgba(8, 21, 49, 0.86);
   border: 1px solid rgba(255, 255, 255, 0.14);
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
 }
 
 .sidebar-footer .logout,
@@ -1483,6 +1495,55 @@ body {
   margin-bottom: 12px;
 }
 
+.finance-alert-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.finance-alert-card {
+  border-radius: 12px;
+  border: 1px solid #dbe5f6;
+  background: #f8fbff;
+  padding: 12px 14px;
+}
+
+.finance-alert-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+  font-weight: 700;
+}
+
+.finance-alert-value {
+  margin-top: 6px;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.finance-alert-sub {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.finance-alert-overdue {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.finance-alert-soon {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.finance-alert-date {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
 .finance-summary-card {
   background: #f8fbff;
   border: 1px solid #dbe7fb;
@@ -1596,6 +1657,10 @@ body {
 
   .finance-summary-grid,
   .finance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-alert-strip {
     grid-template-columns: 1fr;
   }
 }

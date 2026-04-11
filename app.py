@@ -939,59 +939,47 @@ def _parse_iso_date(text):
 
 
 def _run_financial_recurring_generation(conn, account_id):
-    today = datetime.now().date()
-    horizon = today + timedelta(days=30)
     recurring_rows = conn.execute(
-        "SELECT id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, recurrence_days "
-        "FROM financial_entries WHERE account_id = %s AND is_recurring = 1",
+        "SELECT id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, recurrence_days, source_ref "
+        "FROM financial_entries WHERE account_id = %s AND is_recurring = 1 AND status = 'pago'",
         (account_id,),
     ).fetchall()
 
     created_count = 0
     for row in recurring_rows:
-        base_id = row["id"]
-        ref = f"recurring:{base_id}"
+        ref = row["source_ref"] if str(row.get("source_ref") or "").startswith("recurring:") else f"recurring:{row['id']}"
         recurrence_days = max(_safe_int(row["recurrence_days"], 30), 1)
-        latest = conn.execute(
-            "SELECT due_date FROM financial_entries "
-            "WHERE account_id = %s AND (id = %s OR source_ref = %s) "
-            "ORDER BY due_date DESC LIMIT 1",
-            (account_id, base_id, ref),
-        ).fetchone()
-        latest_due = _parse_iso_date(latest["due_date"] if latest else row["due_date"])
-        if not latest_due:
+        current_due = _parse_iso_date(row["due_date"])
+        if not current_due:
             continue
 
-        while latest_due <= horizon:
-            next_due = latest_due + timedelta(days=recurrence_days)
-            next_due_text = next_due.strftime("%Y-%m-%d")
-            exists = conn.execute(
-                "SELECT id FROM financial_entries WHERE account_id = %s AND source_ref = %s AND due_date = %s LIMIT 1",
-                (account_id, ref, next_due_text),
-            ).fetchone()
-            if exists:
-                latest_due = next_due
-                continue
+        pending_next = conn.execute(
+            "SELECT id FROM financial_entries WHERE account_id = %s AND source_ref = %s AND due_date > %s LIMIT 1",
+            (account_id, ref, current_due.strftime("%Y-%m-%d")),
+        ).fetchone()
+        if pending_next:
+            continue
 
-            conn.execute(
-                "INSERT INTO financial_entries (account_id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, status, is_recurring, recurrence_days, source, source_ref, created_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pendente', 0, %s, 'recurrence', %s, %s)",
-                (
-                    account_id,
-                    row["entry_type"],
-                    row["description"],
-                    row["category_id"],
-                    row["supplier_id"],
-                    row["client_id"],
-                    float(row["amount"] or 0),
-                    next_due_text,
-                    recurrence_days,
-                    ref,
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                ),
-            )
-            created_count += 1
-            latest_due = next_due
+        next_due = current_due + timedelta(days=recurrence_days)
+        next_due_text = next_due.strftime("%Y-%m-%d")
+        conn.execute(
+            "INSERT INTO financial_entries (account_id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, status, is_recurring, recurrence_days, source, source_ref, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pendente', 1, %s, 'recurrence', %s, %s)",
+            (
+                account_id,
+                row["entry_type"],
+                row["description"],
+                row["category_id"],
+                row["supplier_id"],
+                row["client_id"],
+                float(row["amount"] or 0),
+                next_due_text,
+                recurrence_days,
+                ref,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ),
+        )
+        created_count += 1
 
     return created_count
 
@@ -1041,6 +1029,69 @@ def _maybe_flash_financial_alerts(snapshot):
             "info",
         )
     session[alert_key] = True
+
+
+def _send_financial_due_alert_email(conn, account_id, snapshot):
+    today = snapshot.get("today") or datetime.now().strftime("%Y-%m-%d")
+    if snapshot.get("overdue_qty", 0) <= 0 and snapshot.get("due_soon_qty", 0) <= 0:
+        return
+
+    already_sent = conn.execute(
+        "SELECT setting_value FROM account_settings WHERE account_id = %s AND setting_key = %s",
+        (account_id, "financial_due_alert_last_date"),
+    ).fetchone()
+    if already_sent and str(already_sent["setting_value"] or "") == today:
+        return
+
+    recipients = get_primary_notification_recipients(account_id)
+    if not recipients:
+        return
+
+    top_overdue = conn.execute(
+        "SELECT description, due_date, amount FROM financial_entries "
+        "WHERE account_id = %s AND status = 'vencido' ORDER BY due_date ASC LIMIT 10",
+        (account_id,),
+    ).fetchall()
+    top_due_soon = conn.execute(
+        "SELECT description, due_date, amount FROM financial_entries "
+        "WHERE account_id = %s AND status = 'pendente' AND due_date BETWEEN %s AND %s "
+        "ORDER BY due_date ASC LIMIT 10",
+        (account_id, today, (datetime.now().date() + timedelta(days=3)).strftime("%Y-%m-%d")),
+    ).fetchall()
+
+    lines = [
+        f"- Vencidos: {snapshot['overdue_qty']} | Total: R$ {snapshot['overdue_total']:.2f}",
+        f"- Vencendo em 3 dias: {snapshot['due_soon_qty']} | Total: R$ {snapshot['due_soon_total']:.2f}",
+        "",
+        "Detalhes vencidos:",
+    ]
+    if top_overdue:
+        lines.extend([f"  • {r['due_date']} | {r['description']} | R$ {float(r['amount'] or 0):.2f}" for r in top_overdue])
+    else:
+        lines.append("  • Nenhum")
+
+    lines.append("")
+    lines.append("Detalhes próximos do vencimento:")
+    if top_due_soon:
+        lines.extend([f"  • {r['due_date']} | {r['description']} | R$ {float(r['amount'] or 0):.2f}" for r in top_due_soon])
+    else:
+        lines.append("  • Nenhum")
+
+    sent, _err = send_email_with_settings(
+        account_id,
+        recipients,
+        f"Alerta financeiro diário - {today}",
+        "\n".join(lines),
+    )
+    if not sent:
+        return
+
+    conn.execute(
+        "INSERT INTO account_settings (account_id, setting_key, setting_value, updated_at) "
+        "VALUES (%s, %s, %s, %s) "
+        "ON CONFLICT (account_id, setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = EXCLUDED.updated_at",
+        (account_id, "financial_due_alert_last_date", today, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+    )
 
 
 def _safe_money(raw, default=0.0):
@@ -1417,6 +1468,7 @@ def dashboard():
     conn = get_tenant_connection()
     _run_financial_recurring_generation(conn, account_id)
     financial_alert_snapshot = _financial_due_alert_snapshot(conn, account_id)
+    _send_financial_due_alert_email(conn, account_id, financial_alert_snapshot)
     _maybe_flash_financial_alerts(financial_alert_snapshot)
     conn.commit()
     total_clients = conn.execute("SELECT COUNT(*) FROM clients WHERE account_id = %s", (account_id,)).fetchone()[0]
@@ -2244,6 +2296,7 @@ def financeiro():
     conn = get_tenant_connection()
     generated_recurring = _run_financial_recurring_generation(conn, account_id)
     alert_snapshot = _financial_due_alert_snapshot(conn, account_id)
+    _send_financial_due_alert_email(conn, account_id, alert_snapshot)
     conn.commit()
     _maybe_flash_financial_alerts(alert_snapshot)
     if generated_recurring > 0:
@@ -2586,6 +2639,7 @@ def financeiro():
         start_date=start_date,
         end_date=end_date,
         cashflow_rows=cashflow_rows,
+        alert_snapshot=alert_snapshot,
         xml_preview=xml_preview,
         imports_history=imports_history,
     )

@@ -6,6 +6,24 @@
     <p>Controle de contas a pagar, contas a receber, fluxo de caixa e importação XML com pré-visualização.</p>
   </div>
 
+  <div class="finance-alert-strip">
+    <div class="finance-alert-card finance-alert-overdue">
+      <div class="finance-alert-title">Vencidos hoje</div>
+      <div class="finance-alert-value">{{ alert_snapshot['overdue_qty'] }}</div>
+      <div class="finance-alert-sub">R$ {{ "%.2f"|format(alert_snapshot['overdue_total'])|replace('.', ',') }}</div>
+    </div>
+    <div class="finance-alert-card finance-alert-soon">
+      <div class="finance-alert-title">Vencendo em 3 dias</div>
+      <div class="finance-alert-value">{{ alert_snapshot['due_soon_qty'] }}</div>
+      <div class="finance-alert-sub">R$ {{ "%.2f"|format(alert_snapshot['due_soon_total'])|replace('.', ',') }}</div>
+    </div>
+    <div class="finance-alert-card finance-alert-date">
+      <div class="finance-alert-title">Referência</div>
+      <div class="finance-alert-value">{{ alert_snapshot['today'][8:10] }}/{{ alert_snapshot['today'][5:7] }}/{{ alert_snapshot['today'][0:4] }}</div>
+      <div class="finance-alert-sub">Monitoramento diário ativo</div>
+    </div>
+  </div>
+
   <div class="finance-summary-grid">
     <div class="finance-summary-card">
       <h4>Contas a pagar</h4>
