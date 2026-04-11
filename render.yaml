@@ -15,4 +15,4 @@ services:
           name: mini-erp-db
           property: connectionString
       - key: PYTHON_VERSION
-        value: 3.14.3
+        value: 3.11.0
