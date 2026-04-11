@@ -1450,13 +1450,24 @@ body {
   justify-content: center;
 }
 
-.pix-confirm-btn {
+.pix-confirm-yes {
+  background: #16a34a !important;
+  border-color: #15803d !important;
+  color: #ffffff !important;
+}
+
+.pix-confirm-yes:hover {
+  background: #15803d !important;
+  border-color: #166534 !important;
+}
+
+.pix-confirm-no {
   background: #dc2626 !important;
   border-color: #b91c1c !important;
   color: #ffffff !important;
 }
 
-.pix-confirm-btn:hover {
+.pix-confirm-no:hover {
   background: #b91c1c !important;
   border-color: #991b1b !important;
 }
