@@ -417,6 +417,30 @@
       var modal = document.getElementById('finance-info-modal');
       if (!modal) return;
       modal.style.display = 'none';
+      focusEntryTypeSelect();
+    }
+
+    function focusEntryTypeSelect() {
+      var typeSelect = document.getElementById('entry-type-select');
+      if (!typeSelect) return;
+
+      typeSelect.classList.remove('field-highlight-focus');
+      typeSelect.focus();
+      typeSelect.classList.add('field-highlight-focus');
+
+      window.setTimeout(function () {
+        typeSelect.classList.remove('field-highlight-focus');
+      }, 1800);
+
+      try {
+        if (typeof typeSelect.showPicker === 'function') {
+          typeSelect.showPicker();
+        } else {
+          typeSelect.click();
+        }
+      } catch (err) {
+        typeSelect.click();
+      }
     }
 
     document.addEventListener('DOMContentLoaded', function () {
