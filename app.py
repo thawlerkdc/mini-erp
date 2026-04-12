@@ -1783,32 +1783,32 @@ def cadastro(entity):
                     edit_id_form = request.form.get("edit_id")
 
                     if name and category_id and unit_id:
-                           # Calcular margem de lucro
-                           margin_percent = _safe_float(request.form.get("margin_percent"), None)
-                           settings = get_account_settings(account_id)
-                           default_margin = _safe_float(settings.get("default_profit_margin", "100"))
-                           if margin_percent is None:
-                               margin_percent = default_margin
-                           if cost > 0 and price == 0:
-                               price = _calculate_selling_price(cost, margin_percent)
-                           elif cost > 0 and price > 0:
-                               margin_percent = _calculate_profit_margin(cost, price)
+                        # Calcular margem de lucro
+                        margin_percent = _safe_float(request.form.get("margin_percent"), None)
+                        settings = get_account_settings(account_id)
+                        default_margin = _safe_float(settings.get("default_profit_margin", "100"))
+                        if margin_percent is None:
+                            margin_percent = default_margin
+                        if cost > 0 and price == 0:
+                            price = _calculate_selling_price(cost, margin_percent)
+                        elif cost > 0 and price > 0:
+                            margin_percent = _calculate_profit_margin(cost, price)
 
-                           # Unidade de compra e fator de conversão
-                           unit_buy = (request.form.get("unit_buy") or "").strip() or None
-                           conversion_factor = _safe_float(request.form.get("conversion_factor"), 1.0)
-                           if conversion_factor <= 0:
-                               conversion_factor = 1.0
+                        # Unidade de compra e fator de conversao
+                        unit_buy = (request.form.get("unit_buy") or "").strip() or None
+                        conversion_factor = _safe_float(request.form.get("conversion_factor"), 1.0)
+                        if conversion_factor <= 0:
+                            conversion_factor = 1.0
 
                         if edit_id_form:
                             conn.execute(
-                                   "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, margin_percent = %s, unit_buy = %s, conversion_factor = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
-                                   (name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date, edit_id_form, account_id),
+                                "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, margin_percent = %s, unit_buy = %s, conversion_factor = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
+                                (name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date, edit_id_form, account_id),
                             )
                         else:
                             conn.execute(
-                                   "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                   (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date),
+                                "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date),
                             )
                         conn.commit()
                         flash(translate("record_saved"), "success")
@@ -2386,31 +2386,16 @@ def financeiro():
 
                 if entry_type not in {"payable", "receivable"}:
                     entry_type = "payable"
-                       # Calcular margem de lucro e preço sugerido
-                       margin_percent = _safe_float(request.form.get("margin_percent"), None)
-                       settings = get_account_settings(account_id)
-                       default_margin = _safe_float(settings.get("default_profit_margin", "100"))
-
-                       # Se margem não foi informada, usa a padrão
-                       if margin_percent is None:
-                           margin_percent = default_margin
-
-                       # Se há custo e preço é 0, calcula com base na margem
-                       if cost > 0 and price == 0:
-                           price = _calculate_selling_price(cost, margin_percent)
-                       # Se há custo e preço > 0, calcula a margem baseado no preço
-                       elif cost > 0 and price > 0:
-                           margin_percent = _calculate_profit_margin(cost, price)
                 if status not in {"pago", "pendente", "vencido"}:
                     status = "pendente"
 
-                               "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, margin_percent = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
-                               (name, category_id, unit_id, supplier_id, cost, price, margin_percent, stock, stock_min, expiration_date, edit_id_form, account_id),
+                if not description or amount <= 0 or not due_date:
+                    flash("Preencha descrição, valor e vencimento para lançar o título.", "error")
                 else:
                     paid_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "pago" else None
                     conn.execute(
-                               "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                               (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, stock, stock_min, expiration_date),
+                        "INSERT INTO financial_entries (account_id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, status, is_recurring, recurrence_days, source, created_at, paid_at) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'manual', %s, %s)",
                         (
                             account_id,
                             entry_type,
