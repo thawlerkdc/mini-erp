@@ -86,6 +86,18 @@
           <button type="button" class="outline-button small btn-aux" onclick="toggleUnitForm('product-unit-form', this)">{{ t('add_unit') }}</button>
           <a href="{{ url_for('cadastro', entity='unidades') }}" class="outline-button small btn-manage">{{ t('manage_units') }}</a>
         </div>
+       <label>Unidade de compra (opcional)</label>
+       <select name="unit_buy">
+         <option value="">Mesma unidade padrão</option>
+         {% for unit in units %}
+           <option value="{{ unit['name'] }}" {% if edit_data and edit_data.get('unit_buy') == unit['name'] %}selected{% endif %}>{{ unit['name'] }}</option>
+         {% endfor %}
+       </select>
+       <p class="param-hint-small">Ex: Se a unidade padrão é UN (unidade), mas você compra em CX (caixa com 12), especifique aqui.</p>
+
+       <label>Fator de conversão (compra → venda)</label>
+       <input type="number" name="conversion_factor" step="0.001" min="0.001" placeholder="1" value="{{ edit_data.get('conversion_factor', '1') if edit_data else '1' }}">
+       <p class="param-hint-small">Quantas unidades de venda estão em uma unidade de compra. Ex: 1 caixa = 12 unidades = fator 12</p>
         <label>{{ t('supplier_name') }}</label>
         <select name="supplier_id">
           <option value="">Selecione...</option>
@@ -122,6 +134,8 @@
           <input type="hidden" name="cost">
           <input type="hidden" name="price">
           <input type="hidden" name="margin_percent">
+          <input type="hidden" name="unit_buy">
+          <input type="hidden" name="conversion_factor">
           <input type="hidden" name="stock">
           <input type="hidden" name="stock_min">
           <input type="hidden" name="expiration_date">
@@ -142,6 +156,8 @@
           <input type="hidden" name="cost">
           <input type="hidden" name="price">
           <input type="hidden" name="margin_percent">
+          <input type="hidden" name="unit_buy">
+          <input type="hidden" name="conversion_factor">
           <input type="hidden" name="stock">
           <input type="hidden" name="stock_min">
           <input type="hidden" name="expiration_date">
@@ -162,10 +178,13 @@
         </thead>
         <tbody>
           {% for product in rows %}
+            <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>Unit. Padrão</th><th>Unit. Compra</th><th>Fator Conv.</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('cost_label') }}</th><th>Margem</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
             <tr>
               <td>{{ product['name'] }}</td>
               <td>{{ product['category_name'] or '-' }}</td>
-              <td>{{ product['unit_name'] or '-' }}</td>
+               <td>{{ product['unit_name'] or '-' }}</td>
+               <td>{{ product.get('unit_buy', '-') | replace('None', '-') }}</td>
+               <td>{{ "%.3f"|format(product.get('conversion_factor', 1)) if product.get('conversion_factor') else '1' }}</td>
               <td>{{ product['supplier_name'] or '-' }}</td>
               <td>{{ product['stock'] }}</td>
               <td>$ {{ "%.2f"|format(product['cost']) }}</td>
