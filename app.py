@@ -974,6 +974,17 @@ def _to_sale_units(quantity, conversion_factor):
     return float(quantity or 0) * float(conversion_factor or 1)
 
 
+def _movement_type_label_pt(movement_type):
+    mapping = {
+        "sale": "Venda",
+        "entrada": "Entrada",
+        "ajuste_entrada": "Ajuste de entrada",
+        "ajuste_saida": "Ajuste de saída",
+        "xml_import": "Importação XML",
+    }
+    return mapping.get((movement_type or "").strip().lower(), movement_type or "-")
+
+
 def _ensure_default_financial_categories(conn, account_id):
     for name, kind in DEFAULT_FINANCIAL_CATEGORIES:
         conn.execute(
@@ -1545,7 +1556,7 @@ def login():
             session["role"] = user["role"]
             return redirect(url_for("dashboard"))
         flash(translate("invalid_login"), "error")
-    return render_template("login.html", title=translate("login_title"))
+    return render_template("login.html", title=translate("login_title"), hide_page_title=True)
 
 
 @app.route("/criar-conta", methods=["POST"])
@@ -3488,7 +3499,7 @@ def relatorios():
                 (translate("unknown"), account_id, start_date, end_date),
             ).fetchall()
             report_rows = [
-                (_format_date_br(row["date"]), row["product_name"], row["movement_type"], f"{float(row['quantity'] or 0):.3f}", row["user_name"], row["notes"])
+                (_format_date_br(row["date"]), row["product_name"], _movement_type_label_pt(row["movement_type"]), f"{float(row['quantity'] or 0):.3f}", row["user_name"], row["notes"])
                 for row in report_rows_db
             ]
         elif report == "stock_valuation":
@@ -3755,13 +3766,60 @@ def relatorios():
     )
 
 
-@app.route("/estoque/controle")
+@app.route("/estoque/controle", methods=["GET", "POST"])
 def controle_estoque():
     if not session.get("user"):
         return redirect(url_for("login"))
 
     account_id = get_current_account_id()
     conn = get_tenant_connection()
+
+    products = conn.execute(
+        "SELECT p.*, u.name AS unit_name FROM products p "
+        "LEFT JOIN units u ON p.unit_id = u.id "
+        "WHERE p.account_id = %s ORDER BY p.name",
+        (account_id,),
+    ).fetchall()
+
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip()
+        if action == "stock_adjust":
+            product_id = request.form.get("product_id")
+            reason = request.form.get("reason") or ""
+            quantity = _safe_float(request.form.get("quantity"), 0)
+            date_val = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
+            notes = (request.form.get("notes") or "").strip()
+
+            reason_map = {r[0]: r[2] for r in ADJUSTMENT_REASONS}
+            effect = reason_map.get(reason, "subtract")
+
+            if not product_id or quantity <= 0:
+                flash("Produto, motivo e quantidade são obrigatórios.", "error")
+            else:
+                delta = quantity if effect == "add" else -quantity
+                label = next((r[1] for r in ADJUSTMENT_REASONS if r[0] == reason), reason)
+                movement_type = "ajuste_entrada" if effect == "add" else "ajuste_saida"
+                full_notes = f"{label}" + (f" — {notes}" if notes else "")
+                conn.execute(
+                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (
+                        account_id,
+                        product_id,
+                        quantity,
+                        movement_type,
+                        date_val,
+                        full_notes,
+                        get_current_user_id(),
+                        session.get("user_name") or session.get("user"),
+                    ),
+                )
+                conn.execute(
+                    "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
+                    (delta, product_id, account_id),
+                )
+                conn.commit()
+                flash("Ajuste de estoque registrado com sucesso.", "success")
 
     stock_position = conn.execute(
         "SELECT id, name, COALESCE(stock, 0) AS stock, COALESCE(stock_min, 0) AS stock_min, COALESCE(cost, 0) AS cost "
@@ -3804,6 +3862,17 @@ def controle_estoque():
         ).fetchall()
     }
 
+    recent_adjustments = conn.execute(
+        "SELECT sm.id, sm.quantity, sm.movement_type, sm.date, sm.notes, sm.created_by_user_name, "
+        "p.name AS product_name, u.name AS unit_name "
+        "FROM stock_movements sm "
+        "LEFT JOIN products p ON sm.product_id = p.id "
+        "LEFT JOIN units u ON p.unit_id = u.id "
+        "WHERE sm.account_id = %s AND sm.movement_type IN ('ajuste_entrada', 'ajuste_saida') "
+        "ORDER BY sm.id DESC LIMIT 30",
+        (account_id,),
+    ).fetchall()
+
     last_move_map = {
         row["id"]: row["last_move"]
         for row in conn.execute(
@@ -3844,13 +3913,18 @@ def controle_estoque():
     return render_template(
         "controle_estoque.html",
         title="Controle de Estoque",
+        products=products,
         stock_position=stock_position,
         below_minimum=below_minimum,
         inventory_value=inventory_value,
-        kardex=[{**dict(row), "date_display": _format_date_br(row["date"])} for row in kardex],
+        kardex=[{**dict(row), "date_display": _format_date_br(row["date"]), "movement_type_label": _movement_type_label_pt(row["movement_type"])} for row in kardex],
         top_sellers=top_sellers,
         stagnant_products=stagnant_products,
         alerts=alerts,
+        recent_adjustments=[{**dict(r), "date_display": _format_date_br(r["date"])} for r in recent_adjustments],
+        adjustment_reasons_add=sorted([r for r in ADJUSTMENT_REASONS if r[2] == "add"], key=lambda x: x[1].lower()),
+        adjustment_reasons_sub=sorted([r for r in ADJUSTMENT_REASONS if r[2] == "subtract"], key=lambda x: x[1].lower()),
+        today=datetime.now().strftime("%Y-%m-%d"),
     )
 
 
@@ -4117,89 +4191,7 @@ def estoque_entrada():
 
 @app.route("/estoque/ajuste", methods=["GET", "POST"])
 def estoque_ajuste():
-    if not session.get("user"):
-        return redirect(url_for("login"))
-    account_id = get_current_account_id()
-    conn = get_tenant_connection()
-    products = conn.execute(
-        "SELECT p.*, u.name AS unit_name FROM products p "
-        "LEFT JOIN units u ON p.unit_id = u.id "
-        "WHERE p.account_id = %s ORDER BY p.name",
-        (account_id,),
-    ).fetchall()
-
-    if request.method == "POST":
-        product_id = request.form.get("product_id")
-        reason = request.form.get("reason") or ""
-        try:
-            quantity = float(request.form.get("quantity") or 0)
-        except ValueError:
-            quantity = 0
-        date_val = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
-        notes = (request.form.get("notes") or "").strip()
-
-        reason_map = {r[0]: r[2] for r in ADJUSTMENT_REASONS}
-        effect = reason_map.get(reason, "subtract")
-
-        if not product_id or quantity <= 0:
-            flash("Produto, motivo e quantidade são obrigatórios.", "error")
-        else:
-            delta = quantity if effect == "add" else -quantity
-            label = next((r[1] for r in ADJUSTMENT_REASONS if r[0] == reason), reason)
-            movement_type = "ajuste_entrada" if effect == "add" else "ajuste_saida"
-            full_notes = f"{label}" + (f" — {notes}" if notes else "")
-            conn.execute(
-                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                (
-                    account_id,
-                    product_id,
-                    quantity,
-                    movement_type,
-                    date_val,
-                    full_notes,
-                    get_current_user_id(),
-                    session.get("user_name") or session.get("user"),
-                ),
-            )
-            conn.execute(
-                "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
-                (delta, product_id, account_id),
-            )
-            conn.commit()
-            flash("Ajuste de estoque registrado com sucesso.", "success")
-        products = conn.execute(
-            "SELECT p.*, u.name AS unit_name FROM products p "
-            "LEFT JOIN units u ON p.unit_id = u.id "
-            "WHERE p.account_id = %s ORDER BY p.name",
-            (account_id,),
-        ).fetchall()
-
-    recent = conn.execute(
-        "SELECT sm.id, sm.quantity, sm.movement_type, sm.date, sm.notes, sm.created_by_user_name, "
-        "p.name AS product_name, u.name AS unit_name "
-        "FROM stock_movements sm "
-        "LEFT JOIN products p ON sm.product_id = p.id "
-        "LEFT JOIN units u ON p.unit_id = u.id "
-        "WHERE sm.account_id = %s AND sm.movement_type IN ('ajuste_entrada', 'ajuste_saida') "
-        "ORDER BY sm.id DESC LIMIT 30",
-        (account_id,),
-    ).fetchall()
-    recent = [
-        {**dict(r), "date_display": _format_date_br(r["date"])}
-        for r in recent
-    ]
-
-    conn.close()
-    return render_template(
-        "estoque_ajuste.html",
-        title="Ajuste de Estoque",
-        products=products,
-        recent=recent,
-        adjustment_reasons_add=sorted([r for r in ADJUSTMENT_REASONS if r[2] == "add"], key=lambda x: x[1].lower()),
-        adjustment_reasons_sub=sorted([r for r in ADJUSTMENT_REASONS if r[2] == "subtract"], key=lambda x: x[1].lower()),
-        today=datetime.now().strftime("%Y-%m-%d"),
-    )
+    return redirect(url_for("controle_estoque") + "#ajuste-estoque")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ body {
 header {
   background: #0b4a82;
   color: #fff;
-  padding: 14px 24px;
+  padding: 10px 20px;
   border-bottom: 3px solid #0f3a5e;
 }
 header .brand {
@@ -24,13 +24,27 @@ header .brand {
 }
 header .brand-name {
   color: #fff;
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 900;
   letter-spacing: 0.02em;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.brand-animated {
+  background: linear-gradient(120deg, rgba(255,255,255,0.18), rgba(255,255,255,0.35), rgba(255,255,255,0.16));
+  background-size: 200% 200%;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.25) inset, 0 8px 20px rgba(9, 35, 70, 0.28);
+  animation: brandGlowShift 3.2s ease-in-out infinite;
+}
+
+@keyframes brandGlowShift {
+  0% { background-position: 0% 50%; box-shadow: 0 0 0 1px rgba(255,255,255,0.2) inset, 0 8px 20px rgba(9,35,70,0.22); }
+  50% { background-position: 100% 50%; box-shadow: 0 0 0 1px rgba(255,255,255,0.35) inset, 0 10px 28px rgba(9,35,70,0.32); }
+  100% { background-position: 0% 50%; box-shadow: 0 0 0 1px rgba(255,255,255,0.2) inset, 0 8px 20px rgba(9,35,70,0.22); }
 }
 header .brand-subtitle {
   color: #dbeafe;
@@ -157,7 +171,7 @@ header .brand-subtitle {
   text-decoration: none;
 }
 main {
-  padding: 26px;
+  padding: 18px 22px;
 }
 .page-header {
   margin-bottom: 18px;
