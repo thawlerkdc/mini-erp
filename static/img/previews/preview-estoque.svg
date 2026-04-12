@@ -1,24 +1,92 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 460">
-  <rect width="800" height="460" rx="28" fill="#eef7ef"/>
-  <rect x="24" y="24" width="170" height="412" rx="22" fill="#0f5132"/>
-  <rect x="220" y="24" width="556" height="110" rx="24" fill="#ffffff"/>
-  <rect x="220" y="154" width="556" height="130" rx="24" fill="#ffffff"/>
-  <rect x="220" y="304" width="556" height="132" rx="24" fill="#ffffff"/>
-  <rect x="46" y="58" width="126" height="22" rx="11" fill="#ffffff" opacity="0.88"/>
-  <rect x="46" y="106" width="126" height="12" rx="6" fill="#8ae6b0"/>
-  <rect x="46" y="134" width="110" height="12" rx="6" fill="#8ae6b0" opacity="0.8"/>
-  <rect x="46" y="162" width="118" height="12" rx="6" fill="#8ae6b0" opacity="0.7"/>
-  <rect x="246" y="48" width="118" height="48" rx="20" fill="#dcfce7"/>
-  <rect x="384" y="48" width="118" height="48" rx="20" fill="#fee2e2"/>
-  <rect x="522" y="48" width="118" height="48" rx="20" fill="#dbeafe"/>
-  <rect x="660" y="48" width="88" height="48" rx="20" fill="#fef3c7"/>
-  <rect x="248" y="174" width="180" height="18" rx="9" fill="#d8e8dd"/>
-  <rect x="248" y="210" width="500" height="18" rx="9" fill="#eaf5ed"/>
-  <rect x="248" y="240" width="500" height="18" rx="9" fill="#eaf5ed"/>
-  <rect x="248" y="324" width="500" height="26" rx="13" fill="#f6faf7"/>
-  <rect x="248" y="364" width="500" height="26" rx="13" fill="#f6faf7"/>
-  <rect x="248" y="404" width="500" height="26" rx="13" fill="#f6faf7"/>
-  <rect x="592" y="323" width="138" height="28" rx="14" fill="#dcfce7"/>
-  <rect x="592" y="363" width="138" height="28" rx="14" fill="#fee2e2"/>
-  <rect x="592" y="403" width="138" height="28" rx="14" fill="#dcfce7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 420">
+  <!-- Background -->
+  <rect width="700" height="420" fill="#dde6f0"/>
+
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="124" height="420" fill="#0f4f2d"/>
+  <rect x="12" y="14" width="100" height="20" rx="10" fill="#ffffff" opacity="0.9"/>
+  <rect x="12" y="52" width="78" height="9" rx="4.5" fill="#86efac" opacity="0.8"/>
+  <rect x="0" y="68" width="124" height="30" fill="rgba(255,255,255,0.1)"/>
+  <rect x="12" y="78" width="88" height="9" rx="4.5" fill="#ffffff"/>
+  <rect x="12" y="112" width="72" height="9" rx="4.5" fill="#86efac" opacity="0.6"/>
+  <rect x="12" y="132" width="82" height="9" rx="4.5" fill="#86efac" opacity="0.6"/>
+
+  <!-- Top bar -->
+  <rect x="136" y="0" width="564" height="44" fill="#0f4f2d"/>
+  <rect x="150" y="14" width="150" height="14" rx="7" fill="#ffffff" opacity="0.9"/>
+
+  <!-- KPI cards row -->
+  <rect x="136" y="56" width="130" height="78" rx="14" fill="#ffffff"/>
+  <rect x="148" y="66" width="68" height="8" rx="4" fill="#16a34a"/>
+  <rect x="148" y="84" width="100" height="18" rx="7" fill="#dcfce7"/>
+  <rect x="156" y="90" width="70" height="9" rx="4.5" fill="#15803d"/>
+  <rect x="148" y="112" width="56" height="8" rx="4" fill="#94a3b8"/>
+
+  <rect x="278" y="56" width="130" height="78" rx="14" fill="#ffffff"/>
+  <rect x="290" y="66" width="68" height="8" rx="4" fill="#dc2626"/>
+  <rect x="290" y="84" width="100" height="18" rx="7" fill="#fee2e2"/>
+  <rect x="298" y="90" width="60" height="9" rx="4.5" fill="#dc2626"/>
+  <rect x="290" y="112" width="56" height="8" rx="4" fill="#94a3b8"/>
+
+  <rect x="420" y="56" width="130" height="78" rx="14" fill="#ffffff"/>
+  <rect x="432" y="66" width="68" height="8" rx="4" fill="#2563eb"/>
+  <rect x="432" y="84" width="100" height="18" rx="7" fill="#dbeafe"/>
+  <rect x="440" y="90" width="70" height="9" rx="4.5" fill="#2563eb"/>
+  <rect x="432" y="112" width="56" height="8" rx="4" fill="#94a3b8"/>
+
+  <rect x="562" y="56" width="138" height="78" rx="14" fill="#ffffff"/>
+  <rect x="574" y="66" width="68" height="8" rx="4" fill="#d97706"/>
+  <rect x="574" y="84" width="110" height="18" rx="7" fill="#fef3c7"/>
+  <rect x="582" y="90" width="70" height="9" rx="4.5" fill="#d97706"/>
+  <rect x="574" y="112" width="56" height="8" rx="4" fill="#94a3b8"/>
+
+  <!-- Alert card -->
+  <rect x="136" y="146" width="262" height="92" rx="14" fill="#ffffff"/>
+  <rect x="150" y="158" width="120" height="12" rx="6" fill="#1e293b"/>
+  <rect x="150" y="178" width="228" height="20" rx="7" fill="#fee2e2"/>
+  <rect x="160" y="185" width="100" height="7" rx="3.5" fill="#dc2626"/>
+  <rect x="150" y="204" width="228" height="20" rx="7" fill="#fef3c7"/>
+  <rect x="160" y="211" width="80" height="7" rx="3.5" fill="#d97706"/>
+
+  <!-- Stock bar chart -->
+  <rect x="410" y="146" width="290" height="92" rx="14" fill="#ffffff"/>
+  <rect x="424" y="158" width="120" height="12" rx="6" fill="#1e293b"/>
+  <!-- bars -->
+  <rect x="430" y="180" width="24" height="46" rx="4" fill="#22c55e"/>
+  <rect x="462" y="194" width="24" height="32" rx="4" fill="#22c55e"/>
+  <rect x="494" y="172" width="24" height="54" rx="4" fill="#3b82f6"/>
+  <rect x="526" y="186" width="24" height="40" rx="4" fill="#f59e0b"/>
+  <rect x="558" y="208" width="24" height="18" rx="4" fill="#ef4444"/>
+  <rect x="590" y="190" width="24" height="36" rx="4" fill="#22c55e"/>
+  <rect x="622" y="178" width="24" height="48" rx="4" fill="#3b82f6"/>
+  <!-- Baseline -->
+  <rect x="424" y="226" width="262" height="2" rx="1" fill="#e2e8f0"/>
+
+  <!-- Kardex table -->
+  <rect x="136" y="250" width="564" height="158" rx="14" fill="#ffffff"/>
+  <rect x="150" y="262" width="120" height="12" rx="6" fill="#1e293b"/>
+  <!-- Header row -->
+  <rect x="150" y="282" width="536" height="20" rx="6" fill="#f1f5f9"/>
+  <rect x="160" y="290" width="50" height="6" rx="3" fill="#64748b"/>
+  <rect x="240" y="290" width="80" height="6" rx="3" fill="#64748b"/>
+  <rect x="380" y="290" width="40" height="6" rx="3" fill="#64748b"/>
+  <rect x="460" y="290" width="50" height="6" rx="3" fill="#64748b"/>
+  <!-- Kardex row 1: green entrada -->
+  <rect x="150" y="306" width="536" height="22" rx="6" fill="rgba(34,197,94,0.1)"/>
+  <rect x="160" y="314" width="50" height="6" rx="3" fill="#1e293b"/>
+  <rect x="240" y="314" width="80" height="6" rx="3" fill="#15803d"/>
+  <rect x="380" y="312" width="46" height="10" rx="5" fill="#22c55e"/>
+  <rect x="386" y="315" width="34" height="5" rx="2.5" fill="#fff"/>
+  <!-- Kardex row 2: red saida -->
+  <rect x="150" y="332" width="536" height="22" rx="6" fill="rgba(239,68,68,0.1)"/>
+  <rect x="160" y="340" width="50" height="6" rx="3" fill="#1e293b"/>
+  <rect x="240" y="340" width="70" height="6" rx="3" fill="#dc2626"/>
+  <rect x="380" y="338" width="46" height="10" rx="5" fill="#ef4444"/>
+  <rect x="386" y="341" width="34" height="5" rx="2.5" fill="#fff"/>
+  <!-- Kardex row 3: green entrada -->
+  <rect x="150" y="358" width="536" height="22" rx="6" fill="rgba(34,197,94,0.1)"/>
+  <rect x="160" y="366" width="50" height="6" rx="3" fill="#1e293b"/>
+  <rect x="240" y="366" width="80" height="6" rx="3" fill="#15803d"/>
+  <rect x="380" y="364" width="46" height="10" rx="5" fill="#22c55e"/>
+  <rect x="386" y="367" width="34" height="5" rx="2.5" fill="#fff"/>
 </svg>
