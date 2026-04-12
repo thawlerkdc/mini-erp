@@ -15,34 +15,24 @@
         <span>Financeiro + XML</span>
         <span>Relatórios de giro</span>
       </div>
-      <div class="login-preview-carousel" aria-label="Prévia do sistema">
-        <div class="login-preview-track" id="login-preview-track">
-          <article class="login-preview-slide active">
-            <img src="{{ url_for('static', filename='img/previews/preview-vendas.svg') }}" alt="Prévia da tela de vendas">
-            <div class="login-preview-caption">
-              <strong>Vendas rápidas</strong>
-              <span>Troco, múltiplos pagamentos e baixa imediata do estoque.</span>
-            </div>
-          </article>
-          <article class="login-preview-slide">
-            <img src="{{ url_for('static', filename='img/previews/preview-estoque.svg') }}" alt="Prévia do controle de estoque">
-            <div class="login-preview-caption">
-              <strong>Estoque integrado</strong>
-              <span>Alertas de mínimo, Kardex e ajustes no mesmo painel.</span>
-            </div>
-          </article>
-          <article class="login-preview-slide">
-            <img src="{{ url_for('static', filename='img/previews/preview-financeiro.svg') }}" alt="Prévia do financeiro">
-            <div class="login-preview-caption">
-              <strong>Financeiro centralizado</strong>
-              <span>Compras, XML e visão rápida do caixa operacional.</span>
-            </div>
-          </article>
+      <div class="login-trio-wrap" aria-label="Prévia do sistema">
+        <div class="login-trio-row">
+          <figure class="login-trio-frame">
+            <img id="trio-img-0" src="{{ url_for('static', filename='img/previews/preview-vendas.svg') }}" alt="Vendas" loading="lazy">
+            <figcaption id="trio-cap-0">Vendas rápidas</figcaption>
+          </figure>
+          <figure class="login-trio-frame">
+            <img id="trio-img-1" src="{{ url_for('static', filename='img/previews/preview-estoque.svg') }}" alt="Estoque" loading="lazy">
+            <figcaption id="trio-cap-1">Controle de estoque</figcaption>
+          </figure>
+          <figure class="login-trio-frame">
+            <img id="trio-img-2" src="{{ url_for('static', filename='img/previews/preview-financeiro.svg') }}" alt="Financeiro" loading="lazy">
+            <figcaption id="trio-cap-2">Financeiro centralizado</figcaption>
+          </figure>
         </div>
-        <div class="login-preview-dots" id="login-preview-dots" aria-label="Navegação do carrossel">
-          <button type="button" class="is-active" aria-label="Mostrar prévia 1"></button>
-          <button type="button" aria-label="Mostrar prévia 2"></button>
-          <button type="button" aria-label="Mostrar prévia 3"></button>
+        <div class="login-trio-dots">
+          <button type="button" class="is-active" aria-label="Conjunto 1"></button>
+          <button type="button" aria-label="Conjunto 2"></button>
         </div>
       </div>
     </section>
@@ -198,76 +188,66 @@
       font-size: 0.85rem;
       background: rgba(255, 255, 255, 0.13);
     }
-    .login-preview-carousel {
+    .login-trio-wrap {
       margin-top: 18px;
-      padding: 14px;
-      border-radius: 18px;
+      padding: 12px;
+      border-radius: 16px;
       background: rgba(2, 6, 23, 0.22);
       border: 1px solid rgba(255, 255, 255, 0.16);
       backdrop-filter: blur(12px);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
     }
-    .login-preview-track {
-      position: relative;
-      min-height: 240px;
-    }
-    .login-preview-slide {
-      position: absolute;
-      inset: 0;
+    .login-trio-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 12px;
-      opacity: 0;
-      transform: translateX(18px) scale(0.985);
-      transition: opacity 0.45s ease, transform 0.45s ease;
-      pointer-events: none;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
     }
-    .login-preview-slide.active {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-      pointer-events: auto;
+    .login-trio-frame {
+      margin: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #0f1e36;
+      border: 1px solid rgba(255,255,255,0.13);
+      transition: transform 0.18s ease;
     }
-    .login-preview-slide img {
+    .login-trio-frame:hover { transform: scale(1.03); }
+    .login-trio-frame img {
       width: 100%;
-      height: 170px;
-      object-fit: cover;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.18);
-      box-shadow: 0 20px 30px rgba(15, 23, 42, 0.22);
-      background: rgba(255,255,255,0.1);
+      aspect-ratio: 5 / 3;
+      object-fit: contain;
+      display: block;
+      background: #0f1e36;
+      transition: opacity 0.3s ease;
     }
-    .login-preview-caption {
-      display: grid;
-      gap: 4px;
-    }
-    .login-preview-caption strong {
-      font-size: 1rem;
+    .login-trio-frame figcaption {
+      padding: 5px 6px 7px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.9);
       font-family: 'Space Grotesk', sans-serif;
+      text-align: center;
+      background: rgba(0,0,0,0.28);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .login-preview-caption span {
-      font-size: 0.92rem;
-      color: rgba(255,255,255,0.84);
-      line-height: 1.45;
-    }
-    .login-preview-dots {
+    .login-trio-dots {
       display: flex;
       gap: 8px;
-      margin-top: 14px;
+      margin-top: 10px;
       justify-content: center;
     }
-    .login-preview-dots button {
+    .login-trio-dots button {
       width: 10px;
       height: 10px;
       border-radius: 999px;
       border: 0;
       background: rgba(255,255,255,0.35);
       cursor: pointer;
-      transition: transform 0.2s ease, background 0.2s ease, width 0.2s ease;
+      transition: width 0.2s ease, background 0.2s ease;
     }
-    .login-preview-dots button.is-active {
+    .login-trio-dots button.is-active {
       width: 28px;
       background: #86efac;
-      transform: scale(1.02);
     }
     .login-forms-panel {
       display: grid;
@@ -357,12 +337,7 @@
         min-height: 150px;
         padding: 18px;
       }
-      .login-preview-track {
-        min-height: 220px;
-      }
-      .login-preview-slide img {
-        height: 148px;
-      }
+      .login-trio-row { gap: 5px; }
     }
   </style>
 
@@ -378,39 +353,42 @@
     }
 
     (function() {
-      var slides = Array.prototype.slice.call(document.querySelectorAll('.login-preview-slide'));
-      var dots = Array.prototype.slice.call(document.querySelectorAll('#login-preview-dots button'));
-      if (!slides.length || slides.length !== dots.length) return;
-
-      var currentIndex = 0;
-      var intervalId = null;
-
-      function renderSlide(index) {
-        currentIndex = index;
-        slides.forEach(function(slide, slideIndex) {
-          slide.classList.toggle('active', slideIndex === index);
+      var SETS = [
+        [
+          { src: "{{ url_for('static', filename='img/previews/preview-vendas.svg') }}", cap: 'Vendas r\u00e1pidas' },
+          { src: "{{ url_for('static', filename='img/previews/preview-estoque.svg') }}", cap: 'Controle de estoque' },
+          { src: "{{ url_for('static', filename='img/previews/preview-financeiro.svg') }}", cap: 'Financeiro centralizado' }
+        ],
+        [
+          { src: "{{ url_for('static', filename='img/previews/preview-dashboard.svg') }}", cap: 'Dashboard operacional' },
+          { src: "{{ url_for('static', filename='img/previews/preview-relatorios.svg') }}", cap: 'Relat\u00f3rios de giro' },
+          { src: "{{ url_for('static', filename='img/previews/preview-cadastro.svg') }}", cap: 'Cadastro de produtos' }
+        ]
+      ];
+      var imgs = [document.getElementById('trio-img-0'), document.getElementById('trio-img-1'), document.getElementById('trio-img-2')];
+      var caps = [document.getElementById('trio-cap-0'), document.getElementById('trio-cap-1'), document.getElementById('trio-cap-2')];
+      var dots = Array.prototype.slice.call(document.querySelectorAll('.login-trio-dots button'));
+      if (!imgs[0]) return;
+      var currentSet = 0;
+      var timer = null;
+      function applySet(index, instant) {
+        currentSet = index;
+        var set = SETS[index];
+        imgs.forEach(function(img, i) {
+          if (!instant) img.style.opacity = '0';
+          (function(img, item) {
+            setTimeout(function() { img.src = item.src; caps[i].textContent = item.cap; img.style.opacity = '1'; }, instant ? 0 : 220);
+          })(img, set[i]);
         });
-        dots.forEach(function(dot, dotIndex) {
-          dot.classList.toggle('is-active', dotIndex === index);
-        });
+        dots.forEach(function(d, di) { d.classList.toggle('is-active', di === index); });
       }
-
-      function startAutoplay() {
-        if (intervalId) clearInterval(intervalId);
-        intervalId = setInterval(function() {
-          renderSlide((currentIndex + 1) % slides.length);
-        }, 3600);
+      function restartTimer() {
+        if (timer) clearInterval(timer);
+        timer = setInterval(function() { applySet((currentSet + 1) % SETS.length); }, 4200);
       }
-
-      dots.forEach(function(dot, index) {
-        dot.addEventListener('click', function() {
-          renderSlide(index);
-          startAutoplay();
-        });
-      });
-
-      renderSlide(0);
-      startAutoplay();
+      dots.forEach(function(d, di) { d.addEventListener('click', function() { applySet(di); restartTimer(); }); });
+      applySet(0, true);
+      restartTimer();
     })();
   </script>
 {% endblock %}
