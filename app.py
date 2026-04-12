@@ -884,12 +884,33 @@ SMTP_PROVIDER_PRESETS = {
     "custom": {"host": "", "port": "587", "use_tls": "1"},
 }
 
+DEFAULT_FINANCIAL_CATEGORIES = [
+    ("Aluguel", "payable"),
+    ("Energia", "payable"),
+    ("Agua", "payable"),
+    ("Internet", "payable"),
+    ("Folha de pagamento", "payable"),
+    ("Impostos", "payable"),
+    ("Compras de mercadoria", "payable"),
+    ("Servicos terceiros", "payable"),
+    ("Vendas", "receivable"),
+    ("Recebimentos diversos", "receivable"),
+    ("Transferencias internas", "both"),
+]
+
 
 def _clamp_rate(raw):
     try:
         return f"{min(max(float(raw or 0), 0), 100):.2f}"
     except (ValueError, TypeError):
         return "0.00"
+
+
+def _clamp_margin(raw, default="100"):
+    try:
+        return f"{min(max(float(raw if raw is not None and raw != '' else default), 0), 10000):.2f}"
+    except (ValueError, TypeError):
+        return f"{float(default):.2f}"
 
 
 def _safe_float(raw, default=0.0):
@@ -904,6 +925,14 @@ def _safe_int(raw, default=0):
         return int(raw)
     except (TypeError, ValueError):
         return default
+
+
+def _ensure_default_financial_categories(conn, account_id):
+    for name, kind in DEFAULT_FINANCIAL_CATEGORIES:
+        conn.execute(
+            "INSERT INTO financial_categories (account_id, name, kind) VALUES (%s, %s, %s) ON CONFLICT (account_id, name, kind) DO NOTHING",
+            (account_id, name, kind),
+        )
 
 
 def _round_price_to_tenth(price):
@@ -1304,6 +1333,7 @@ def save_account_settings(account_id, form_data):
         "card_debit_rate": _clamp_rate(form_data.get("card_debit_rate")),
         **{f"card_credit_rate_{i}": _clamp_rate(form_data.get(f"card_credit_rate_{i}")) for i in range(1, 13)},
         "allow_multi_payment_sale": "1" if form_data.get("allow_multi_payment_sale") else "0",
+        "default_profit_margin": _clamp_margin(form_data.get("default_profit_margin"), "100"),
         "pix_key_type": pix_key_type,
         "pix_key_value": pix_key_value,
         "pix_receiver_name": (form_data.get("pix_receiver_name") or "").strip(),
@@ -1623,6 +1653,8 @@ def cadastro(entity):
     categories = conn.execute("SELECT * FROM categories WHERE account_id = %s ORDER BY name", (account_id,)).fetchall() if entity != "usuarios" else []
     units = conn.execute("SELECT * FROM units WHERE account_id = %s ORDER BY name", (account_id,)).fetchall() if entity != "usuarios" else []
     suppliers = conn.execute("SELECT * FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall() if entity != "usuarios" else []
+    account_settings = get_account_settings(account_id) if entity == "produtos" else {}
+    default_profit_margin = account_settings.get("default_profit_margin", "100") if entity == "produtos" else "100"
     edit_id = request.args.get("edit_id") or request.form.get("edit_id")
     edit_data = None
 
@@ -1821,6 +1853,8 @@ def cadastro(entity):
                 name = request.form.get("name")
                 cpf = re.sub(r"\D", "", request.form.get("cpf") or "")[:11]
                 email = (request.form.get("email") or "").strip() or None
+                phone = re.sub(r"\D", "", request.form.get("phone") or "")[:15] or None
+                whatsapp = re.sub(r"\D", "", request.form.get("whatsapp") or "")[:15] or None
                 birth_date = request.form.get("birth_date") or None
                 street = request.form.get("street")
                 number = request.form.get("number")
@@ -1839,13 +1873,13 @@ def cadastro(entity):
                 if name:
                     if edit_id_form:
                         conn.execute(
-                            "UPDATE clients SET name = %s, cpf = %s, email = %s, birth_date = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, gender = %s WHERE id = %s AND account_id = %s",
-                            (name, cpf, email, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender, edit_id_form, account_id),
+                            "UPDATE clients SET name = %s, cpf = %s, email = %s, phone = %s, whatsapp = %s, birth_date = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, gender = %s WHERE id = %s AND account_id = %s",
+                            (name, cpf, email, phone, whatsapp, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender, edit_id_form, account_id),
                         )
                     else:
                         conn.execute(
-                            "INSERT INTO clients (account_id, name, cpf, email, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (account_id, name, cpf, email, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender),
+                            "INSERT INTO clients (account_id, name, cpf, email, phone, whatsapp, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (account_id, name, cpf, email, phone, whatsapp, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender),
                         )
                     conn.commit()
                     flash(translate("record_saved"), "success")
@@ -1877,6 +1911,8 @@ def cadastro(entity):
                     name = request.form.get("name")
                     cnpj = re.sub(r"\D", "", request.form.get("cnpj") or "")[:14]
                     email = (request.form.get("email") or "").strip() or None
+                    phone = re.sub(r"\D", "", request.form.get("phone") or "")[:15] or None
+                    whatsapp = re.sub(r"\D", "", request.form.get("whatsapp") or "")[:15] or None
                     street = request.form.get("street")
                     number = request.form.get("number")
                     complement = request.form.get("complement")
@@ -1891,13 +1927,13 @@ def cadastro(entity):
                     if name and category_id:
                         if edit_id_form:
                             conn.execute(
-                                "UPDATE suppliers SET name = %s, cnpj = %s, email = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, category_id = %s WHERE id = %s AND account_id = %s",
-                                (name, cnpj, email, street, number, complement, neighborhood, city, state, country, postal_code, category_id, edit_id_form, account_id),
+                                "UPDATE suppliers SET name = %s, cnpj = %s, email = %s, phone = %s, whatsapp = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, category_id = %s WHERE id = %s AND account_id = %s",
+                                (name, cnpj, email, phone, whatsapp, street, number, complement, neighborhood, city, state, country, postal_code, category_id, edit_id_form, account_id),
                             )
                         else:
                             conn.execute(
-                                "INSERT INTO suppliers (account_id, name, cnpj, email, street, number, complement, neighborhood, city, state, country, postal_code, category_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                (account_id, name, cnpj, email, street, number, complement, neighborhood, city, state, country, postal_code, category_id),
+                                "INSERT INTO suppliers (account_id, name, cnpj, email, phone, whatsapp, street, number, complement, neighborhood, city, state, country, postal_code, category_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (account_id, name, cnpj, email, phone, whatsapp, street, number, complement, neighborhood, city, state, country, postal_code, category_id),
                             )
                         conn.commit()
                         flash(translate("record_saved"), "success")
@@ -1986,6 +2022,7 @@ def cadastro(entity):
         categories=categories,
         units=units,
         suppliers=suppliers,
+        default_profit_margin=default_profit_margin,
         edit_id=edit_id,
         edit_data=edit_data,
     )
@@ -2346,11 +2383,11 @@ def financeiro():
 
     account_id = get_current_account_id()
     conn = get_tenant_connection()
+    _ensure_default_financial_categories(conn, account_id)
     generated_recurring = _run_financial_recurring_generation(conn, account_id)
     alert_snapshot = _financial_due_alert_snapshot(conn, account_id)
     _send_financial_due_alert_email(conn, account_id, alert_snapshot)
     conn.commit()
-    _maybe_flash_financial_alerts(alert_snapshot)
     if generated_recurring > 0:
         flash(f"Recorrência: {generated_recurring} novo(s) título(s) gerado(s) automaticamente.", "success")
 
@@ -2784,6 +2821,55 @@ def relatorios():
         (account_id,),
     ).fetchall()
 
+    sales_kpi = conn.execute(
+        "SELECT COUNT(*) AS qty, COALESCE(SUM(total), 0) AS total "
+        "FROM sales s" + sales_where,
+        tuple(sales_params),
+    ).fetchone()
+    ticket_medio = 0.0
+    if int(sales_kpi["qty"] or 0) > 0:
+        ticket_medio = float(sales_kpi["total"] or 0) / int(sales_kpi["qty"] or 0)
+
+    cogs_row = conn.execute(
+        "SELECT COALESCE(SUM(si.quantity * p.cost), 0) AS cogs "
+        "FROM sale_items si "
+        "JOIN products p ON si.product_id = p.id "
+        "JOIN sales s ON si.sale_id = s.id" + sales_where,
+        tuple(sales_params),
+    ).fetchone()
+
+    expense_row = conn.execute(
+        "SELECT COALESCE(SUM(amount), 0) AS expenses "
+        "FROM financial_entries WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s",
+        (account_id, start_date, end_date),
+    ).fetchone()
+
+    avg_margin_row = conn.execute(
+        "SELECT COALESCE(AVG(margin_percent), 0) AS avg_margin FROM products WHERE account_id = %s",
+        (account_id,),
+    ).fetchone()
+
+    receitas = float(sales_kpi["total"] or 0)
+    custo_mercadorias = float(cogs_row["cogs"] or 0)
+    despesas_operacionais = float(expense_row["expenses"] or 0)
+    lucro_bruto = receitas - custo_mercadorias
+    lucro_operacional = lucro_bruto - despesas_operacionais
+
+    relatorio_gerencial = {
+        "margem_media_produtos": float(avg_margin_row["avg_margin"] or 0),
+        "ticket_medio": ticket_medio,
+        "produtos_mais_lucrativos": [
+            {"name": row[0], "profit": float(row[1] or 0)} for row in list(profit_top)[:5]
+        ],
+        "dre": {
+            "receitas": receitas,
+            "cmv": custo_mercadorias,
+            "lucro_bruto": lucro_bruto,
+            "despesas": despesas_operacionais,
+            "lucro_operacional": lucro_operacional,
+        },
+    }
+
     report_options = []
     report_title = None
     report_description = None
@@ -2970,6 +3056,11 @@ def relatorios():
         section_title = translate("products_report_card")
         report_options = [
             {
+                "key": "product_margin_list",
+                "label": "Margem de lucro por produto",
+                "description": "Mostra custo, preço e margem de lucro configurada por item.",
+            },
+            {
                 "key": "product_profit_top",
                 "label": "Produtos com maior lucro",
                 "description": "Lucro líquido baseado em (venda - custo) x quantidade vendida.",
@@ -2990,7 +3081,16 @@ def relatorios():
                 "description": "Percentual de compras por gênero para cada produto.",
             },
         ]
-        if report == "product_profit_top":
+        if report == "product_margin_list":
+            report_title = "Margem de lucro por produto"
+            report_description = "Acompanhe a margem configurada no cadastro e compare com custo e preço atual."
+            report_headers = [translate("product_name"), translate("cost_label"), translate("price_label"), "Margem (%)"]
+            report_rows = conn.execute(
+                "SELECT name, COALESCE(cost, 0), COALESCE(price, 0), COALESCE(margin_percent, 0) "
+                "FROM products WHERE account_id = %s ORDER BY name ASC",
+                (account_id,),
+            ).fetchall()
+        elif report == "product_profit_top":
             report_title = "Produtos com maior lucro"
             report_description = "Lucro líquido calculado com base no custo, venda e quantidade vendida no período."
             report_headers = [translate("product_name"), "Lucro líquido"]
@@ -3309,6 +3409,7 @@ def relatorios():
         sales_period_grand_total=sales_period_grand_total,
         filter_category_name=filter_category_name,
         product_gender_overall=product_gender_overall,
+        relatorio_gerencial=relatorio_gerencial,
     )
 
 

@@ -154,7 +154,7 @@
             </div>
             <div style="display: flex; gap: 10px; margin-top: 12px;">
               <button type="submit" class="btn-confirm">Confirmar importação XML</button>
-              <button type="submit" class="btn-cancel" form="xml-cancel-form">Cancelar</button>
+              <button type="button" class="btn-cancel" onclick="openCancelXmlModal()">Cancelar</button>
             </div>
           </form>
           <form id="xml-cancel-form" method="post" action="{{ url_for('financeiro') }}" style="display:none">
@@ -303,4 +303,48 @@
       </table>
     </div>
   </div>
+
+  <div id="cancel-xml-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content">
+      <h3>Cancelar importação XML</h3>
+      <p>Deseja realmente limpar a pré-visualização atual?</p>
+      <div class="pix-modal-actions">
+        <button type="button" class="btn-confirm" onclick="confirmCancelXmlPreview()">Sim, limpar</button>
+        <button type="button" class="btn-cancel" onclick="closeCancelXmlModal()">Não</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openCancelXmlModal() {
+      var modal = document.getElementById('cancel-xml-modal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      var confirmBtn = modal.querySelector('.btn-confirm');
+      if (confirmBtn) confirmBtn.focus();
+    }
+
+    function closeCancelXmlModal() {
+      var modal = document.getElementById('cancel-xml-modal');
+      if (!modal) return;
+      modal.style.display = 'none';
+    }
+
+    function confirmCancelXmlPreview() {
+      var form = document.getElementById('xml-cancel-form');
+      if (form) form.submit();
+    }
+
+    document.addEventListener('keydown', function (event) {
+      var modal = document.getElementById('cancel-xml-modal');
+      if (!modal || modal.style.display !== 'flex') return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeCancelXmlModal();
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        confirmCancelXmlPreview();
+      }
+    });
+  </script>
 {% endblock %}

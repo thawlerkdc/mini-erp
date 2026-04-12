@@ -35,6 +35,42 @@
     </form>
   </div>
 
+  {% if not section and relatorio_gerencial %}
+    <div class="table-card" style="margin-bottom: 18px;">
+      <h3 style="margin-top: 0;">Indicadores gerenciais</h3>
+      <div class="payment-summary-grid">
+        <div class="payment-summary-card pscard-total-geral">
+          <span class="pscard-method">Margem de lucro média dos produtos</span>
+          <span class="pscard-total">{{ "%.2f"|format(relatorio_gerencial['margem_media_produtos']) }}%</span>
+        </div>
+        <div class="payment-summary-card pscard-dinheiro">
+          <span class="pscard-method">Ticket médio</span>
+          <span class="pscard-total">R$ {{ "%.2f"|format(relatorio_gerencial['ticket_medio'])|replace('.', ',') }}</span>
+        </div>
+        <div class="payment-summary-card pscard-credito">
+          <span class="pscard-method">DRE simplificado (lucro operacional)</span>
+          <span class="pscard-total">R$ {{ "%.2f"|format(relatorio_gerencial['dre']['lucro_operacional'])|replace('.', ',') }}</span>
+        </div>
+      </div>
+      <div style="margin-top: 14px;">
+        <strong>Produtos mais lucrativos</strong>
+        <ul style="margin: 8px 0 0; padding-left: 18px;">
+          {% for item in relatorio_gerencial['produtos_mais_lucrativos'] %}
+            <li>{{ item['name'] }}: R$ {{ "%.2f"|format(item['profit'])|replace('.', ',') }}</li>
+          {% else %}
+            <li>{{ t('no_records_found') }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div style="margin-top: 12px; font-size: 0.9rem; color: #475569;">
+        Receitas: R$ {{ "%.2f"|format(relatorio_gerencial['dre']['receitas'])|replace('.', ',') }} |
+        CMV: R$ {{ "%.2f"|format(relatorio_gerencial['dre']['cmv'])|replace('.', ',') }} |
+        Lucro bruto: R$ {{ "%.2f"|format(relatorio_gerencial['dre']['lucro_bruto'])|replace('.', ',') }} |
+        Despesas: R$ {{ "%.2f"|format(relatorio_gerencial['dre']['despesas'])|replace('.', ',') }}
+      </div>
+    </div>
+  {% endif %}
+
   {% if not section %}
     <div class="report-grid">
       <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='fornecedores') }}" class="report-card fornecedores">
@@ -280,8 +316,8 @@
           <tbody>
             {% for row in report_rows %}
               <tr class="{{ report_row_classes[loop.index0] if report_row_classes and loop.index0 < report_row_classes|length else '' }}">
-                {% for _ in report_headers %}
-                  <td>{{ row[loop.index0] }}</td>
+                {% for cell in row %}
+                  <td>{{ cell }}</td>
                 {% endfor %}
               </tr>
             {% else %}
