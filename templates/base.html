@@ -362,6 +362,7 @@
             saveFavorites(favorites);
             applyFavoriteStyles();
             sortMenuByFavorites();
+            document.dispatchEvent(new CustomEvent('menu-favorites-changed', { detail: { favorites: favorites } }));
           });
 
           if (sortToggle) {

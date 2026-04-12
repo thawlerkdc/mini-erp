@@ -1377,16 +1377,16 @@ body {
 
 .sale-controls-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: minmax(200px, 1.6fr) minmax(110px, 0.85fr) minmax(110px, 0.85fr) minmax(150px, 1fr) minmax(130px, 0.95fr);
   gap: 10px;
 }
 
 #installment-row {
-  grid-column: 5;
+  grid-column: auto;
 }
 
 #payment-received-row {
-  grid-column: 5;
+  grid-column: auto;
 }
 
 /* Client + Summary */
@@ -1400,7 +1400,7 @@ body {
 .sale-client-field {
   flex: 1 1 220px;
   min-width: 180px;
-  grid-column: 1 / span 2;
+  grid-column: auto;
 }
 
 .totals-section {

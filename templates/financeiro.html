@@ -120,7 +120,7 @@
         <button type="submit">Adicionar categoria</button>
       </form>
 
-      <h3 style="margin-top:20px">Importação XML da NF-e</h3>
+      <h3 id="xml-import" style="margin-top:20px">Importação XML da NF-e</h3>
       <form method="post" action="{{ url_for('financeiro') }}" enctype="multipart/form-data">
         <input type="hidden" name="action" value="preview_xml">
         <label>Arquivo XML</label>
@@ -154,8 +154,11 @@
             </div>
             <div style="display: flex; gap: 10px; margin-top: 12px;">
               <button type="submit" class="btn-confirm">Confirmar importação XML</button>
-              <button type="button" class="btn-cancel" onclick="clearXMLPreview()">Cancelar</button>
+              <button type="submit" class="btn-cancel" form="xml-cancel-form">Cancelar</button>
             </div>
+          </form>
+          <form id="xml-cancel-form" method="post" action="{{ url_for('financeiro') }}" style="display:none">
+            <input type="hidden" name="action" value="cancel_xml_preview">
           </form>
 
           <div class="report-table-wrap" style="margin-top:12px">
@@ -236,9 +239,9 @@
     </div>
   </div>
 
-  <div class="table-card">
+  <div class="table-card" id="cashflow-diario">
     <h3>Fluxo de caixa diário</h3>
-    <form method="get" action="{{ url_for('financeiro') }}" class="toolbar-group" style="margin-bottom:10px">
+    <form method="get" action="{{ url_for('financeiro') }}#cashflow-diario" class="toolbar-group" style="margin-bottom:10px">
       <label>Início</label>
       <input type="date" name="start_date" value="{{ start_date }}">
       <label>Fim</label>
@@ -301,10 +304,3 @@
     </div>
   </div>
 {% endblock %}
-
-<script>
-  function clearXMLPreview() {
-    // Remove a pré-visualização do XML recarregando a página
-    window.location.href = '{{ url_for("financeiro") }}';
-  }
-</script>

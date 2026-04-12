@@ -2432,18 +2432,30 @@ def financeiro():
                 xml_file = request.files.get("xml_file")
                 if not xml_file or not xml_file.filename:
                     flash("Selecione um arquivo XML da NF-e para importar.", "error")
+                    conn.close()
+                    return redirect(url_for("financeiro") + "#xml-import")
                 else:
                     preview = _parse_nfe_xml(xml_file.read())
                     if not preview.get("items"):
                         flash("Não foi possível extrair itens do XML informado.", "error")
+                        conn.close()
+                        return redirect(url_for("financeiro") + "#xml-import")
                     else:
                         session["finance_xml_preview"] = preview
-                        flash("Pré-visualização do XML gerada. Revise e confirme.", "success")
+                        conn.close()
+                        return redirect(url_for("financeiro") + "#xml-import")
+
+            elif action == "cancel_xml_preview":
+                session.pop("finance_xml_preview", None)
+                conn.close()
+                return redirect(url_for("financeiro") + "#xml-import")
 
             elif action == "confirm_xml":
                 preview = session.get("finance_xml_preview")
                 if not preview:
                     flash("Gere a pré-visualização do XML antes de confirmar.", "error")
+                    conn.close()
+                    return redirect(url_for("financeiro") + "#xml-import")
                 else:
                     existing = None
                     if preview.get("invoice_key"):
@@ -2453,6 +2465,8 @@ def financeiro():
                         ).fetchone()
                     if existing:
                         flash("Este XML já foi importado anteriormente.", "error")
+                        conn.close()
+                        return redirect(url_for("financeiro") + "#xml-import")
                     else:
                         create_supplier = request.form.get("create_supplier") == "1"
                         create_products = request.form.get("create_products") == "1"
@@ -2571,6 +2585,8 @@ def financeiro():
                         conn.commit()
                         session.pop("finance_xml_preview", None)
                         flash("XML importado com sucesso: estoque, financeiro e histórico foram atualizados.", "success")
+                        conn.close()
+                        return redirect(url_for("financeiro") + "#xml-import")
 
         except psycopg.IntegrityError:
             conn.rollback()

@@ -31,31 +31,77 @@
   </section>
 
   <div class="dashboard-grid dashboard-grid-restyled">
-    <div class="dashboard-actions">
-      <a class="dashboard-card neutral" href="{{ url_for('cadastro', entity='clientes') }}">
-        <div class="card-head"><div class="card-icon">👥</div><h3>Gerenciar {{ t('menu_clients') }}</h3></div>
-        <p>Cadastrar, consultar e editar clientes.</p>
-      </a>
-      <a class="dashboard-card neutral" href="{{ url_for('cadastro', entity='produtos') }}">
-        <div class="card-head"><div class="card-icon">📦</div><h3>Gerenciar {{ t('menu_products') }}</h3></div>
-        <p>Cadastrar, editar e controlar estoque.</p>
-      </a>
-      <a class="dashboard-card neutral" href="{{ url_for('vendas') }}">
-        <div class="card-head"><div class="card-icon">🛒</div><h3>Registrar {{ t('menu_sales') }}</h3></div>
-        <p>Adicionar itens e concluir vendas com rapidez.</p>
-      </a>
-      <a class="dashboard-card primary" href="{{ url_for('cadastro', entity='fornecedores') }}">
-        <div class="card-head"><div class="card-icon">🏢</div><h3>{{ t('menu_suppliers') }}</h3></div>
-        <p>Cadastrar e gerenciar fornecedores.</p>
-      </a>
-      <a class="dashboard-card secondary" href="{{ url_for('relatorios') }}">
-        <div class="card-head"><div class="card-icon">📊</div><h3>Ver {{ t('menu_reports') }}</h3></div>
-        <p>Analisar dados e gerar relatórios.</p>
-      </a>
-      <a class="dashboard-card tertiary" href="{{ url_for('manual') }}">
-        <div class="card-head"><div class="card-icon">📖</div><h3>{{ t('menu_manual') }}</h3></div>
-        <p>Acesse o guia com orientações.</p>
-      </a>
+    <div>
+      <h3 style="margin: 0 0 12px;">Menus favoritos</h3>
+      <div class="dashboard-actions" id="dashboard-favorite-cards"></div>
+      <p id="dashboard-favorite-empty" class="menu-empty-hint" style="display:none; margin-top: 10px;">
+        Nenhum favorito marcado. Clique na estrela do menu lateral para montar seus cards favoritos aqui.
+      </p>
     </div>
   </div>
+
+  <script>
+    (function () {
+      function getFavoritesKey() {
+        var account = '{{ session.get("account_id") or "global" }}';
+        var user = '{{ session.get("user") or "anon" }}';
+        return 'menu_favorites_' + account + '_' + user;
+      }
+
+      function loadFavorites() {
+        try {
+          var parsed = JSON.parse(localStorage.getItem(getFavoritesKey()) || '[]');
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function renderFavoriteCards() {
+        var container = document.getElementById('dashboard-favorite-cards');
+        var empty = document.getElementById('dashboard-favorite-empty');
+        var menuLinks = document.querySelectorAll('#sidebar-nav .nav-link[data-menu-key]');
+        if (!container || !menuLinks.length) return;
+
+        var map = {};
+        menuLinks.forEach(function (link) {
+          var key = link.getAttribute('data-menu-key');
+          var icon = (link.querySelector('.menu-icon') || {}).textContent || '•';
+          var text = (link.querySelector('span:nth-child(2)') || {}).textContent || 'Menu';
+          map[key] = {
+            href: link.getAttribute('href') || '#',
+            icon: icon.trim(),
+            text: text.trim(),
+          };
+        });
+
+        var favorites = loadFavorites();
+        container.innerHTML = '';
+
+        favorites.forEach(function (key) {
+          var item = map[key];
+          if (!item) return;
+          var card = document.createElement('a');
+          card.className = 'dashboard-card neutral';
+          card.href = item.href;
+          card.innerHTML =
+            '<div class="card-head"><div class="card-icon">' + item.icon + '</div><h3>' + item.text + '</h3></div>' +
+            '<p>Acesso rapido ao menu favorito.</p>';
+          container.appendChild(card);
+        });
+
+        if (empty) {
+          empty.style.display = container.children.length ? 'none' : 'block';
+        }
+      }
+
+      document.addEventListener('menu-favorites-changed', renderFavoriteCards);
+      window.addEventListener('storage', renderFavoriteCards);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', renderFavoriteCards);
+      } else {
+        renderFavoriteCards();
+      }
+    })();
+  </script>
 {% endblock %}

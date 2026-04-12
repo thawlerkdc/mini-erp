@@ -173,22 +173,20 @@
       </div>
       <table id="products-table">
         <thead>
-          <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>{{ t('unit_label') }}</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('cost_label') }}</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
-          <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>{{ t('unit_label') }}</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('cost_label') }}</th><th>Margem</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
+          <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>Unit. padrão</th><th>Unit. compra</th><th>Fator conv.</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('cost_label') }}</th><th>Margem</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
         </thead>
         <tbody>
           {% for product in rows %}
-            <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>Unit. Padrão</th><th>Unit. Compra</th><th>Fator Conv.</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('cost_label') }}</th><th>Margem</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
             <tr>
               <td>{{ product['name'] }}</td>
               <td>{{ product['category_name'] or '-' }}</td>
-               <td>{{ product['unit_name'] or '-' }}</td>
-               <td>{{ product.get('unit_buy', '-') | replace('None', '-') }}</td>
-               <td>{{ "%.3f"|format(product.get('conversion_factor', 1)) if product.get('conversion_factor') else '1' }}</td>
+              <td>{{ product['unit_name'] or '-' }}</td>
+              <td>{{ (product['unit_buy'] if product['unit_buy'] else '-') }}</td>
+              <td>{{ "%.3f"|format(product['conversion_factor'] if product['conversion_factor'] else 1) }}</td>
               <td>{{ product['supplier_name'] or '-' }}</td>
               <td>{{ product['stock'] }}</td>
               <td>$ {{ "%.2f"|format(product['cost']) }}</td>
-              <td>{{ "%.1f%"|format(product.get('margin_percent', 100)) if product.get('margin_percent') else '—' }}</td>
+              <td>{% if product['margin_percent'] is not none %}{{ "%.1f"|format(product['margin_percent']) }}%{% else %}—{% endif %}</td>
               <td>$ {{ "%.2f"|format(product['price']) }}</td>
               <td>$ {{ "%.2f"|format((product['price'] or 0) - (product['cost'] or 0)) }}</td>
               <td class="action-buttons">
@@ -200,7 +198,7 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="9">{{ t('no_records_found') }}</td></tr>
+            <tr><td colspan="12">{{ t('no_records_found') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
