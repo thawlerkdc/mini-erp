@@ -359,6 +359,16 @@
     </div>
   </div>
 
+  <div id="finance-info-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content">
+      <h3>Atenção</h3>
+      <p id="finance-info-message">Informe o tipo do lançamento antes de selecionar a categoria financeira.</p>
+      <div class="pix-modal-actions">
+        <button type="button" class="btn-confirm" onclick="closeFinanceInfoModal()">Entendi</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     function syncFinancialCategoriesByType() {
       var typeSelect = document.getElementById('entry-type-select');
@@ -388,9 +398,25 @@
       var typeSelect = document.getElementById('entry-type-select');
       if (!typeSelect) return;
       if (!typeSelect.value) {
-        alert('Informe o tipo do lançamento antes de selecionar a categoria financeira.');
+        openFinanceInfoModal('Informe o tipo do lançamento antes de selecionar a categoria financeira.');
         typeSelect.focus();
       }
+    }
+
+    function openFinanceInfoModal(message) {
+      var modal = document.getElementById('finance-info-modal');
+      var messageEl = document.getElementById('finance-info-message');
+      if (!modal || !messageEl) return;
+      messageEl.textContent = message || 'Ação não permitida.';
+      modal.style.display = 'flex';
+      var closeBtn = modal.querySelector('.btn-confirm');
+      if (closeBtn) closeBtn.focus();
+    }
+
+    function closeFinanceInfoModal() {
+      var modal = document.getElementById('finance-info-modal');
+      if (!modal) return;
+      modal.style.display = 'none';
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -430,6 +456,15 @@
     }
 
     document.addEventListener('keydown', function (event) {
+      var infoModal = document.getElementById('finance-info-modal');
+      if (infoModal && infoModal.style.display === 'flex') {
+        if (event.key === 'Escape' || event.key === 'Enter') {
+          event.preventDefault();
+          closeFinanceInfoModal();
+        }
+        return;
+      }
+
       var modal = document.getElementById('cancel-xml-modal');
       if (!modal || modal.style.display !== 'flex') return;
       if (event.key === 'Escape') {
