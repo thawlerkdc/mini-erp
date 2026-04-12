@@ -223,6 +223,38 @@ button,
   text-decoration: none;
   display: inline-block;
 }
+
+button.btn-confirm,
+.btn-confirm {
+  background: #16a34a;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+}
+
+button.btn-confirm:hover,
+.btn-confirm:hover {
+  background: #15803d;
+}
+
+button.btn-cancel,
+.btn-cancel {
+  background: #dc2626;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+}
+
+button.btn-cancel:hover,
+.btn-cancel:hover {
+  background: #b91c1c;
+}
 .dashboard-grid,
 .report-grid {
   display: grid;
@@ -780,12 +812,13 @@ body {
   color: #e9efff;
   text-decoration: none;
   font-weight: 600;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid transparent;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
   opacity: 1;
-  min-height: 42px;
+  min-height: 36px;
+  margin-bottom: 3px;
 }
 
 .menu-fav-toggle {
@@ -820,7 +853,7 @@ body {
 
 .sidebar-footer {
   margin-top: auto;
-  display: grid;
+  display: none;
   gap: 10px;
   padding: 12px;
   border-radius: 12px;
@@ -904,10 +937,25 @@ body {
   font-size: 1.4rem;
 }
 
-.topbar-user {
+.user-menu-dropdown {
+  position: relative;
+}
+
+.user-menu-trigger {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.user-menu-trigger:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .user-name {
@@ -925,6 +973,134 @@ body {
   color: #0f3270;
   background: linear-gradient(135deg, #fef3c7, #fdba74);
   border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.user-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  color: #1f2937;
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  min-width: 240px;
+  z-index: 9998;
+  overflow: hidden;
+}
+
+.user-menu.is-open {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-menu-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.user-menu-title {
+  display: block;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1f2937;
+  margin-bottom: 2px;
+}
+
+.user-menu-subtitle {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.user-menu-divider {
+  margin: 0;
+  border: none;
+  border-top: 1px solid #e5e7eb;
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  color: #1f2937 !important;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 0.95rem;
+  transition: background 0.15s ease;
+}
+
+.user-menu-item:hover {
+  background: #f3f4f6;
+}
+
+.user-menu-sort-btn {
+  background: transparent;
+  border: none;
+  width: 100%;
+  padding: 10px 16px;
+  text-align: left;
+}
+
+.user-menu-sort-btn:hover {
+  background: #f3f4f6;
+}
+
+.user-lang-section {
+  cursor: default;
+  padding-bottom: 6px;
+}
+
+.user-lang-section:hover {
+  background: transparent;
+}
+
+.user-menu-languages {
+  display: grid;
+  gap: 4px;
+  padding: 4px 16px 8px;
+  background: #f9fafb;
+}
+
+.user-menu-lang {
+  display: block;
+  padding: 6px 10px;
+  color: #1f2937 !important;
+  text-decoration: none;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.user-menu-lang:hover {
+  background: #e5e7eb;
+}
+
+.user-menu-lang.active {
+  background: #0b4a82;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.user-menu-logout {
+  color: #dc2626 !important;
+  font-weight: 600;
+}
+
+.user-menu-logout:hover {
+  background: #fee2e2;
+}
+
+.topbar-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .app-main-shell main {
@@ -1201,16 +1377,16 @@ body {
 
 .sale-controls-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 10px;
 }
 
 #installment-row {
-  grid-column: 4;
+  grid-column: 5;
 }
 
 #payment-received-row {
-  grid-column: 1;
+  grid-column: 5;
 }
 
 /* Client + Summary */
@@ -1224,6 +1400,7 @@ body {
 .sale-client-field {
   flex: 1 1 220px;
   min-width: 180px;
+  grid-column: 1 / span 2;
 }
 
 .totals-section {
@@ -1459,17 +1636,6 @@ body {
 .pix-confirm-yes:hover {
   background: #15803d !important;
   border-color: #166534 !important;
-}
-
-.pix-confirm-no {
-  background: #dc2626 !important;
-  border-color: #b91c1c !important;
-  color: #ffffff !important;
-}
-
-.pix-confirm-no:hover {
-  background: #b91c1c !important;
-  border-color: #991b1b !important;
 }
 
 .report-table-wrap {

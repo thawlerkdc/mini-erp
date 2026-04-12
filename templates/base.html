@@ -45,17 +45,6 @@
           </div>
 
           <div class="sidebar-footer">
-            <button type="button" class="menu-sort-toggle" id="menu-sort-toggle">Favoritos primeiro: desligado</button>
-            <a class="logout" href="{{ url_for('manual') }}"><span class="menu-icon" aria-hidden="true">&#128214;</span><span>{{ t('menu_manual') }}</span></a>
-            <div class="language-dropdown">
-              <button type="button"><span class="menu-icon" aria-hidden="true">&#127760;</span><span>{{ t('select_language') }}</span></button>
-              <div class="language-dropdown-menu">
-                {% for code, label in languages.items() %}
-                  <a class="lang-link {% if current_language == code %}active{% endif %}" href="{{ url_for('set_language', lang_code=code) }}">{{ label }}</a>
-                {% endfor %}
-              </div>
-            </div>
-            <a class="logout" href="{{ url_for('logout') }}">{{ t('menu_logout') }}</a>
           </div>
         </aside>
 
@@ -65,9 +54,41 @@
               <h1>{{ title }}</h1>
               <span class="account-badge">{{ session.get('account_name') }}{% if session.get('role') == 'owner' %} · principal{% else %} · dependente{% endif %}</span>
             </div>
-            <div class="topbar-user">
-              <span class="user-name">{{ session.get('user_name') or session.get('user') }}</span>
-              <span class="user-avatar">{{ (session.get('user_name') or session.get('user') or 'U')[0]|upper }}</span>
+            <div class="user-menu-dropdown">
+              <button type="button" class="user-menu-trigger">
+                <span class="user-name">{{ session.get('user_name') or session.get('user') }}</span>
+                <span class="user-avatar">{{ (session.get('user_name') or session.get('user') or 'U')[0]|upper }}</span>
+              </button>
+              <div class="user-menu">
+                <div class="user-menu-header">
+                  <span class="user-menu-title">{{ session.get('user_name') or session.get('user') }}</span>
+                  <span class="user-menu-subtitle">{{ session.get('account_name') }}</span>
+                </div>
+                <hr class="user-menu-divider">
+                <a href="{{ url_for('manual') }}" class="user-menu-item">
+                  <span class="menu-icon" aria-hidden="true">&#128214;</span>
+                  <span>{{ t('menu_manual') }}</span>
+                </a>
+                <div class="user-menu-item user-lang-section">
+                  <span class="menu-icon" aria-hidden="true">&#127760;</span>
+                  <span>{{ t('select_language') }}</span>
+                </div>
+                <div class="user-menu-languages">
+                  {% for code, label in languages.items() %}
+                    <a class="user-menu-lang {% if current_language == code %}active{% endif %}" href="{{ url_for('set_language', lang_code=code) }}">{{ label }}</a>
+                  {% endfor %}
+                </div>
+                <hr class="user-menu-divider">
+                <button type="button" class="user-menu-item user-menu-sort-btn" id="user-menu-sort-toggle">
+                  <span class="menu-icon" aria-hidden="true">&#9733;</span>
+                  <span id="user-menu-sort-label">{{ t('menu_favorites') }}: desligado</span>
+                </button>
+                <hr class="user-menu-divider">
+                <a href="{{ url_for('logout') }}" class="user-menu-item user-menu-logout">
+                  <span class="menu-icon" aria-hidden="true">&#128681;</span>
+                  <span>{{ t('menu_logout') }}</span>
+                </a>
+              </div>
             </div>
           </header>
 
@@ -243,7 +264,8 @@
           var user = '{{ session.get("user") or "anon" }}';
           var storageKey = 'menu_favorites_' + account + '_' + user;
           var sortKey = storageKey + '_sort';
-          var sortToggle = document.getElementById('menu-sort-toggle');
+          var sortToggle = document.getElementById('user-menu-sort-toggle');
+          var sortLabel = document.getElementById('user-menu-sort-label');
 
           function loadFavorites() {
             try {
@@ -317,8 +339,9 @@
           }
 
           function updateSortLabel() {
-            if (!sortToggle) return;
-            sortToggle.textContent = 'Favoritos primeiro: ' + (isSortOn() ? 'ligado' : 'desligado');
+            if (!sortLabel) return;
+            var isOn = isSortOn();
+            sortLabel.textContent = 'Favoritos: ' + (isOn ? 'ligado' : 'desligado');
           }
 
           nav.addEventListener('click', function (event) {
@@ -359,14 +382,61 @@
           updateSortLabel();
         }
 
+        function bindUserMenuDropdown() {
+          var dropdown = document.querySelector('.user-menu-dropdown');
+          if (!dropdown) return;
+          var trigger = dropdown.querySelector('.user-menu-trigger');
+          var menu = dropdown.querySelector('.user-menu');
+          if (!trigger || !menu) return;
+
+          function closeSiblingDropdowns() {
+            var allDropdowns = document.querySelectorAll('.user-menu-dropdown');
+            allDropdowns.forEach(function(d) {
+              d.querySelector('.user-menu').classList.remove('is-open');
+            });
+          }
+
+          trigger.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var isOpen = menu.classList.contains('is-open');
+            if (isOpen) {
+              menu.classList.remove('is-open');
+            } else {
+              closeSiblingDropdowns();
+              menu.classList.add('is-open');
+            }
+          });
+
+          menu.addEventListener('click', function (event) {
+            if (event.target.tagName === 'A') {
+              menu.classList.remove('is-open');
+            }
+          });
+
+          document.addEventListener('click', function (event) {
+            if (!dropdown.contains(event.target)) {
+              menu.classList.remove('is-open');
+            }
+          });
+
+          document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && menu.classList.contains('is-open')) {
+              menu.classList.remove('is-open');
+            }
+          });
+        }
+
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', function () {
             bindLanguageDropdownAutoDirection();
             bindMenuFavorites();
+            bindUserMenuDropdown();
           });
         } else {
           bindLanguageDropdownAutoDirection();
           bindMenuFavorites();
+          bindUserMenuDropdown();
         }
       })();
     </script>

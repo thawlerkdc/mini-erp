@@ -152,7 +152,10 @@
               <input id="create-payable" type="checkbox" name="create_payable" value="1" checked>
               <label for="create-payable">Gerar conta a pagar</label>
             </div>
-            <button type="submit">Confirmar importação XML</button>
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+              <button type="submit" class="btn-confirm">Confirmar importação XML</button>
+              <button type="button" class="btn-cancel" onclick="clearXMLPreview()">Cancelar</button>
+            </div>
           </form>
 
           <div class="report-table-wrap" style="margin-top:12px">
@@ -298,3 +301,10 @@
     </div>
   </div>
 {% endblock %}
+
+<script>
+  function clearXMLPreview() {
+    // Remove a pré-visualização do XML recarregando a página
+    window.location.href = '{{ url_for("financeiro") }}';
+  }
+</script>

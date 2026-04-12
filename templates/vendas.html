@@ -140,7 +140,7 @@
       <p id="pix-copy-code" class="pix-copy-code"></p>
       <div class="pix-modal-actions">
         <button type="button" class="btn-add pix-confirm-yes" onclick="confirmPixAndSubmit()">Sim, Pix recebido</button>
-        <button type="button" class="outline-button pix-confirm-no" onclick="cancelPixModal()">Não recebido</button>
+        <button type="button" class="btn-cancel" onclick="cancelPixModal()">Não recebido</button>
       </div>
     </div>
   </div>
@@ -151,7 +151,7 @@
       <p>Deseja realmente limpar os dados da venda atual?</p>
       <div class="pix-modal-actions">
         <button type="button" class="btn-add" onclick="clearSaleDataAndCloseModal()">Sim, limpar</button>
-        <button type="button" class="outline-button" onclick="closeClearSaleModal()">Cancelar</button>
+        <button type="button" class="btn-cancel" onclick="closeClearSaleModal()">Cancelar</button>
       </div>
     </div>
   </div>
@@ -553,6 +553,9 @@
 
     function openClearSaleModal() {
       document.getElementById('clear-sale-modal').style.display = 'flex';
+      // Focus para teclado
+      var confirmBtn = document.querySelector('#clear-sale-modal .btn-add');
+      if (confirmBtn) confirmBtn.focus();
     }
 
     function closeClearSaleModal() {
@@ -563,6 +566,20 @@
       clearSaleData();
       closeClearSaleModal();
     }
+
+    // ESC e ENTER no modal de limpar venda
+    document.addEventListener('keydown', function(event) {
+      var clearModal = document.getElementById('clear-sale-modal');
+      if (clearModal && clearModal.style.display === 'flex') {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeClearSaleModal();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          clearSaleDataAndCloseModal();
+        }
+      }
+    });
 
     function confirmClearSaleData() {
       openClearSaleModal();
@@ -690,6 +707,9 @@
         correctLevel: QRCode.CorrectLevel.M,
       });
       modal.style.display = 'flex';
+      // Focus para teclado
+      var confirmBtn = modal.querySelector('.pix-confirm-yes');
+      if (confirmBtn) confirmBtn.focus();
     }
 
     function cancelPixModal() {
@@ -702,6 +722,20 @@
       document.getElementById('pix-modal').style.display = 'none';
       document.getElementById('sale-form').submit();
     }
+
+    // ESC e ENTER no modal PIX
+    document.addEventListener('keydown', function(event) {
+      var pixModal = document.getElementById('pix-modal');
+      if (pixModal && pixModal.style.display === 'flex') {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelPixModal();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          confirmPixAndSubmit();
+        }
+      }
+    });
 
     function shouldOpenPixModal() {
       if (!PAYMENT_UI_SETTINGS.allow_multi) {
