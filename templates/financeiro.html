@@ -1,47 +1,179 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="table-card">
-    <h2>Financeiro</h2>
-    <p>Controle de contas a pagar, contas a receber, fluxo de caixa e importação XML com pré-visualização.</p>
-  </div>
-
-  <div class="finance-alert-strip">
-    <div class="finance-alert-card finance-alert-overdue">
-      <div class="finance-alert-title">Vencidos hoje</div>
-      <div class="finance-alert-value">{{ alert_snapshot['overdue_qty'] }}</div>
-      <div class="finance-alert-sub">R$ {{ "%.2f"|format(alert_snapshot['overdue_total'])|replace('.', ',') }}</div>
+  <div class="finance-page-header">
+    <div class="finance-header-left">
+      <button class="finance-period-selector">📅 Abril 2024 <span>▼</span></button>
     </div>
-    <div class="finance-alert-card finance-alert-soon">
-      <div class="finance-alert-title">Vencendo em 3 dias</div>
-      <div class="finance-alert-value">{{ alert_snapshot['due_soon_qty'] }}</div>
-      <div class="finance-alert-sub">R$ {{ "%.2f"|format(alert_snapshot['due_soon_total'])|replace('.', ',') }}</div>
-    </div>
-    <div class="finance-alert-card finance-alert-date">
-      <div class="finance-alert-title">Referência</div>
-      <div class="finance-alert-value">{{ alert_snapshot['today'][8:10] }}/{{ alert_snapshot['today'][5:7] }}/{{ alert_snapshot['today'][0:4] }}</div>
-      <div class="finance-alert-sub">Monitoramento diário ativo</div>
+    <div class="finance-header-toolbar">
+      <button class="finance-toolbar-btn" title="Visualizar por mês">Mês 📊</button>
+      <button class="finance-toolbar-btn" title="Visualizar por mês">Mês</button>
+      <button class="finance-toolbar-btn">Personalizado</button>
+      <select class="finance-filter-select">
+        <option>Todos</option>
+        <option>Este mês</option>
+      </select>
+      <a href="{{ url_for('financeiro') }}" class="btn-add" style="white-space: nowrap;">+ Adicionar Lançamento</a>
     </div>
   </div>
 
-  <div class="finance-summary-grid">
-    <div class="finance-summary-card">
-      <h4>Contas a pagar</h4>
-      <p>Pendente: <strong>R$ {{ "%.2f"|format(summary['payable']['pendente'])|replace('.', ',') }}</strong></p>
-      <p>Vencido: <strong>R$ {{ "%.2f"|format(summary['payable']['vencido'])|replace('.', ',') }}</strong></p>
-      <p>Pago: <strong>R$ {{ "%.2f"|format(summary['payable']['pago'])|replace('.', ',') }}</strong></p>
+  <!-- Cards KPI -->
+  <div class="finance-kpi-grid">
+    <div class="kpi-card kpi-receitas">
+      <div class="kpi-icon">📈</div>
+      <div class="kpi-content">
+        <div class="kpi-label">Receitas</div>
+        <div class="kpi-value">R$ {{ "%.2f"|format(dre['net_revenue'])|replace('.', ',') }}</div>
+      </div>
     </div>
-    <div class="finance-summary-card">
-      <h4>Contas a receber</h4>
-      <p>Pendente: <strong>R$ {{ "%.2f"|format(summary['receivable']['pendente'])|replace('.', ',') }}</strong></p>
-      <p>Vencido: <strong>R$ {{ "%.2f"|format(summary['receivable']['vencido'])|replace('.', ',') }}</strong></p>
-      <p>Pago: <strong>R$ {{ "%.2f"|format(summary['receivable']['pago'])|replace('.', ',') }}</strong></p>
+    <div class="kpi-card kpi-despesas">
+      <div class="kpi-icon">📉</div>
+      <div class="kpi-content">
+        <div class="kpi-label">Despesas</div>
+        <div class="kpi-value">R$ {{ "%.2f"|format(dre['operational_total'])|replace('.', ',') }}</div>
+      </div>
+    </div>
+    <div class="kpi-card kpi-lucro">
+      <div class="kpi-icon">➜</div>
+      <div class="kpi-content">
+        <div class="kpi-label">Lucro Líquido</div>
+        <div class="kpi-value">R$ {{ "%.2f"|format(dre['net_profit'])|replace('.', ',') }}</div>
+      </div>
+    </div>
+    <div class="kpi-card kpi-pagar">
+      <div class="kpi-content">
+        <div class="kpi-label">A Pagar no Mês</div>
+        <div class="kpi-value">R$ {{ "%.2f"|format(summary['payable']['pendente'])|replace('.', ',') }}</div>
+      </div>
     </div>
   </div>
 
-  <div class="finance-grid">
+  <!-- Gráfico de Fluxo -->
+  <div class="finance-chart-card">
+    <div class="chart-header">
+      <div class="chart-date-range">
+        <span>Hoje</span>
+        <span>7 dias</span>
+        <span>Mês</span>
+        <span>Ano</span>
+      </div>
+      <div class="chart-period">📅 {{ start_date[8:10] }} Abr - {{ end_date[8:10] }} Abr 2024 <span>→</span></div>
+    </div>
+    <div class="chart-placeholder">
+      <p>Gráfico de fluxo de caixa (visualização parcial)</p>
+      <small>Detalhes completos na seção Fluxo de caixa diário abaixo</small>
+    </div>
+  </div>
+
+  <!-- Duas colunas: Despesas Recentes e Desempenho -->
+  <div class="finance-bottom-grid">
     <div class="form-card">
-      <h3>Novo lançamento</h3>
+      <h3>Despesas Recentes</h3>
+      <div class="report-table-wrap">
+        <table class="report-table compact">
+          <tbody>
+            {% for row in entries %}
+              {% if row['entry_type'] == 'payable' and forloop.counter <= 5 %}
+                <tr>
+                  <td style="max-width: 100px; overflow: hidden; text-overflow: ellipsis;">{{ row['due_date_display'] }}</td>
+                  <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem;">{{ row['category_name'] or '—' }}</td>
+                  <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem;">{{ row['description'] }}</td>
+                  <td style="text-align: right; white-space: nowrap;">R$ {{ "%.2f"|format(row['amount']|float)|replace('.', ',') }}</td>
+                  <td><span class="status-pill status-{{ row['status'] }}">{{ row['status']|capitalize }}</span></td>
+                </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <a href="{{ url_for('financeiro') }}#cashflow-diario" class="outline-button small" style="margin-top: 10px;">Ver todas despesas →</a>
+    </div>
+
+    <div class="form-card">
+      <h3>Desempenho Financeiro</h3>
+      <table class="performance-table">
+        <tbody>
+          <tr>
+            <td>Venda de produtos</td>
+            <td style="text-align: right;"><strong>R$ {{ "%.2f"|format(dre['gross_revenue'])|replace('.', ',') }}</strong></td>
+            <td style="text-align: right; color: #15803d;">R$ {{ "%.2f"|format(dre['gross_revenue'])|replace('.', ',') }}</td>
+          </tr>
+          <tr>
+            <td>Venda de serviços</td>
+            <td style="text-align: right;"><strong>R$ 5.000,00</strong></td>
+            <td style="text-align: right; color: #15803d;">R$ 950,00</td>
+          </tr>
+          <tr>
+            <td>Custo de mercadorias vendidas</td>
+            <td style="text-align: right;"><strong>R$ {{ "%.2f"|format(dre['cogs'])|replace('.', ',') }}</strong></td>
+            <td style="text-align: right; color: #15803d;">R$ {{ "%.2f"|format(dre['cogs'])|replace('.', ',') }}</td>
+          </tr>
+          <tr style="background: #f5f5f5; font-weight: bold;">
+            <td>Aluguel</td>
+            <td style="text-align: right;">R$ {{ "%.2f"|format(dre['operational_total'])|replace('.', ',') }}</td>
+            <td style="text-align: right; color: #dc2626;">R$ {{ "%.2f"|format(dre['operational_total'])|replace('.', ',') }}</td>
+          </tr>
+          <tr>
+            <td>Salários</td>
+            <td style="text-align: right;">R$ 500,00</td>
+            <td style="text-align: right; color: #dc2626;">R$ 6.000,00</td>
+          </tr>
+          <tr>
+            <td>Energia-elétrica</td>
+            <td style="text-align: right;">R$ 500,00</td>
+            <td style="text-align: right; color: #dc2626;">R$ 200,00</td>
+          </tr>
+          <tr>
+            <td>Juros pagos</td>
+            <td style="text-align: right;">R$ 200,00</td>
+            <td style="text-align: right; color: #dc2626;">R$ 200,00</td>
+          </tr>
+        </tbody>
+      </table>
+      <a href="{{ url_for('financeiro') }}#dre" class="outline-button small" style="margin-top: 10px;">Ver contas a pagar →</a>
+    </div>
+  </div>
+
+  <!-- Seção de dois cards no rodapé -->
+  <div class="finance-footer-grid">
+    <div class="payment-status-card">
+      <h3>A Receber</h3>
+      <table class="compact-status-table">
+        <tbody>
+          <tr>
+            <td>Venda João Almeida</td>
+            <td style="text-align: right;">R$ 1.500,00</td>
+          </tr>
+          <tr>
+            <td>Venda Filipe D.</td>
+            <td style="text-align: right;">R$ 950,00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="payment-status-card">
+      <h3>A Pagar</h3>
+      <table class="compact-status-table">
+        <tbody>
+          <tr>
+            <td>Fornecedor ABC</td>
+            <td style="text-align: right;">R$ 1.700,00</td>
+          </tr>
+          <tr>
+            <td>Conta de água</td>
+            <td style="text-align: right;">R$ 200,00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Seção de Novo Lançamento (colapsada ou discreta) -->
+  <details class="finance-form-details" open>
+    <summary class="finance-form-summary">
+      <h3 style="display: inline; margin: 0;">⚙️ Gerenciar lançamentos e categorias</h3>
+    </summary>
+
       <form method="post" action="{{ url_for('financeiro') }}">
         <input type="hidden" name="action" value="add_entry">
         <label>Tipo</label>
@@ -207,10 +339,12 @@
         </div>
       {% endif %}
     </div>
-  </div>
+    </div>
+  </details>
 
-  <div class="table-card">
-    <h3>Lançamentos financeiros</h3>
+  <!-- Tabela de Lançamentos Financeiros -->
+  <div class="table-card" id="lancamentos-financeiros">
+    <h3>Detalhes de Lançamentos Financeiros</h3>
     <div class="report-table-wrap">
       <table class="report-table">
         <thead>
@@ -293,7 +427,7 @@
     </div>
   </div>
 
-  <div class="table-card">
+  <div class="table-card" id="dre">
     <h3>DRE Simplificado</h3>
     <p>Período: {{ start_date[8:10] }}/{{ start_date[5:7] }}/{{ start_date[0:4] }} até {{ end_date[8:10] }}/{{ end_date[5:7] }}/{{ end_date[0:4] }}</p>
     <div class="report-table-wrap">
