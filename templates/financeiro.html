@@ -45,7 +45,8 @@
       <form method="post" action="{{ url_for('financeiro') }}">
         <input type="hidden" name="action" value="add_entry">
         <label>Tipo</label>
-        <select name="entry_type" required>
+        <select id="entry-type-select" name="entry_type" required>
+          <option value="">Selecione o tipo</option>
           <option value="payable">Conta a pagar</option>
           <option value="receivable">Conta a receber</option>
         </select>
@@ -54,26 +55,26 @@
         <input type="text" name="description" maxlength="200" required>
 
         <label>Categoria financeira</label>
-        <select name="category_id">
+        <select id="category-select" name="category_id">
           <option value="">Sem categoria</option>
           <optgroup label="Receitas">
             {% for cat in categories %}
               {% if cat['kind'] == 'receivable' %}
-                <option value="{{ cat['id'] }}">{{ cat['name'] }}</option>
+                <option value="{{ cat['id'] }}" data-kind="receivable">{{ cat['name'] }}</option>
               {% endif %}
             {% endfor %}
           </optgroup>
           <optgroup label="Despesas">
             {% for cat in categories %}
               {% if cat['kind'] == 'payable' %}
-                <option value="{{ cat['id'] }}">{{ cat['name'] }}</option>
+                <option value="{{ cat['id'] }}" data-kind="payable">{{ cat['name'] }}</option>
               {% endif %}
             {% endfor %}
           </optgroup>
           <optgroup label="Ambos">
             {% for cat in categories %}
               {% if cat['kind'] == 'both' %}
-                <option value="{{ cat['id'] }}">{{ cat['name'] }}</option>
+                <option value="{{ cat['id'] }}" data-kind="both">{{ cat['name'] }}</option>
               {% endif %}
             {% endfor %}
           </optgroup>
@@ -359,6 +360,56 @@
   </div>
 
   <script>
+    function syncFinancialCategoriesByType() {
+      var typeSelect = document.getElementById('entry-type-select');
+      var categorySelect = document.getElementById('category-select');
+      if (!typeSelect || !categorySelect) return;
+
+      var selectedType = typeSelect.value;
+      var options = categorySelect.querySelectorAll('option');
+      options.forEach(function (option) {
+        if (!option.value) {
+          option.hidden = false;
+          return;
+        }
+        var kind = option.dataset.kind || 'both';
+        option.hidden = !selectedType || (kind !== 'both' && kind !== selectedType);
+      });
+
+      if (!selectedType) {
+        categorySelect.value = '';
+      } else {
+        var current = categorySelect.options[categorySelect.selectedIndex];
+        if (current && current.hidden) categorySelect.value = '';
+      }
+    }
+
+    function handleCategoryFocus() {
+      var typeSelect = document.getElementById('entry-type-select');
+      if (!typeSelect) return;
+      if (!typeSelect.value) {
+        alert('Informe o tipo do lançamento antes de selecionar a categoria financeira.');
+        typeSelect.focus();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var typeSelect = document.getElementById('entry-type-select');
+      var categorySelect = document.getElementById('category-select');
+      if (typeSelect) {
+        typeSelect.addEventListener('change', syncFinancialCategoriesByType);
+      }
+      if (categorySelect) {
+        categorySelect.addEventListener('focus', handleCategoryFocus);
+        categorySelect.addEventListener('mousedown', function (event) {
+          if (!typeSelect || typeSelect.value) return;
+          event.preventDefault();
+          handleCategoryFocus();
+        });
+      }
+      syncFinancialCategoriesByType();
+    });
+
     function openCancelXmlModal() {
       var modal = document.getElementById('cancel-xml-modal');
       if (!modal) return;

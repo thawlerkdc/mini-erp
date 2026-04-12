@@ -4,12 +4,7 @@
   <div class="form-card">
     <form method="post" action="{{ url_for('parametros') }}">
       <section class="param-section">
-        <h3>Vendas e pagamentos</h3>
-
-        <div class="param-check-row">
-          <input type="checkbox" name="allow_multi_payment_sale" id="allow_multi_payment_sale" {% if settings.get('allow_multi_payment_sale') == '1' %}checked{% endif %}>
-          <label for="allow_multi_payment_sale">Permitir mais de um tipo de pagamento na venda</label>
-        </div>
+        <h3>Precificação e estoque</h3>
 
         <div class="field-group" style="max-width:220px; margin-top:1rem">
           <label>Margem de lucro padrão para novos produtos (%)</label>
@@ -30,6 +25,16 @@
           </div>
           <p class="param-hint-small">Ao cadastrar produto, o estoque mínimo pode ser sugerido por este percentual do estoque inicial.</p>
         </div>
+      </section>
+
+      <section class="param-section">
+        <h3>Vendas e pagamentos</h3>
+
+        <div class="param-check-row">
+          <input type="checkbox" name="allow_multi_payment_sale" id="allow_multi_payment_sale" {% if settings.get('allow_multi_payment_sale') == '1' %}checked{% endif %}>
+          <label for="allow_multi_payment_sale">Permitir mais de um tipo de pagamento na venda</label>
+        </div>
+
         <h4 class="param-subtitle">Acréscimo por cartão</h4>
 
         <div class="param-check-row">

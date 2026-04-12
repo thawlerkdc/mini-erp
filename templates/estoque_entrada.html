@@ -3,8 +3,83 @@
 {% block content %}
 <div class="form-card">
   <h3>Registrar Compra</h3>
-  <p class="form-helper">Dica: para importar NF-e em XML e integrar com contas a pagar, use o atalho abaixo.</p>
-  <a class="outline-button small" href="{{ url_for('financeiro') }}#xml-import">Importar XML de compra</a>
+
+  <div id="xml-import-compras" class="xml-import-callout">
+    <h4>Importar XML da NF-e de compra</h4>
+    <p class="form-helper">Faça a pré-visualização, confirme ou cancele por aqui mesmo, sem sair do módulo Compras.</p>
+    <form method="post" action="{{ url_for('financeiro') }}" enctype="multipart/form-data" class="xml-import-form-compras">
+      <input type="hidden" name="action" value="preview_xml">
+      <input type="hidden" name="return_to" value="compras">
+      <label>Arquivo XML</label>
+      <input type="file" name="xml_file" accept=".xml,text/xml,application/xml" required>
+      <button type="submit" class="btn-xml-import">Importar XML com pré-visualização</button>
+    </form>
+
+    {% if xml_preview %}
+      <div class="xml-preview-box" style="margin-top: 12px;">
+        <h4>Prévia da importação</h4>
+        <p><strong>NF:</strong> {{ xml_preview['invoice_number'] or 'Sem número' }}</p>
+        <p><strong>Emissão:</strong> {{ xml_preview['issue_date'] or '-' }}</p>
+        <p><strong>Fornecedor:</strong> {{ xml_preview['supplier_name'] or '-' }}</p>
+        <p><strong>CNPJ:</strong> {{ xml_preview['supplier_cnpj'] or '-' }}</p>
+        <p><strong>Total:</strong> R$ {{ "%.2f"|format(xml_preview['total_amount']|float)|replace('.', ',') }}</p>
+        <p><strong>Itens:</strong> {{ xml_preview['items']|length }}</p>
+
+        <form method="post" action="{{ url_for('financeiro') }}">
+          <input type="hidden" name="action" value="confirm_xml">
+          <input type="hidden" name="return_to" value="compras">
+          <div class="param-check-row">
+            <input id="create-supplier-compras" type="checkbox" name="create_supplier" value="1" checked>
+            <label for="create-supplier-compras">Criar fornecedor se não existir</label>
+          </div>
+          <div class="param-check-row">
+            <input id="create-products-compras" type="checkbox" name="create_products" value="1" checked>
+            <label for="create-products-compras">Criar produtos se não existirem</label>
+          </div>
+          <div class="param-check-row">
+            <input id="create-payable-compras" type="checkbox" name="create_payable" value="1" checked>
+            <label for="create-payable-compras">Gerar conta a pagar</label>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+            <button type="submit" class="btn-confirm">Confirmar importação XML</button>
+            <button type="button" class="btn-cancel" onclick="document.getElementById('cancel-xml-compras-form').submit()">
+              Cancelar pré-visualização
+            </button>
+          </div>
+        </form>
+
+        <form method="post" action="{{ url_for('financeiro') }}" style="display:none" id="cancel-xml-compras-form">
+          <input type="hidden" name="action" value="cancel_xml_preview">
+          <input type="hidden" name="return_to" value="compras">
+        </form>
+
+        <div class="report-table-wrap" style="margin-top:12px">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Produto</th>
+                <th>Quantidade</th>
+                <th>Vlr. unitário</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in xml_preview['items'] %}
+                <tr>
+                  <td>{{ item['code'] or '—' }}</td>
+                  <td>{{ item['name'] }}</td>
+                  <td>{{ "%.2f"|format(item['quantity']|float)|replace('.', ',') }}</td>
+                  <td>R$ {{ "%.2f"|format(item['unit_price']|float)|replace('.', ',') }}</td>
+                  <td>R$ {{ "%.2f"|format(item['total']|float)|replace('.', ',') }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+  </div>
 
   <form method="post" action="{{ url_for('estoque_entrada') }}">
     <input type="hidden" name="action" value="register_purchase">

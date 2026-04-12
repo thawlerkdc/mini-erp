@@ -2410,6 +2410,12 @@ def financeiro():
 
     if request.method == "POST":
         action = (request.form.get("action") or "").strip()
+        return_to = (request.form.get("return_to") or "").strip().lower()
+
+        def _post_redirect(anchor=""):
+            base = url_for("estoque_entrada") if return_to == "compras" else url_for("financeiro")
+            return redirect(base + anchor)
+
         try:
             if action == "add_category":
                 name = (request.form.get("name") or "").strip()
@@ -2427,7 +2433,7 @@ def financeiro():
                     flash("Categoria financeira cadastrada.", "success")
 
             elif action == "add_entry":
-                entry_type = (request.form.get("entry_type") or "payable").strip().lower()
+                entry_type = (request.form.get("entry_type") or "").strip().lower()
                 description = (request.form.get("description") or "").strip()
                 category_id = request.form.get("category_id") or None
                 supplier_id = request.form.get("supplier_id") or None
@@ -2438,12 +2444,30 @@ def financeiro():
                 is_recurring = 1 if request.form.get("is_recurring") else 0
                 recurrence_days = _safe_int(request.form.get("recurrence_days") or 30, 30)
 
+                category_mismatch = False
                 if entry_type not in {"payable", "receivable"}:
-                    entry_type = "payable"
+                    flash("Informe o tipo do lançamento antes de salvar.", "error")
                 if status not in {"pago", "pendente", "vencido"}:
                     status = "pendente"
 
-                if not description or amount <= 0 or not due_date:
+                if category_id and entry_type in {"payable", "receivable"}:
+                    cat_kind_row = conn.execute(
+                        "SELECT kind FROM financial_categories WHERE id = %s AND account_id = %s LIMIT 1",
+                        (category_id, account_id),
+                    ).fetchone()
+                    if not cat_kind_row:
+                        category_id = None
+                    else:
+                        cat_kind = (cat_kind_row["kind"] or "both").strip().lower()
+                        if cat_kind not in {"both", entry_type}:
+                            category_mismatch = True
+                            flash("A categoria financeira não corresponde ao tipo selecionado.", "error")
+
+                if entry_type not in {"payable", "receivable"}:
+                    pass
+                elif category_mismatch:
+                    pass
+                elif not description or amount <= 0 or not due_date:
                     flash("Preencha descrição, valor e vencimento para lançar o título.", "error")
                 else:
                     paid_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "pago" else None
@@ -2487,29 +2511,29 @@ def financeiro():
                 if not xml_file or not xml_file.filename:
                     flash("Selecione um arquivo XML da NF-e para importar.", "error")
                     conn.close()
-                    return redirect(url_for("financeiro") + "#xml-import")
+                    return _post_redirect("#xml-import-compras" if return_to == "compras" else "#xml-import")
                 else:
                     preview = _parse_nfe_xml(xml_file.read())
                     if not preview.get("items"):
                         flash("Não foi possível extrair itens do XML informado.", "error")
                         conn.close()
-                        return redirect(url_for("financeiro") + "#xml-import")
+                        return _post_redirect("#xml-import-compras" if return_to == "compras" else "#xml-import")
                     else:
                         session["finance_xml_preview"] = preview
                         conn.close()
-                        return redirect(url_for("financeiro") + "#xml-import")
+                        return _post_redirect("#xml-import-compras" if return_to == "compras" else "#xml-import")
 
             elif action == "cancel_xml_preview":
                 session.pop("finance_xml_preview", None)
                 conn.close()
-                return redirect(url_for("financeiro") + "#xml-import")
+                return _post_redirect("#xml-import-compras" if return_to == "compras" else "#xml-import")
 
             elif action == "confirm_xml":
                 preview = session.get("finance_xml_preview")
                 if not preview:
                     flash("Gere a pré-visualização do XML antes de confirmar.", "error")
                     conn.close()
-                    return redirect(url_for("financeiro") + "#xml-import")
+                    return _post_redirect("#xml-import-compras" if return_to == "compras" else "#xml-import")
                 else:
                     existing = None
                     if preview.get("invoice_key"):
@@ -2520,7 +2544,7 @@ def financeiro():
                     if existing:
                         flash("Este XML já foi importado anteriormente.", "error")
                         conn.close()
-                        return redirect(url_for("financeiro") + "#xml-import")
+                        return _post_redirect("#xml-import-compras" if return_to == "compras" else "#xml-import")
                     else:
                         create_supplier = request.form.get("create_supplier") == "1"
                         create_products = request.form.get("create_products") == "1"
@@ -2640,7 +2664,7 @@ def financeiro():
                         session.pop("finance_xml_preview", None)
                         flash("XML importado com sucesso: estoque, financeiro e histórico foram atualizados.", "success")
                         conn.close()
-                        return redirect(url_for("financeiro") + "#xml-import")
+                        return _post_redirect("#xml-import-compras" if return_to == "compras" else "#xml-import")
 
         except psycopg.IntegrityError:
             conn.rollback()
@@ -2654,6 +2678,8 @@ def financeiro():
             flash("Não foi possível processar a operação financeira solicitada.", "error")
 
         conn.close()
+        if return_to == "compras" and action in {"preview_xml", "confirm_xml", "cancel_xml_preview"}:
+            return redirect(url_for("estoque_entrada") + "#xml-import-compras")
         return redirect(url_for("financeiro"))
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -3760,6 +3786,8 @@ def estoque_entrada():
         for po in purchase_orders
     ]
 
+    xml_preview = session.get("finance_xml_preview")
+
     conn.close()
     return render_template(
         "estoque_entrada.html",
@@ -3768,6 +3796,7 @@ def estoque_entrada():
         suppliers=suppliers,
         recent=recent,
         purchase_orders=purchase_orders,
+        xml_preview=xml_preview,
         today=datetime.now().strftime("%Y-%m-%d"),
     )
 

@@ -222,6 +222,12 @@
       let select = document.getElementById('installments-select');
       if (!select) return;
       let base = getOrderBase();
+
+      function formatRateText(rate) {
+        if (!(rate > 0)) return 'sem juros';
+        return rate.toFixed(2).replace('.', ',') + '% de juros';
+      }
+
       for (let i = 1; i <= 12; i++) {
         let opt = select.querySelector('option[value="' + i + '"]');
         if (!opt) continue;
@@ -229,13 +235,9 @@
         let total = (CARD_SETTINGS.credit_enabled && rate > 0) ? rowBaseToFinal(base, 'Crédito', i) : base;
         let perInstallment = i > 0 ? (total / i) : total;
         if (i === 1) {
-          opt.textContent = '1x (à vista) - Total R$ ' + formatCurrency(total);
+          opt.textContent = '1x (à vista) - Total R$ ' + formatCurrency(total) + ' - ' + formatRateText(rate);
         } else {
-          if (rate > 0) {
-            opt.textContent = i + 'x de R$ ' + formatCurrency(perInstallment) + ' (Total R$ ' + formatCurrency(total) + ')';
-          } else {
-            opt.textContent = i + 'x de R$ ' + formatCurrency(perInstallment) + ' (sem juros)';
-          }
+          opt.textContent = i + 'x de R$ ' + formatCurrency(perInstallment) + ' (Total R$ ' + formatCurrency(total) + ' - ' + formatRateText(rate) + ')';
         }
       }
     }
@@ -244,10 +246,8 @@
       let html = '<select name="' + name + '" onchange="onPaymentRowChange(this)">';
       for (let i = 1; i <= 12; i++) {
         let rate = parseFloat(CARD_SETTINGS.credit_rates[String(i)]) || 0;
-        let label = i + 'x';
-        if (i > 1) {
-          label += rate > 0 ? ' (com juros)' : ' (sem juros)';
-        }
+        let rateText = rate > 0 ? (rate.toFixed(2).replace('.', ',') + '%') : 'sem juros';
+        let label = i + 'x (' + rateText + ')';
         html += '<option value="' + i + '"' + (selected === i ? ' selected' : '') + '>' + label + '</option>';
       }
       html += '</select>';
