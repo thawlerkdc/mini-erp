@@ -500,6 +500,22 @@
     </div>
   {% endif %}
 
+  <style>
+    .btn-manage.action-whatsapp {
+      background: #25D366 !important;
+      border-color: #25D366 !important;
+      color: #ffffff !important;
+      box-shadow: 0 10px 20px rgba(37, 211, 102, 0.28);
+    }
+    .btn-manage.action-whatsapp:hover {
+      background: #1fba59 !important;
+      border-color: #1fba59 !important;
+    }
+    .btn-manage.action-whatsapp .wa-icon {
+      filter: brightness(0) invert(1);
+    }
+  </style>
+
   <script>
     function toggleCategoryForm(id, button) {
       const el = document.getElementById(id);

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 460">
+  <rect width="800" height="460" rx="28" fill="#f3eefc"/>
+  <rect x="24" y="24" width="170" height="412" rx="22" fill="#432b77"/>
+  <rect x="220" y="24" width="556" height="86" rx="24" fill="#ffffff"/>
+  <rect x="220" y="130" width="270" height="306" rx="24" fill="#ffffff"/>
+  <rect x="510" y="130" width="266" height="146" rx="24" fill="#ffffff"/>
+  <rect x="510" y="296" width="266" height="140" rx="24" fill="#ffffff"/>
+  <rect x="46" y="58" width="126" height="22" rx="11" fill="#ffffff" opacity="0.88"/>
+  <rect x="46" y="106" width="126" height="12" rx="6" fill="#c4b5fd"/>
+  <rect x="46" y="134" width="110" height="12" rx="6" fill="#c4b5fd" opacity="0.8"/>
+  <rect x="248" y="44" width="140" height="18" rx="9" fill="#ddd6fe"/>
+  <rect x="248" y="76" width="84" height="14" rx="7" fill="#ede9fe"/>
+  <rect x="360" y="76" width="84" height="14" rx="7" fill="#ede9fe"/>
+  <rect x="472" y="76" width="84" height="14" rx="7" fill="#ede9fe"/>
+  <path d="M248 382 C288 280, 330 310, 362 220 S432 180, 470 150" fill="none" stroke="#7c3aed" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="248" cy="382" r="8" fill="#7c3aed"/>
+  <circle cx="362" cy="220" r="8" fill="#7c3aed"/>
+  <circle cx="470" cy="150" r="8" fill="#7c3aed"/>
+  <rect x="534" y="154" width="150" height="18" rx="9" fill="#ddd6fe"/>
+  <rect x="534" y="190" width="210" height="20" rx="10" fill="#f5f3ff"/>
+  <rect x="534" y="222" width="180" height="20" rx="10" fill="#f5f3ff"/>
+  <rect x="534" y="318" width="180" height="20" rx="10" fill="#ddd6fe"/>
+  <rect x="534" y="352" width="210" height="22" rx="11" fill="#eef2ff"/>
+  <rect x="534" y="386" width="132" height="24" rx="12" fill="#22c55e" opacity="0.2"/>
+</svg>

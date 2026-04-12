@@ -178,11 +178,11 @@
         </thead>
         <tbody>
           {% for row in kardex %}
-            <tr>
+            <tr class="{% if row['movement_type'] in ['entrada', 'ajuste_entrada', 'xml_import'] %}kardex-row-add{% elif row['movement_type'] in ['sale', 'ajuste_saida'] %}kardex-row-sub{% endif %}">
               <td>{{ row['date_display'] }}</td>
               <td>{{ row['product_name'] }}</td>
               <td class="{% if row['movement_type'] in ['entrada', 'ajuste_entrada', 'xml_import'] %}kardex-add{% elif row['movement_type'] in ['sale', 'ajuste_saida'] %}kardex-sub{% endif %}">{{ row['movement_type_label'] }}</td>
-              <td>{{ "%.3f"|format(row['quantity']|float) }}</td>
+              <td class="{% if row['movement_type'] in ['entrada', 'ajuste_entrada', 'xml_import'] %}kardex-add{% elif row['movement_type'] in ['sale', 'ajuste_saida'] %}kardex-sub{% endif %}">{{ "%.3f"|format(row['quantity']|float) }}</td>
               <td>{{ row['user_name'] }}</td>
               <td>{{ row['notes'] }}</td>
             </tr>
@@ -228,6 +228,26 @@
     .kardex-sub {
       color: #dc2626;
       font-weight: 800;
+    }
+    .kardex-row-add td {
+      background: rgba(22, 163, 74, 0.08);
+      border-top: 1px solid rgba(22, 163, 74, 0.12);
+      border-bottom: 1px solid rgba(22, 163, 74, 0.12);
+    }
+    .kardex-row-sub td {
+      background: rgba(220, 38, 38, 0.08);
+      border-top: 1px solid rgba(220, 38, 38, 0.12);
+      border-bottom: 1px solid rgba(220, 38, 38, 0.12);
+    }
+    .kardex-row-add td:first-child,
+    .kardex-row-sub td:first-child {
+      border-top-left-radius: 8px;
+      border-bottom-left-radius: 8px;
+    }
+    .kardex-row-add td:last-child,
+    .kardex-row-sub td:last-child {
+      border-top-right-radius: 8px;
+      border-bottom-right-radius: 8px;
     }
   </style>
 
