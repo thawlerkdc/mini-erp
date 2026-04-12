@@ -15,26 +15,9 @@
         <span>Financeiro + XML</span>
         <span>Relatórios de giro</span>
       </div>
-      <div class="login-trio-wrap" aria-label="Prévia do sistema">
-        <div class="login-trio-row">
-          <figure class="login-trio-frame">
-            <img id="trio-img-0" src="{{ url_for('static', filename='img/previews/dashboard.png') }}" alt="Dashboard" loading="lazy">
-            <figcaption id="trio-cap-0">Painel de controle</figcaption>
-          </figure>
-          <figure class="login-trio-frame">
-            <img id="trio-img-1" src="{{ url_for('static', filename='img/previews/vendas.png') }}" alt="Vendas" loading="lazy">
-            <figcaption id="trio-cap-1">Vendas</figcaption>
-          </figure>
-          <figure class="login-trio-frame">
-            <img id="trio-img-2" src="{{ url_for('static', filename='img/previews/financeiro.png') }}" alt="Financeiro" loading="lazy">
-            <figcaption id="trio-cap-2">Financeiro</figcaption>
-          </figure>
-        </div>
-        <div class="login-trio-dots">
-          <button type="button" class="is-active" aria-label="Conjunto 1"></button>
-          <button type="button" aria-label="Conjunto 2"></button>
-          <button type="button" aria-label="Conjunto 3"></button>
-        </div>
+      <div class="login-rotary-wrap" aria-label="Prévia do sistema">
+        <div class="login-rotary-stage" id="login-rotary-stage"></div>
+        <div class="login-rotary-dots" id="login-rotary-dots"></div>
       </div>
     </section>
 
@@ -189,7 +172,7 @@
       font-size: 0.85rem;
       background: rgba(255, 255, 255, 0.13);
     }
-    .login-trio-wrap {
+    .login-rotary-wrap {
       margin-top: 18px;
       padding: 12px;
       border-radius: 16px;
@@ -197,35 +180,37 @@
       border: 1px solid rgba(255, 255, 255, 0.16);
       backdrop-filter: blur(12px);
     }
-    .login-trio-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
+    .login-rotary-stage {
+      position: relative;
+      height: 252px;
     }
-    .login-trio-frame {
+    .login-rotary-card {
+      position: absolute;
       margin: 0;
       border-radius: 10px;
       overflow: hidden;
       background: rgba(255, 255, 255, 0.98);
       border: 1px solid rgba(255,255,255,0.13);
-      transition: transform 0.18s ease;
       box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+      transition: transform 0.75s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.75s ease, filter 0.75s ease, box-shadow 0.75s ease;
     }
-    .login-trio-frame:hover { transform: scale(1.03); }
-    .login-trio-frame img {
+    .login-rotary-card:hover {
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.24);
+    }
+    .login-rotary-card img {
       width: 100%;
-      aspect-ratio: 4 / 3;
+      height: calc(100% - 34px);
       object-fit: cover;
       object-position: center top;
       display: block;
       background: #ffffff;
-      transition: opacity 0.3s ease;
     }
-    .login-trio-frame figcaption {
-      padding: 5px 6px 7px;
+    .login-rotary-card figcaption {
+      height: 34px;
+      padding: 8px 10px;
       font-size: 0.72rem;
       font-weight: 700;
-      color: rgba(255,255,255,0.9);
+      color: rgba(255,255,255,0.92);
       font-family: 'Space Grotesk', sans-serif;
       text-align: center;
       background: rgba(4, 18, 39, 0.88);
@@ -233,13 +218,65 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .login-trio-dots {
+    .login-rotary-card.slot-primary figcaption {
+      font-size: 0.82rem;
+    }
+    .login-rotary-card.slot-primary {
+      top: 0;
+      left: 0;
+      width: 58%;
+      height: 100%;
+      z-index: 4;
+      transform: translateX(0) scale(1);
+      filter: saturate(1);
+    }
+    .login-rotary-card.slot-secondary {
+      top: 0;
+      right: 0;
+      width: 38%;
+      height: 48%;
+      z-index: 3;
+      transform: translateX(0) scale(0.96);
+      filter: saturate(0.95);
+    }
+    .login-rotary-card.slot-tertiary {
+      right: 0;
+      bottom: 0;
+      width: 38%;
+      height: 48%;
+      z-index: 2;
+      transform: translateX(0) scale(0.92);
+      filter: saturate(0.9);
+      opacity: 0.94;
+    }
+    .login-rotary-card.slot-incoming {
+      top: 0;
+      left: 0;
+      width: 58%;
+      height: 100%;
+      z-index: 5;
+      opacity: 0;
+      transform: translateX(-42px) scale(0.9);
+      filter: saturate(0.8);
+    }
+    .login-rotary-card.slot-exit {
+      right: -5%;
+      bottom: 0;
+      width: 38%;
+      height: 48%;
+      z-index: 1;
+      opacity: 0;
+      transform: translateX(42px) scale(0.82);
+      filter: saturate(0.72);
+      pointer-events: none;
+    }
+    .login-rotary-dots {
       display: flex;
       gap: 8px;
       margin-top: 10px;
       justify-content: center;
     }
-    .login-trio-dots button {
+    .login-rotary-dots button {
       width: 10px;
       height: 10px;
       border-radius: 999px;
@@ -248,7 +285,7 @@
       cursor: pointer;
       transition: width 0.2s ease, background 0.2s ease;
     }
-    .login-trio-dots button.is-active {
+    .login-rotary-dots button.is-active {
       width: 28px;
       background: #86efac;
     }
@@ -340,7 +377,36 @@
         min-height: 150px;
         padding: 18px;
       }
-      .login-trio-row { gap: 5px; }
+      .login-rotary-stage {
+        height: 360px;
+      }
+      .login-rotary-card.slot-primary,
+      .login-rotary-card.slot-incoming {
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 56%;
+      }
+      .login-rotary-card.slot-secondary,
+      .login-rotary-card.slot-tertiary,
+      .login-rotary-card.slot-exit {
+        width: 48.5%;
+        height: 36%;
+      }
+      .login-rotary-card.slot-secondary {
+        left: 0;
+        top: auto;
+        bottom: 0;
+        right: auto;
+      }
+      .login-rotary-card.slot-tertiary {
+        right: 0;
+        bottom: 0;
+      }
+      .login-rotary-card.slot-exit {
+        right: -8%;
+        bottom: 0;
+      }
     }
   </style>
 
@@ -356,46 +422,118 @@
     }
 
     (function() {
-      var SETS = [
-        [
-          { src: "{{ url_for('static', filename='img/previews/dashboard.png') }}", cap: 'Painel de controle' },
-          { src: "{{ url_for('static', filename='img/previews/vendas.png') }}", cap: 'Vendas' },
-          { src: "{{ url_for('static', filename='img/previews/financeiro.png') }}", cap: 'Financeiro' }
-        ],
-        [
-          { src: "{{ url_for('static', filename='img/previews/compras-xml.png') }}", cap: 'Compras por XML' },
-          { src: "{{ url_for('static', filename='img/previews/relatorios.png') }}", cap: 'Relat\u00f3rios' },
-          { src: "{{ url_for('static', filename='img/previews/parametros.png') }}", cap: 'Par\u00e2metros' }
-        ],
-        [
-          { src: "{{ url_for('static', filename='img/previews/usuarios.png') }}", cap: 'Usu\u00e1rios' },
-          { src: "{{ url_for('static', filename='img/previews/kardex.png') }}", cap: 'Kardex' },
-          { src: "{{ url_for('static', filename='img/previews/dashboard.png') }}", cap: 'Vis\u00e3o geral' }
-        ]
+      var ITEMS = [
+        { src: "{{ url_for('static', filename='img/previews/dashboard.png') }}", cap: 'Painel de controle' },
+        { src: "{{ url_for('static', filename='img/previews/vendas.png') }}", cap: 'Vendas' },
+        { src: "{{ url_for('static', filename='img/previews/financeiro.png') }}", cap: 'Financeiro' },
+        { src: "{{ url_for('static', filename='img/previews/compras-xml.png') }}", cap: 'Compras por XML' },
+        { src: "{{ url_for('static', filename='img/previews/relatorios.png') }}", cap: 'Relatórios' },
+        { src: "{{ url_for('static', filename='img/previews/parametros.png') }}", cap: 'Parâmetros' },
+        { src: "{{ url_for('static', filename='img/previews/usuarios.png') }}", cap: 'Usuários' },
+        { src: "{{ url_for('static', filename='img/previews/kardex.png') }}", cap: 'Kardex' }
       ];
-      var imgs = [document.getElementById('trio-img-0'), document.getElementById('trio-img-1'), document.getElementById('trio-img-2')];
-      var caps = [document.getElementById('trio-cap-0'), document.getElementById('trio-cap-1'), document.getElementById('trio-cap-2')];
-      var dots = Array.prototype.slice.call(document.querySelectorAll('.login-trio-dots button'));
-      if (!imgs[0]) return;
-      var currentSet = 0;
+      var stage = document.getElementById('login-rotary-stage');
+      var dotsWrap = document.getElementById('login-rotary-dots');
+      if (!stage || !dotsWrap || ITEMS.length < 3) return;
+
+      var visibleIndices = [0, 1, 2];
+      var currentPrimary = 0;
+      var nextIndex = 3;
       var timer = null;
-      function applySet(index, instant) {
-        currentSet = index;
-        var set = SETS[index];
-        imgs.forEach(function(img, i) {
-          if (!instant) img.style.opacity = '0';
-          (function(img, item) {
-            setTimeout(function() { img.src = item.src; caps[i].textContent = item.cap; img.style.opacity = '1'; }, instant ? 0 : 220);
-          })(img, set[i]);
-        });
-        dots.forEach(function(d, di) { d.classList.toggle('is-active', di === index); });
+      var isAnimating = false;
+      var dots = [];
+
+      function buildCard(item, slotClass) {
+        var card = document.createElement('figure');
+        card.className = 'login-rotary-card ' + slotClass;
+        var image = document.createElement('img');
+        image.src = item.src;
+        image.alt = item.cap;
+        image.loading = 'lazy';
+        var caption = document.createElement('figcaption');
+        caption.textContent = item.cap;
+        card.appendChild(image);
+        card.appendChild(caption);
+        return card;
       }
+
+      function renderDots() {
+        dotsWrap.innerHTML = '';
+        dots = ITEMS.map(function(_, index) {
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.setAttribute('aria-label', 'Ir para imagem ' + (index + 1));
+          button.addEventListener('click', function() {
+            if (isAnimating) return;
+            jumpTo(index);
+            restartTimer();
+          });
+          dotsWrap.appendChild(button);
+          return button;
+        });
+      }
+
+      function updateDots() {
+        dots.forEach(function(dot, index) {
+          dot.classList.toggle('is-active', index === currentPrimary);
+        });
+      }
+
+      function renderInitial() {
+        stage.innerHTML = '';
+        stage.appendChild(buildCard(ITEMS[visibleIndices[0]], 'slot-primary'));
+        stage.appendChild(buildCard(ITEMS[visibleIndices[1]], 'slot-secondary'));
+        stage.appendChild(buildCard(ITEMS[visibleIndices[2]], 'slot-tertiary'));
+        updateDots();
+      }
+
+      function jumpTo(index) {
+        currentPrimary = index;
+        visibleIndices = [
+          index,
+          (index - 1 + ITEMS.length) % ITEMS.length,
+          (index - 2 + ITEMS.length) % ITEMS.length
+        ];
+        nextIndex = (index + 1) % ITEMS.length;
+        renderInitial();
+      }
+
+      function rotateForward() {
+        if (isAnimating) return;
+        isAnimating = true;
+
+        var primary = stage.querySelector('.slot-primary');
+        var secondary = stage.querySelector('.slot-secondary');
+        var tertiary = stage.querySelector('.slot-tertiary');
+        var incoming = buildCard(ITEMS[nextIndex], 'slot-incoming');
+        stage.appendChild(incoming);
+
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            incoming.className = 'login-rotary-card slot-primary';
+            primary.className = 'login-rotary-card slot-secondary';
+            secondary.className = 'login-rotary-card slot-tertiary';
+            tertiary.className = 'login-rotary-card slot-exit';
+          });
+        });
+
+        window.setTimeout(function() {
+          if (tertiary && tertiary.parentNode) tertiary.parentNode.removeChild(tertiary);
+          currentPrimary = nextIndex;
+          visibleIndices = [nextIndex, visibleIndices[0], visibleIndices[1]];
+          nextIndex = (nextIndex + 1) % ITEMS.length;
+          updateDots();
+          isAnimating = false;
+        }, 780);
+      }
+
       function restartTimer() {
         if (timer) clearInterval(timer);
-        timer = setInterval(function() { applySet((currentSet + 1) % SETS.length); }, 4200);
+        timer = setInterval(rotateForward, 3600);
       }
-      dots.forEach(function(d, di) { d.addEventListener('click', function() { applySet(di); restartTimer(); }); });
-      applySet(0, true);
+
+      renderDots();
+      renderInitial();
       restartTimer();
     })();
   </script>
