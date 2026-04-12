@@ -1,79 +1,148 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="login-layout">
-    <div class="login-card">
-      <form method="post" action="{{ url_for('login') }}">
-        <label for="username">{{ t('username_label') }}</label>
-        <input id="username" name="username" type="text" required>
-
-        <label for="password">{{ t('password_label') }}</label>
-        <input id="password" name="password" type="password" required>
-
-        <button type="submit">{{ t('login_title') }}</button>
-      </form>
-      
-      <div class="login-footer">
-        <p>
-          <a href="{{ url_for('forgot_password') }}" class="forgot-password-link">
-            {{ t('forgot_password_label') }}
-          </a>
-        </p>
+  <div class="login-modern-wrap">
+    <section class="login-hero-panel">
+      <span class="login-kicker">Kdc Systems ERP</span>
+      <h2>Gestão inteligente para vendas, compras e estoque em tempo real</h2>
+      <p>Controle sua operação com fluxo integrado: compra, entrada, venda, alertas e relatórios essenciais em uma única plataforma.</p>
+      <div class="hero-badges">
+        <span>Estoque integrado</span>
+        <span>Financeiro + XML</span>
+        <span>Relatórios de giro</span>
       </div>
-    </div>
+    </section>
 
-    <div class="login-card signup-card">
-      <h3>Criar conta principal</h3>
-      <form method="post" action="{{ url_for('criar_conta_principal') }}">
-        <label for="account_name">Empresa</label>
-        <input id="account_name" name="account_name" type="text" placeholder="Ex: Padaria Central" required>
+    <section class="login-forms-panel">
+      <div class="login-card modern-auth-card">
+        <h3>{{ t('login_title') }}</h3>
+        <form method="post" action="{{ url_for('login') }}">
+          <label for="username">{{ t('username_label') }}</label>
+          <input id="username" name="username" type="text" required>
 
-        <label for="owner_name">Responsável</label>
-        <input id="owner_name" name="owner_name" type="text" placeholder="Ex: Maria Souza" required>
+          <label for="password">{{ t('password_label') }}</label>
+          <input id="password" name="password" type="password" required>
 
-        <label for="signup_username">Usuário principal</label>
-        <input id="signup_username" name="username" type="text" placeholder="Ex: padaria.central" required>
+          <button type="submit">Entrar no sistema</button>
+        </form>
+        <div class="login-footer">
+          <a href="{{ url_for('forgot_password') }}" class="forgot-password-link">{{ t('forgot_password_label') }}</a>
+        </div>
+      </div>
 
-        <label for="signup_email">E-mail</label>
-        <input id="signup_email" name="email" type="email" placeholder="Ex: contato@empresa.com">
+      <div class="login-card signup-card modern-signup-card">
+        <h3>Criar conta principal</h3>
+        <form method="post" action="{{ url_for('criar_conta_principal') }}">
+          <label for="account_name">Empresa</label>
+          <input id="account_name" name="account_name" type="text" placeholder="Ex: Padaria Central" required>
 
-        <label for="signup_password">Senha</label>
-        <input id="signup_password" name="password" type="password" required>
+          <label for="owner_name">Responsável</label>
+          <input id="owner_name" name="owner_name" type="text" placeholder="Ex: Maria Souza" required>
 
-        <button type="submit" class="btn-add">Criar conta</button>
-      </form>
-    </div>
+          <label for="signup_username">Usuário principal</label>
+          <input id="signup_username" name="username" type="text" placeholder="Ex: padaria.central" required>
+
+          <label for="signup_email">E-mail</label>
+          <input id="signup_email" name="email" type="email" placeholder="Ex: contato@empresa.com">
+
+          <label for="signup_password">Senha</label>
+          <input id="signup_password" name="password" type="password" required>
+
+          <button type="submit" class="btn-add">Criar conta</button>
+        </form>
+      </div>
+    </section>
   </div>
 
   <style>
-    .login-layout {
+    .login-modern-wrap {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 24px;
-      align-items: start;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 22px;
+      align-items: stretch;
+      min-height: calc(100vh - 220px);
     }
-
+    .login-hero-panel {
+      border-radius: 18px;
+      padding: 34px;
+      color: #fff;
+      background: radial-gradient(circle at 10% 10%, rgba(255,255,255,0.25), transparent 45%), linear-gradient(135deg, #0f766e 0%, #0f3d68 45%, #1d4ed8 100%);
+      box-shadow: 0 22px 50px rgba(15, 61, 104, 0.35);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .login-kicker {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 800;
+      opacity: 0.9;
+    }
+    .login-hero-panel h2 {
+      margin: 12px 0;
+      font-size: 2rem;
+      line-height: 1.2;
+    }
+    .login-hero-panel p {
+      margin: 0;
+      max-width: 500px;
+      color: rgba(255, 255, 255, 0.92);
+      line-height: 1.6;
+    }
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .hero-badges span {
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      background: rgba(255, 255, 255, 0.13);
+    }
+    .login-forms-panel {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+    .modern-auth-card,
+    .modern-signup-card {
+      margin: 0;
+      max-width: none;
+      border: 1px solid #dbe5f3;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    }
+    .modern-auth-card h3,
+    .modern-signup-card h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 1.08rem;
+    }
     .login-footer {
-      text-align: center;
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px solid #ddd;
+      text-align: right;
+      margin-top: 10px;
     }
-    
     .forgot-password-link {
-      color: #007bff;
+      color: #0f4e8b;
       text-decoration: none;
-      font-size: 14px;
+      font-size: 0.9rem;
+      font-weight: 600;
     }
-    
     .forgot-password-link:hover {
       text-decoration: underline;
-      color: #0056b3;
     }
-
-    .signup-card h3 {
-      margin-top: 0;
-      margin-bottom: 18px;
+    @media (max-width: 960px) {
+      .login-modern-wrap {
+        grid-template-columns: 1fr;
+      }
+      .login-hero-panel {
+        min-height: 220px;
+      }
     }
   </style>
 {% endblock %}

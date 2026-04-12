@@ -79,6 +79,7 @@ _TENANT_STATEMENTS = [
         state TEXT,
         country TEXT,
         postal_code TEXT,
+        notes TEXT,
         category TEXT,
         category_id INTEGER REFERENCES categories(id)
     )
@@ -102,6 +103,7 @@ _TENANT_STATEMENTS = [
         state TEXT,
         country TEXT,
         postal_code TEXT,
+        notes TEXT,
         gender TEXT DEFAULT 'nao_informar'
     )
     """,
@@ -110,6 +112,7 @@ _TENANT_STATEMENTS = [
         id SERIAL PRIMARY KEY,
         account_id INTEGER NOT NULL REFERENCES accounts(id),
         name TEXT NOT NULL,
+        product_code TEXT,
         category_id INTEGER REFERENCES categories(id),
         unit_id INTEGER REFERENCES units(id),
         supplier_id INTEGER REFERENCES suppliers(id),
@@ -117,6 +120,7 @@ _TENANT_STATEMENTS = [
         price DOUBLE PRECISION DEFAULT 0,
         stock INTEGER DEFAULT 0,
         stock_min INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'ativo',
         expiration_date TEXT
     )
     """,
@@ -161,7 +165,9 @@ _TENANT_STATEMENTS = [
         quantity DOUBLE PRECISION,
         movement_type TEXT,
         date TEXT,
-        notes TEXT
+        notes TEXT,
+        created_by_user_id INTEGER,
+        created_by_user_name TEXT
     )
     """,
     """
@@ -253,6 +259,14 @@ _TENANT_MIGRATIONS = [
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_buy TEXT",
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_sell TEXT",
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS conversion_factor DOUBLE PRECISION DEFAULT 1",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS product_code TEXT",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ativo'",
+    "ALTER TABLE clients ADD COLUMN IF NOT EXISTS notes TEXT",
+    "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS notes TEXT",
+    "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER",
+    "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS created_by_user_name TEXT",
+    "UPDATE products SET conversion_factor = GREATEST(1, ROUND(COALESCE(conversion_factor, 1))) WHERE conversion_factor IS NULL OR conversion_factor <> ROUND(conversion_factor)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_account_product_code_unique ON products (account_id, product_code) WHERE product_code IS NOT NULL AND BTRIM(product_code) <> ''",
 ]
 
 ADMIN_USER = ("admin", "admin123", "admin@kdcsystems.local", 1)

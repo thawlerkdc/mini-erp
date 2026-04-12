@@ -196,6 +196,7 @@ main {
 }
 .login-card input,
 .form-card input,
+.form-card textarea,
 .form-card select,
 .sale-row input,
 .sale-row select {
@@ -421,6 +422,17 @@ button.btn-cancel:hover,
   padding: 8px;
   font-size: 0.95rem;
   background: #fafbfc;
+}
+
+.field-group textarea,
+.form-card textarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 0.95rem;
+  background: #fafbfc;
+  resize: vertical;
 }
 
 .field-group button {

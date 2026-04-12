@@ -28,20 +28,16 @@
           <option value="">Selecione o motivo</option>
           <optgroup label="Adicionar ao estoque">
             {% for key, label, effect in adjustment_reasons_add %}
-              <option value="{{ key }}" data-effect="{{ effect }}" class="reason-add">{{ label }}</option>
+              <option value="{{ key }}" data-effect="{{ effect }}" class="reason-add" style="color:#15803d; font-weight:600;">{{ label }}</option>
             {% endfor %}
           </optgroup>
           <optgroup label="Remover do estoque">
             {% for key, label, effect in adjustment_reasons_sub %}
-              <option value="{{ key }}" data-effect="{{ effect }}" class="reason-sub">{{ label }}</option>
+              <option value="{{ key }}" data-effect="{{ effect }}" class="reason-sub" style="color:#dc2626; font-weight:600;">{{ label }}</option>
             {% endfor %}
           </optgroup>
         </select>
         <span id="adj-effect-hint" class="field-hint"></span>
-        <div class="stock-reason-legend">
-          <span class="legend-add">&#9679; Verde: motivos que aumentam estoque</span>
-          <span class="legend-sub">&#9679; Vermelho: motivos que reduzem estoque</span>
-        </div>
       </div>
 
       <div class="field-group">
@@ -77,6 +73,7 @@
           <th>Qtd</th>
           <th>Tipo</th>
           <th>Data</th>
+          <th>Usuário</th>
           <th>Motivo / Observações</th>
         </tr>
       </thead>
@@ -94,6 +91,7 @@
             {% endif %}
           </td>
           <td>{{ r['date_display'] or '—' }}</td>
+          <td>{{ r['created_by_user_name'] or '—' }}</td>
           <td>{{ r['notes'] or '—' }}</td>
         </tr>
         {% endfor %}

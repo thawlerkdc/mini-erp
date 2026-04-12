@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="form-card">
+    <h3>Controle de Estoque Integrado</h3>
+    <p class="form-helper">Fluxo unificado: Compra -> Entrada -> Atualização de custo -> Venda -> Baixa de estoque -> Relatórios e alertas.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+      <a href="{{ url_for('estoque_entrada') }}" class="btn-confirm">Ir para Compras</a>
+      <a href="{{ url_for('vendas') }}" class="outline-button">Ir para Vendas</a>
+      <a href="{{ url_for('estoque_ajuste') }}" class="outline-button">Ir para Ajuste de Estoque</a>
+      <a href="{{ url_for('relatorios', section='estoque') }}" class="outline-button">Ir para Relatórios de Estoque</a>
+    </div>
+  </div>
+
+  <div class="finance-kpi-grid">
+    <div class="kpi-card kpi-receitas">
+      <div class="kpi-content">
+        <div class="kpi-label">Posição de estoque</div>
+        <div class="kpi-value">{{ stock_position|length }} produtos</div>
+      </div>
+    </div>
+    <div class="kpi-card kpi-despesas">
+      <div class="kpi-content">
+        <div class="kpi-label">Abaixo do mínimo</div>
+        <div class="kpi-value">{{ below_minimum|length }} itens</div>
+      </div>
+    </div>
+    <div class="kpi-card kpi-lucro">
+      <div class="kpi-content">
+        <div class="kpi-label">Valorização do estoque</div>
+        <div class="kpi-value">R$ {{ "%.2f"|format(inventory_value)|replace('.', ',') }}</div>
+      </div>
+    </div>
+    <div class="kpi-card kpi-pagar">
+      <div class="kpi-content">
+        <div class="kpi-label">Produtos sem giro (30+ dias)</div>
+        <div class="kpi-value">{{ stagnant_products|length }} itens</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-card" style="margin-top: 14px;">
+    <h3>Alertas Inteligentes</h3>
+    <ul>
+      <li>Produto abaixo do mínimo: {{ alerts.below_minimum|length }}</li>
+      <li>Produto sem movimentação: {{ alerts.no_movement|length }}</li>
+      <li>Divergência de inventário (estoque negativo): {{ alerts.divergence|length }}</li>
+      <li>Produto sem venda há 30+ dias: {{ alerts.no_sale|length }}</li>
+    </ul>
+  </div>
+
+  <div class="form-card">
+    <h3>Produtos mais vendidos (90 dias)</h3>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr><th>Produto</th><th>Quantidade vendida</th></tr>
+        </thead>
+        <tbody>
+          {% for row in top_sellers %}
+            <tr>
+              <td>{{ row['name'] }}</td>
+              <td>{{ "%.3f"|format(row['qty_sold']|float) }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="2">Nenhum registro encontrado</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <h3>Kardex (últimas movimentações)</h3>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Quantidade</th><th>Usuário</th><th>Observação</th></tr>
+        </thead>
+        <tbody>
+          {% for row in kardex %}
+            <tr>
+              <td>{{ row['date_display'] }}</td>
+              <td>{{ row['product_name'] }}</td>
+              <td>{{ row['movement_type'] }}</td>
+              <td>{{ "%.3f"|format(row['quantity']|float) }}</td>
+              <td>{{ row['user_name'] }}</td>
+              <td>{{ row['notes'] }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6">Nenhum registro encontrado</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <style>
+    .finance-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .kpi-card {
+      background: #ffffff;
+      border: 1px solid #dbe3ef;
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+    .kpi-label {
+      font-size: 0.82rem;
+      color: #475569;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .kpi-value {
+      margin-top: 6px;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+  </style>
+{% endblock %}

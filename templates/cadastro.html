@@ -64,6 +64,8 @@
         {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
         <label>{{ t('product_name') }}</label>
         <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
+        <label>Código do produto (opcional)</label>
+        <input type="text" name="product_code" maxlength="60" value="{{ edit_data.get('product_code', '') if edit_data else '' }}" placeholder="Ex: 7891000315507 ou SKU-001">
         <label>{{ t('category_label') }}</label>
         <div class="inline-group">
           <select name="category_id" required>
@@ -96,7 +98,7 @@
       <p class="param-hint-small">Ex: Se a unidade de venda é UN (unidade), mas você compra em CX (caixa com 12), especifique aqui.</p>
 
        <label>Fator de conversão (compra → venda)</label>
-       <input type="number" name="conversion_factor" step="0.001" min="0.001" placeholder="1" value="{{ edit_data.get('conversion_factor', '1') if edit_data else '1' }}">
+      <input type="number" name="conversion_factor" step="1" min="1" placeholder="1" value="{{ (edit_data.get('conversion_factor', 1)|int) if edit_data else '1' }}">
        <p class="param-hint-small">Quantas unidades de venda estão em uma unidade de compra. Ex: 1 caixa = 12 unidades = fator 12</p>
         <label>{{ t('supplier_name') }}</label>
         <select name="supplier_id">
@@ -117,6 +119,11 @@
         <label>{{ t('stock_min_label') }}</label>
         <input id="product-stock-min" type="number" name="stock_min" placeholder="0" value="{{ edit_data.get('stock_min', '0') if edit_data else '' }}" required>
         <p class="param-hint-small">Sugestão automática: {{ default_stock_min_percent }}% do estoque informado (você pode alterar).</p>
+        <label>Status do produto</label>
+        <select name="status">
+          <option value="ativo" {% if (edit_data.get('status') if edit_data else 'ativo') == 'ativo' %}selected{% endif %}>Ativo</option>
+          <option value="inativo" {% if edit_data and edit_data.get('status') == 'inativo' %}selected{% endif %}>Inativo</option>
+        </select>
         <label>{{ t('expiration_date') }}</label>
         <input type="date" name="expiration_date" value="{{ edit_data.get('expiration_date', '') if edit_data else '' }}">
         <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_product') }}{% endif %}</button>
@@ -129,6 +136,7 @@
           <label>{{ t('new_category_prompt') }}</label>
           <input type="text" name="new_category_name" placeholder="{{ t('new_category_prompt') }}" required>
           <input type="hidden" name="name">
+          <input type="hidden" name="product_code">
           <input type="hidden" name="category_id">
           <input type="hidden" name="unit_id">
           <input type="hidden" name="supplier_id">
@@ -139,6 +147,7 @@
           <input type="hidden" name="conversion_factor">
           <input type="hidden" name="stock">
           <input type="hidden" name="stock_min">
+          <input type="hidden" name="status">
           <input type="hidden" name="expiration_date">
           <input type="hidden" name="edit_id">
         </div>
@@ -151,6 +160,7 @@
           <label>{{ t('new_unit_prompt') }}</label>
           <input type="text" name="new_unit_name" placeholder="{{ t('new_unit_prompt') }}" required>
           <input type="hidden" name="name">
+          <input type="hidden" name="product_code">
           <input type="hidden" name="category_id">
           <input type="hidden" name="unit_id">
           <input type="hidden" name="supplier_id">
@@ -161,6 +171,7 @@
           <input type="hidden" name="conversion_factor">
           <input type="hidden" name="stock">
           <input type="hidden" name="stock_min">
+          <input type="hidden" name="status">
           <input type="hidden" name="expiration_date">
           <input type="hidden" name="edit_id">
         </div>
@@ -174,16 +185,18 @@
       </div>
       <table id="products-table">
         <thead>
-          <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>Unit. venda</th><th>Unit. compra</th><th>Fator conv.</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('cost_label') }}</th><th>Margem</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
+          <tr><th>{{ t('product_name') }}</th><th>Código</th><th>Status</th><th>{{ t('category_label') }}</th><th>Unit. venda</th><th>Unit. compra</th><th>Fator conv.</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('cost_label') }}</th><th>Margem</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
         </thead>
         <tbody>
           {% for product in rows %}
             <tr>
               <td>{{ product['name'] }}</td>
+              <td>{{ product['product_code'] or '-' }}</td>
+              <td>{{ (product['status'] or 'ativo')|capitalize }}</td>
               <td>{{ product['category_name'] or '-' }}</td>
               <td>{{ product['unit_name'] or '-' }}</td>
               <td>{{ (product['unit_buy'] if product['unit_buy'] else '-') }}</td>
-              <td>{{ "%.3f"|format(product['conversion_factor'] if product['conversion_factor'] else 1) }}</td>
+              <td>{{ (product['conversion_factor'] if product['conversion_factor'] else 1)|int }}</td>
               <td>{{ product['supplier_name'] or '-' }}</td>
               <td>{{ product['stock'] }}</td>
               <td>$ {{ "%.2f"|format(product['cost']) }}</td>
@@ -199,7 +212,7 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="12">{{ t('no_records_found') }}</td></tr>
+            <tr><td colspan="14">{{ t('no_records_found') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -225,6 +238,8 @@
         <input type="text" name="whatsapp" data-whatsapp="client" inputmode="numeric" pattern="[0-9]*" maxlength="15" value="{{ edit_data.get('whatsapp', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
         <label>Data de nascimento</label>
         <input type="date" name="birth_date" value="{{ edit_data.get('birth_date', '') if edit_data else '' }}">
+        <label>Observações</label>
+        <textarea name="notes" rows="3" maxlength="1000" placeholder="Ex: paga sempre em dia, pode vender com prazo maior...">{{ edit_data.get('notes', '') if edit_data else '' }}</textarea>
         <label>{{ t('gender_label') }}</label>
         <select name="gender">
           <option value="nao_informar" {% if (edit_data.get('gender') if edit_data else 'nao_informar') == 'nao_informar' %}selected{% endif %}>{{ t('gender_not_informed') }}</option>
@@ -316,6 +331,8 @@
         </div>
         <label>WhatsApp</label>
         <input type="text" name="whatsapp" data-whatsapp="supplier" inputmode="numeric" pattern="[0-9]*" maxlength="15" value="{{ edit_data.get('whatsapp', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
+        <label>Observações</label>
+        <textarea name="notes" rows="3" maxlength="1000" placeholder="Ex: entrega no prazo, liberar condição especial...">{{ edit_data.get('notes', '') if edit_data else '' }}</textarea>
         <label>{{ t('street_label') }}</label>
         <input type="text" name="street" value="{{ edit_data.get('street', '') if edit_data else '' }}">
         <label>{{ t('number_label') }}</label>
@@ -357,6 +374,7 @@
           <input type="hidden" name="email">
           <input type="hidden" name="phone">
           <input type="hidden" name="whatsapp">
+          <input type="hidden" name="notes">
           <input type="hidden" name="street">
           <input type="hidden" name="number">
           <input type="hidden" name="complement">

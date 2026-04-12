@@ -19,7 +19,7 @@
       <div class="xml-preview-box" style="margin-top: 12px;">
         <h4>Prévia da importação</h4>
         <p><strong>NF:</strong> {{ xml_preview['invoice_number'] or 'Sem número' }}</p>
-        <p><strong>Emissão:</strong> {{ xml_preview['issue_date'] or '-' }}</p>
+        <p><strong>Emissão:</strong> {{ xml_preview['issue_date_display'] or xml_preview['issue_date'] or '-' }}</p>
         <p><strong>Fornecedor:</strong> {{ xml_preview['supplier_name'] or '-' }}</p>
         <p><strong>CNPJ:</strong> {{ xml_preview['supplier_cnpj'] or '-' }}</p>
         <p><strong>Total:</strong> R$ {{ "%.2f"|format(xml_preview['total_amount']|float)|replace('.', ',') }}</p>

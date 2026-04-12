@@ -38,7 +38,10 @@
     <h3>Produtos</h3>
     <ul>
       <li>Obrigatório: Nome, Categoria e Unidade.</li>
+      <li>Código do produto é opcional, porém único quando informado.</li>
+      <li>Status do produto: ativo ou inativo (inativo não aparece na venda).</li>
       <li>Preço de custo e venda: numéricos, com casas decimais.</li>
+      <li>Fator de conversão é inteiro e define quantas unidades de venda existem na unidade de compra.</li>
       <li>Estoque e estoque mínimo: inteiros.</li>
       <li>Validade é opcional.</li>
     </ul>
@@ -61,7 +64,20 @@
     <ul>
       <li>Entrada de mercadoria: atualiza estoque para mais.</li>
       <li>Ajuste de estoque: aplica acréscimo ou redução com motivo registrado.</li>
+      <li>Cada ajuste grava o usuário responsável para rastreabilidade.</li>
+      <li>Com fator de conversão, o sistema converte automaticamente compra para unidade de venda.</li>
       <li>As movimentações refletem em todas as telas que consomem estoque.</li>
+    </ul>
+  </div>
+
+  <div class="table-card">
+    <h3>Fator de conversão na prática (CX12 e UN1)</h3>
+    <ul>
+      <li>Exemplo: unidade de venda = UN, unidade de compra = CX, fator = 12.</li>
+      <li>Compra de 1 CX gera entrada de 12 UN no estoque.</li>
+      <li>Venda de 1 UN reduz 1 do estoque.</li>
+      <li>Custo unitário comprado em CX é convertido para custo por UN quando fator > 1.</li>
+      <li>Assim, compras, vendas, ajustes e relatórios permanecem consistentes em tempo real.</li>
     </ul>
   </div>
 

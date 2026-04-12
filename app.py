@@ -936,6 +936,44 @@ def _safe_int(raw, default=0):
         return default
 
 
+def _normalize_conversion_factor(raw):
+    value = _safe_float(raw, 1.0)
+    return max(1, int(round(value)))
+
+
+def _normalize_product_code(raw):
+    code = (raw or "").strip()
+    return code or None
+
+
+def _build_unique_product_code(conn, account_id, raw_code, exclude_product_id=None):
+    base_code = _normalize_product_code(raw_code)
+    if not base_code:
+        return None
+
+    candidate = base_code
+    counter = 2
+    while True:
+        if exclude_product_id:
+            exists = conn.execute(
+                "SELECT id FROM products WHERE account_id = %s AND product_code = %s AND id <> %s LIMIT 1",
+                (account_id, candidate, exclude_product_id),
+            ).fetchone()
+        else:
+            exists = conn.execute(
+                "SELECT id FROM products WHERE account_id = %s AND product_code = %s LIMIT 1",
+                (account_id, candidate),
+            ).fetchone()
+        if not exists:
+            return candidate
+        candidate = f"{base_code}-{counter}"
+        counter += 1
+
+
+def _to_sale_units(quantity, conversion_factor):
+    return float(quantity or 0) * float(conversion_factor or 1)
+
+
 def _ensure_default_financial_categories(conn, account_id):
     for name, kind in DEFAULT_FINANCIAL_CATEGORIES:
         conn.execute(
@@ -1817,6 +1855,7 @@ def cadastro(entity):
 
                 else:
                     name = request.form.get("name")
+                    product_code = _normalize_product_code(request.form.get("product_code"))
                     category_id = request.form.get("category_id")
                     unit_id = request.form.get("unit_id")
                     supplier_id = request.form.get("supplier_id") or None
@@ -1845,19 +1884,49 @@ def cadastro(entity):
 
                         # Unidade de compra e fator de conversao
                         unit_buy = (request.form.get("unit_buy") or "").strip() or None
-                        conversion_factor = _safe_float(request.form.get("conversion_factor"), 1.0)
-                        if conversion_factor <= 0:
-                            conversion_factor = 1.0
+                        conversion_factor = _normalize_conversion_factor(request.form.get("conversion_factor"))
+                        status = (request.form.get("status") or "ativo").strip().lower()
+                        if status not in {"ativo", "inativo"}:
+                            status = "ativo"
+
+                        if product_code:
+                            if edit_id_form:
+                                duplicate = conn.execute(
+                                    "SELECT id FROM products WHERE account_id = %s AND product_code = %s AND id <> %s LIMIT 1",
+                                    (account_id, product_code, edit_id_form),
+                                ).fetchone()
+                            else:
+                                duplicate = conn.execute(
+                                    "SELECT id FROM products WHERE account_id = %s AND product_code = %s LIMIT 1",
+                                    (account_id, product_code),
+                                ).fetchone()
+                            if duplicate:
+                                edit_data = dict(request.form)
+                                flash("Código do produto já está em uso. Use outro código.", "error")
+                                conn.close()
+                                return render_template(
+                                    "cadastro.html",
+                                    title=get_entity_title(entity),
+                                    entity=entity,
+                                    rows=rows,
+                                    categories=categories,
+                                    units=units,
+                                    suppliers=suppliers,
+                                    default_profit_margin=default_profit_margin,
+                                    default_stock_min_percent=default_stock_min_percent,
+                                    edit_id=edit_id,
+                                    edit_data=edit_data,
+                                )
 
                         if edit_id_form:
                             conn.execute(
-                                "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, margin_percent = %s, unit_buy = %s, conversion_factor = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
-                                (name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date, edit_id_form, account_id),
+                                "UPDATE products SET name = %s, product_code = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, margin_percent = %s, unit_buy = %s, conversion_factor = %s, stock = %s, stock_min = %s, status = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
+                                (name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date, edit_id_form, account_id),
                             )
                         else:
                             conn.execute(
-                                "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date),
+                                "INSERT INTO products (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date),
                             )
                         conn.commit()
                         flash(translate("record_saved"), "success")
@@ -1873,6 +1942,7 @@ def cadastro(entity):
                 phone = re.sub(r"\D", "", request.form.get("phone") or "")[:15] or None
                 whatsapp = re.sub(r"\D", "", request.form.get("whatsapp") or "")[:15] or None
                 birth_date = request.form.get("birth_date") or None
+                notes = (request.form.get("notes") or "").strip() or None
                 street = request.form.get("street")
                 number = request.form.get("number")
                 complement = request.form.get("complement")
@@ -1890,13 +1960,13 @@ def cadastro(entity):
                 if name:
                     if edit_id_form:
                         conn.execute(
-                            "UPDATE clients SET name = %s, cpf = %s, email = %s, phone = %s, whatsapp = %s, birth_date = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, gender = %s WHERE id = %s AND account_id = %s",
-                            (name, cpf, email, phone, whatsapp, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender, edit_id_form, account_id),
+                            "UPDATE clients SET name = %s, cpf = %s, email = %s, phone = %s, whatsapp = %s, birth_date = %s, notes = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, gender = %s WHERE id = %s AND account_id = %s",
+                            (name, cpf, email, phone, whatsapp, birth_date, notes, street, number, complement, neighborhood, city, state, country, postal_code, gender, edit_id_form, account_id),
                         )
                     else:
                         conn.execute(
-                            "INSERT INTO clients (account_id, name, cpf, email, phone, whatsapp, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (account_id, name, cpf, email, phone, whatsapp, birth_date, street, number, complement, neighborhood, city, state, country, postal_code, gender),
+                            "INSERT INTO clients (account_id, name, cpf, email, phone, whatsapp, birth_date, notes, street, number, complement, neighborhood, city, state, country, postal_code, gender) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (account_id, name, cpf, email, phone, whatsapp, birth_date, notes, street, number, complement, neighborhood, city, state, country, postal_code, gender),
                         )
                     conn.commit()
                     flash(translate("record_saved"), "success")
@@ -1930,6 +2000,7 @@ def cadastro(entity):
                     email = (request.form.get("email") or "").strip() or None
                     phone = re.sub(r"\D", "", request.form.get("phone") or "")[:15] or None
                     whatsapp = re.sub(r"\D", "", request.form.get("whatsapp") or "")[:15] or None
+                    notes = (request.form.get("notes") or "").strip() or None
                     street = request.form.get("street")
                     number = request.form.get("number")
                     complement = request.form.get("complement")
@@ -1944,13 +2015,13 @@ def cadastro(entity):
                     if name and category_id:
                         if edit_id_form:
                             conn.execute(
-                                "UPDATE suppliers SET name = %s, cnpj = %s, email = %s, phone = %s, whatsapp = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, category_id = %s WHERE id = %s AND account_id = %s",
-                                (name, cnpj, email, phone, whatsapp, street, number, complement, neighborhood, city, state, country, postal_code, category_id, edit_id_form, account_id),
+                                "UPDATE suppliers SET name = %s, cnpj = %s, email = %s, phone = %s, whatsapp = %s, notes = %s, street = %s, number = %s, complement = %s, neighborhood = %s, city = %s, state = %s, country = %s, postal_code = %s, category_id = %s WHERE id = %s AND account_id = %s",
+                                (name, cnpj, email, phone, whatsapp, notes, street, number, complement, neighborhood, city, state, country, postal_code, category_id, edit_id_form, account_id),
                             )
                         else:
                             conn.execute(
-                                "INSERT INTO suppliers (account_id, name, cnpj, email, phone, whatsapp, street, number, complement, neighborhood, city, state, country, postal_code, category_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                (account_id, name, cnpj, email, phone, whatsapp, street, number, complement, neighborhood, city, state, country, postal_code, category_id),
+                                "INSERT INTO suppliers (account_id, name, cnpj, email, phone, whatsapp, notes, street, number, complement, neighborhood, city, state, country, postal_code, category_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (account_id, name, cnpj, email, phone, whatsapp, notes, street, number, complement, neighborhood, city, state, country, postal_code, category_id),
                             )
                         conn.commit()
                         flash(translate("record_saved"), "success")
@@ -2057,7 +2128,7 @@ def vendas():
         "SELECT p.*, u.name AS unit_name "
         "FROM products p "
         "LEFT JOIN units u ON p.unit_id = u.id "
-        "WHERE p.account_id = %s "
+        "WHERE p.account_id = %s AND COALESCE(p.status, 'ativo') = 'ativo' "
         "ORDER BY (SELECT COALESCE(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name",
         (account_id,),
     ).fetchall()
@@ -2208,8 +2279,8 @@ def vendas():
                 (item["quantity"], item["product_id"], account_id),
             )
             conn.execute(
-                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) VALUES (%s, %s, %s, %s, %s, %s)",
-                (account_id, item["product_id"], item["quantity"], "sale", sale_date, f"Venda #{sale_id}"),
+                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (account_id, item["product_id"], item["quantity"], "sale", sale_date, f"Venda #{sale_id}", get_current_user_id(), session.get("user_name") or session.get("user")),
             )
 
         conn.commit()
@@ -2285,7 +2356,7 @@ def vendas():
             "SELECT p.*, u.name AS unit_name "
             "FROM products p "
             "LEFT JOIN units u ON p.unit_id = u.id "
-            "WHERE p.account_id = %s "
+            "WHERE p.account_id = %s AND COALESCE(p.status, 'ativo') = 'ativo' "
             "ORDER BY (SELECT COALESCE(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name",
             (account_id,),
         ).fetchall()
@@ -2597,24 +2668,37 @@ def financeiro():
                         for item in preview.get("items", []):
                             qty = max(_safe_int(round(float(item.get("quantity") or 0))), 0)
                             unit_price = float(item.get("unit_price") or 0)
+                            xml_code = _normalize_product_code(item.get("code"))
                             if qty <= 0:
                                 continue
 
-                            existing_product = conn.execute(
-                                "SELECT id FROM products WHERE account_id = %s AND LOWER(name) = LOWER(%s) LIMIT 1",
-                                (account_id, item.get("name")),
-                            ).fetchone()
+                            existing_product = None
+                            if xml_code:
+                                existing_product = conn.execute(
+                                    "SELECT id, conversion_factor FROM products WHERE account_id = %s AND product_code = %s LIMIT 1",
+                                    (account_id, xml_code),
+                                ).fetchone()
+                            if not existing_product:
+                                existing_product = conn.execute(
+                                    "SELECT id, conversion_factor FROM products WHERE account_id = %s AND LOWER(name) = LOWER(%s) LIMIT 1",
+                                    (account_id, item.get("name")),
+                                ).fetchone()
+
+                            factor = _normalize_conversion_factor((existing_product.get("conversion_factor") if existing_product else None) or 1)
+                            qty_in_sale_units = _to_sale_units(qty, factor)
+                            converted_cost = unit_price / factor if factor > 1 and unit_price > 0 else unit_price
 
                             if existing_product:
                                 conn.execute(
-                                    "UPDATE products SET stock = stock + %s, cost = %s, supplier_id = COALESCE(supplier_id, %s) WHERE id = %s AND account_id = %s",
-                                    (qty, unit_price, supplier_id, existing_product["id"], account_id),
+                                    "UPDATE products SET stock = stock + %s, cost = %s, supplier_id = COALESCE(supplier_id, %s), product_code = COALESCE(product_code, %s) WHERE id = %s AND account_id = %s",
+                                    (qty_in_sale_units, converted_cost, supplier_id, xml_code, existing_product["id"], account_id),
                                 )
                                 product_id = existing_product["id"]
                             elif create_products:
+                                unique_code = _build_unique_product_code(conn, account_id, xml_code)
                                 conn.execute(
-                                    "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)",
-                                    (account_id, item.get("name"), xml_category_id, xml_unit_id, supplier_id, unit_price, unit_price, qty),
+                                    "INSERT INTO products (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, stock, stock_min, conversion_factor, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 1, 'ativo')",
+                                    (account_id, item.get("name"), unique_code, xml_category_id, xml_unit_id, supplier_id, unit_price, unit_price, qty),
                                 )
                                 product_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('products', 'id'))").fetchone()[0]
                             else:
@@ -2622,14 +2706,16 @@ def financeiro():
 
                             if product_id:
                                 conn.execute(
-                                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) VALUES (%s, %s, %s, %s, %s, %s)",
+                                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                                     (
                                         account_id,
                                         product_id,
-                                        qty,
+                                        qty_in_sale_units,
                                         "xml_import",
                                         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                         f"Importação XML NF {preview.get('invoice_number') or '-'}",
+                                        get_current_user_id(),
+                                        session.get("user_name") or session.get("user"),
                                     ),
                                 )
 
@@ -3302,13 +3388,33 @@ def relatorios():
         report_options = [
             {
                 "key": "stock_by_product",
-                "label": "Estoque por produto e categoria",
+                "label": "Posição de estoque",
                 "description": "Lista completa com filtro por categoria e ordenação crescente/decrescente.",
             },
             {
                 "key": "stock_by_minimum",
-                "label": "Acompanhamento por estoque mínimo",
+                "label": "Produtos abaixo do mínimo",
                 "description": "Veja os itens mais urgentes ou mais folgados em relação ao mínimo.",
+            },
+            {
+                "key": "stock_kardex",
+                "label": "Movimentações (Kardex)",
+                "description": "Histórico de entradas, saídas e ajustes por produto.",
+            },
+            {
+                "key": "stock_valuation",
+                "label": "Valorização do estoque",
+                "description": "Quanto vale o estoque atual com base no custo médio cadastrado.",
+            },
+            {
+                "key": "stock_top_sellers",
+                "label": "Produtos mais vendidos",
+                "description": "Ranking de giro por quantidade vendida no período.",
+            },
+            {
+                "key": "stock_slow_moving",
+                "label": "Produtos parados (sem giro)",
+                "description": "Itens sem venda no período selecionado.",
             },
         ]
 
@@ -3369,6 +3475,82 @@ def relatorios():
             for item in rows_with_ratio:
                 report_rows.append((item[0], item[1], item[2], item[4], item[6]))
                 report_row_classes.append(item[5])
+        elif report == "stock_kardex":
+            report_title = "Movimentações (Kardex)"
+            report_description = "Entradas, saídas e ajustes com histórico de usuário responsável."
+            report_headers = ["Data", "Produto", "Tipo", "Quantidade", "Usuário", "Observação"]
+            report_rows_db = conn.execute(
+                "SELECT sm.date, COALESCE(p.name, %s) AS product_name, sm.movement_type, sm.quantity, COALESCE(sm.created_by_user_name, '—') AS user_name, COALESCE(sm.notes, '—') AS notes "
+                "FROM stock_movements sm "
+                "LEFT JOIN products p ON sm.product_id = p.id "
+                "WHERE sm.account_id = %s AND SUBSTRING(sm.date, 1, 10) BETWEEN %s AND %s "
+                "ORDER BY sm.date DESC, sm.id DESC LIMIT 300",
+                (translate("unknown"), account_id, start_date, end_date),
+            ).fetchall()
+            report_rows = [
+                (_format_date_br(row["date"]), row["product_name"], row["movement_type"], f"{float(row['quantity'] or 0):.3f}", row["user_name"], row["notes"])
+                for row in report_rows_db
+            ]
+        elif report == "stock_valuation":
+            report_title = "Valorização do estoque"
+            report_description = "Valor por produto (estoque atual x custo unitário)."
+            report_headers = ["Produto", "Estoque", "Custo unitário", "Valor em estoque"]
+            valuation_rows = conn.execute(
+                "SELECT name, COALESCE(stock, 0) AS stock, COALESCE(cost, 0) AS cost FROM products WHERE account_id = %s ORDER BY name",
+                (account_id,),
+            ).fetchall()
+            report_rows = []
+            total_valuation = 0.0
+            for row in valuation_rows:
+                value = float(row["stock"] or 0) * float(row["cost"] or 0)
+                total_valuation += value
+                report_rows.append((row["name"], f"{float(row['stock'] or 0):.3f}", f"R$ {float(row['cost'] or 0):.2f}", f"R$ {value:.2f}"))
+            report_total = total_valuation
+        elif report == "stock_top_sellers":
+            report_title = "Produtos mais vendidos"
+            report_description = "Ranking de quantidade vendida no período."
+            report_headers = ["Produto", "Quantidade vendida", "Total vendido"]
+            report_rows = conn.execute(
+                "SELECT p.name AS product_name, COALESCE(SUM(si.quantity), 0) AS qty, COALESCE(SUM(si.total_price), 0) AS total_value "
+                "FROM sale_items si "
+                "JOIN sales s ON si.sale_id = s.id "
+                "JOIN products p ON si.product_id = p.id "
+                "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s "
+                "GROUP BY p.name ORDER BY qty DESC, total_value DESC",
+                (account_id, start_date, end_date),
+            ).fetchall()
+        elif report == "stock_slow_moving":
+            report_title = "Produtos parados (sem giro)"
+            report_description = "Produtos sem venda no período filtrado."
+            report_headers = ["Produto", "Estoque atual", "Última venda", "Dias sem venda"]
+            slow_rows = conn.execute(
+                "SELECT p.id, p.name, COALESCE(p.stock, 0) AS stock, MAX(s.date) AS last_sale "
+                "FROM products p "
+                "LEFT JOIN sale_items si ON si.product_id = p.id "
+                "LEFT JOIN sales s ON s.id = si.sale_id AND s.account_id = p.account_id "
+                "WHERE p.account_id = %s "
+                "GROUP BY p.id, p.name, p.stock "
+                "ORDER BY p.name",
+                (account_id,),
+            ).fetchall()
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+            report_rows = []
+            for row in slow_rows:
+                last_sale_raw = (row["last_sale"] or "")[:10] if row["last_sale"] else ""
+                last_sale_date = _parse_iso_date(last_sale_raw)
+                sold_in_period = bool(last_sale_date and start_dt <= last_sale_date <= end_dt)
+                if sold_in_period:
+                    continue
+                days_without_sale = (datetime.now().date() - last_sale_date).days if last_sale_date else "Nunca vendeu"
+                report_rows.append(
+                    (
+                        row["name"],
+                        f"{float(row['stock'] or 0):.3f}",
+                        _format_date_br(last_sale_raw) if last_sale_raw else "—",
+                        str(days_without_sale),
+                    )
+                )
     elif section == "categorias":
         section_title = translate("categories_report_card")
         report_options = [
@@ -3573,6 +3755,105 @@ def relatorios():
     )
 
 
+@app.route("/estoque/controle")
+def controle_estoque():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+
+    account_id = get_current_account_id()
+    conn = get_tenant_connection()
+
+    stock_position = conn.execute(
+        "SELECT id, name, COALESCE(stock, 0) AS stock, COALESCE(stock_min, 0) AS stock_min, COALESCE(cost, 0) AS cost "
+        "FROM products WHERE account_id = %s ORDER BY name",
+        (account_id,),
+    ).fetchall()
+
+    below_minimum = [row for row in stock_position if float(row["stock"] or 0) < float(row["stock_min"] or 0)]
+    inventory_value = sum(float(row["stock"] or 0) * float(row["cost"] or 0) for row in stock_position)
+
+    kardex = conn.execute(
+        "SELECT sm.date, COALESCE(p.name, %s) AS product_name, sm.movement_type, sm.quantity, COALESCE(sm.created_by_user_name, '—') AS user_name, COALESCE(sm.notes, '—') AS notes "
+        "FROM stock_movements sm "
+        "LEFT JOIN products p ON p.id = sm.product_id "
+        "WHERE sm.account_id = %s "
+        "ORDER BY sm.id DESC LIMIT 80",
+        (translate("unknown"), account_id),
+    ).fetchall()
+
+    top_sellers = conn.execute(
+        "SELECT p.name, COALESCE(SUM(si.quantity), 0) AS qty_sold "
+        "FROM sale_items si "
+        "JOIN sales s ON s.id = si.sale_id "
+        "JOIN products p ON p.id = si.product_id "
+        "WHERE s.account_id = %s AND s.date >= %s "
+        "GROUP BY p.name ORDER BY qty_sold DESC LIMIT 10",
+        (account_id, (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d 00:00:00")),
+    ).fetchall()
+
+    last_sale_map = {
+        row["id"]: row["last_sale"]
+        for row in conn.execute(
+            "SELECT p.id, MAX(s.date) AS last_sale "
+            "FROM products p "
+            "LEFT JOIN sale_items si ON si.product_id = p.id "
+            "LEFT JOIN sales s ON s.id = si.sale_id AND s.account_id = p.account_id "
+            "WHERE p.account_id = %s "
+            "GROUP BY p.id",
+            (account_id,),
+        ).fetchall()
+    }
+
+    last_move_map = {
+        row["id"]: row["last_move"]
+        for row in conn.execute(
+            "SELECT p.id, MAX(sm.date) AS last_move "
+            "FROM products p "
+            "LEFT JOIN stock_movements sm ON sm.product_id = p.id AND sm.account_id = p.account_id "
+            "WHERE p.account_id = %s "
+            "GROUP BY p.id",
+            (account_id,),
+        ).fetchall()
+    }
+
+    stagnant_products = []
+    no_movement_products = []
+    for product in stock_position:
+        pid = product["id"]
+        sale_raw = (last_sale_map.get(pid) or "")[:10] if last_sale_map.get(pid) else ""
+        move_raw = (last_move_map.get(pid) or "")[:10] if last_move_map.get(pid) else ""
+        sale_date = _parse_iso_date(sale_raw)
+        move_date = _parse_iso_date(move_raw)
+        days_without_sale = (datetime.now().date() - sale_date).days if sale_date else 9999
+        days_without_move = (datetime.now().date() - move_date).days if move_date else 9999
+        if days_without_sale >= 30:
+            stagnant_products.append({**dict(product), "days": days_without_sale if days_without_sale != 9999 else "Nunca"})
+        if days_without_move >= 30:
+            no_movement_products.append({**dict(product), "days": days_without_move if days_without_move != 9999 else "Nunca"})
+
+    divergence_products = [row for row in stock_position if float(row["stock"] or 0) < 0]
+
+    alerts = {
+        "below_minimum": below_minimum,
+        "no_movement": no_movement_products,
+        "divergence": divergence_products,
+        "no_sale": stagnant_products,
+    }
+
+    conn.close()
+    return render_template(
+        "controle_estoque.html",
+        title="Controle de Estoque",
+        stock_position=stock_position,
+        below_minimum=below_minimum,
+        inventory_value=inventory_value,
+        kardex=[{**dict(row), "date_display": _format_date_br(row["date"])} for row in kardex],
+        top_sellers=top_sellers,
+        stagnant_products=stagnant_products,
+        alerts=alerts,
+    )
+
+
 @app.route("/manual")
 def manual():
     if not session.get("user"):
@@ -3629,19 +3910,38 @@ def estoque_entrada():
             if not product_id or quantity <= 0:
                 flash("Produto e quantidade são obrigatórios.", "error")
             else:
+                product_row = conn.execute(
+                    "SELECT id, conversion_factor, unit_buy FROM products WHERE id = %s AND account_id = %s",
+                    (product_id, account_id),
+                ).fetchone()
+                factor = _normalize_conversion_factor(product_row.get("conversion_factor") if product_row else 1)
+                stock_quantity = _to_sale_units(quantity, factor)
+                cost_per_sale_unit = cost_per_unit / factor if factor > 1 and cost_per_unit > 0 else cost_per_unit
+                conversion_note = ""
+                if factor > 1:
+                    conversion_note = f" | Conversão: {quantity:.3f} compra = {stock_quantity:.3f} venda"
                 conn.execute(
-                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) "
-                    "VALUES (%s, %s, %s, %s, %s, %s)",
-                    (account_id, product_id, quantity, "entrada", date_val, notes),
+                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (
+                        account_id,
+                        product_id,
+                        stock_quantity,
+                        "entrada",
+                        date_val,
+                        (notes or "Entrada manual") + conversion_note,
+                        get_current_user_id(),
+                        session.get("user_name") or session.get("user"),
+                    ),
                 )
                 conn.execute(
                     "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
-                    (quantity, product_id, account_id),
+                    (stock_quantity, product_id, account_id),
                 )
                 if cost_per_unit > 0:
                     conn.execute(
                         "UPDATE products SET cost = %s WHERE id = %s AND account_id = %s",
-                        (cost_per_unit, product_id, account_id),
+                        (cost_per_sale_unit, product_id, account_id),
                     )
                 conn.commit()
                 flash("Compra registrada com sucesso.", "success")
@@ -3717,28 +4017,40 @@ def estoque_entrada():
             elif po["status"] == "recebido":
                 flash("Este pedido já foi recebido.", "info")
             else:
+                product_row = conn.execute(
+                    "SELECT conversion_factor FROM products WHERE id = %s AND account_id = %s",
+                    (po["product_id"], account_id),
+                ).fetchone()
+                factor = _normalize_conversion_factor(product_row.get("conversion_factor") if product_row else 1)
+                stock_quantity = _to_sale_units(po["quantity"], factor)
+                unit_cost_value = float(po.get("unit_cost") or 0)
+                cost_per_sale_unit = unit_cost_value / factor if factor > 1 and unit_cost_value > 0 else unit_cost_value
                 movement_notes = f"Recebimento do pedido de compra #{po['id']}"
                 if po.get("notes"):
                     movement_notes += f" - {po['notes']}"
+                if factor > 1:
+                    movement_notes += f" | Conversão: {float(po['quantity'] or 0):.3f} compra = {stock_quantity:.3f} venda"
                 conn.execute(
-                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) VALUES (%s, %s, %s, %s, %s, %s)",
+                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                     (
                         account_id,
                         po["product_id"],
-                        po["quantity"],
+                        stock_quantity,
                         "entrada",
                         datetime.now().strftime("%Y-%m-%d"),
                         movement_notes,
+                        get_current_user_id(),
+                        session.get("user_name") or session.get("user"),
                     ),
                 )
                 conn.execute(
                     "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
-                    (po["quantity"], po["product_id"], account_id),
+                    (stock_quantity, po["product_id"], account_id),
                 )
-                if float(po.get("unit_cost") or 0) > 0:
+                if unit_cost_value > 0:
                     conn.execute(
                         "UPDATE products SET cost = %s WHERE id = %s AND account_id = %s",
-                        (po["unit_cost"], po["product_id"], account_id),
+                        (cost_per_sale_unit, po["product_id"], account_id),
                     )
                 conn.execute(
                     "UPDATE purchase_orders SET status = 'recebido', received_at = %s WHERE id = %s AND account_id = %s",
@@ -3837,9 +4149,18 @@ def estoque_ajuste():
             movement_type = "ajuste_entrada" if effect == "add" else "ajuste_saida"
             full_notes = f"{label}" + (f" — {notes}" if notes else "")
             conn.execute(
-                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (account_id, product_id, quantity, movement_type, date_val, full_notes),
+                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    account_id,
+                    product_id,
+                    quantity,
+                    movement_type,
+                    date_val,
+                    full_notes,
+                    get_current_user_id(),
+                    session.get("user_name") or session.get("user"),
+                ),
             )
             conn.execute(
                 "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
@@ -3855,7 +4176,7 @@ def estoque_ajuste():
         ).fetchall()
 
     recent = conn.execute(
-        "SELECT sm.id, sm.quantity, sm.movement_type, sm.date, sm.notes, "
+        "SELECT sm.id, sm.quantity, sm.movement_type, sm.date, sm.notes, sm.created_by_user_name, "
         "p.name AS product_name, u.name AS unit_name "
         "FROM stock_movements sm "
         "LEFT JOIN products p ON sm.product_id = p.id "

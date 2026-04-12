@@ -53,6 +53,43 @@ Mini ERP para gerenciar vendas, estoque, compras de fornecedores e relatórios.
 - Suporte a múltiplos idiomas (Português, Inglês, Espanhol, Francês, Alemão e Chinês).
 - Manual de uso interno disponível no menu.
 
+## Estoque Integrado e Fator de Conversão
+
+### Como o fator funciona
+
+- O estoque é controlado na unidade de venda do produto.
+- O campo `fator de conversão` é inteiro e indica quantas unidades de venda existem em 1 unidade de compra.
+- Exemplo clássico:
+   - Unidade de compra: `CX`
+   - Unidade de venda: `UN`
+   - Fator: `12`
+   - Compra de `1 CX` adiciona `12 UN` ao estoque.
+
+### Regra de cálculo
+
+- Quantidade em estoque (unidade de venda) = quantidade de compra x fator
+- Quando custo é informado por unidade de compra e fator > 1:
+   - custo por unidade de venda = custo de compra / fator
+
+### Fluxo operacional integrado
+
+1. Compra (manual, pedido de compra ou XML) gera entrada em estoque.
+2. Entrada atualiza custo do produto com base na conversão.
+3. Venda reduz estoque na unidade de venda.
+4. Ajuste de estoque pode corrigir diferenças e registra usuário responsável.
+5. Relatórios e alertas leem os mesmos dados atualizados em tempo real.
+
+### Alertas e consistência
+
+- Produto abaixo do mínimo.
+- Produto sem movimentação.
+- Divergência de inventário (estoque negativo).
+- Produto sem venda há X dias.
+
+Com isso, o ciclo fica consistente:
+
+COMPRA -> ENTRADA ESTOQUE -> ATUALIZA CUSTO -> ESTOQUE ATUALIZADO -> VENDA -> BAIXA ESTOQUE -> RELATÓRIOS/ALERTAS
+
 ## Próximos passos
 
 - Ajustar layouts ou adicionar temas visuais
