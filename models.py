@@ -224,6 +224,10 @@ _TENANT_MIGRATIONS = [
     "ALTER TABLE financial_entries ADD COLUMN IF NOT EXISTS is_recurring INTEGER DEFAULT 0",
     "ALTER TABLE financial_entries ADD COLUMN IF NOT EXISTS recurrence_days INTEGER DEFAULT 30",
     "ALTER TABLE nfe_imports ADD COLUMN IF NOT EXISTS invoice_key TEXT",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS margin_percent DOUBLE PRECISION DEFAULT 100",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_buy TEXT",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_sell TEXT",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS conversion_factor DOUBLE PRECISION DEFAULT 1",
 ]
 
 ADMIN_USER = ("admin", "admin123", "admin@kdcsystems.local", 1)

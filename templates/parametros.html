@@ -11,6 +11,15 @@
           <label for="allow_multi_payment_sale">Permitir mais de um tipo de pagamento na venda</label>
         </div>
 
+        <div class="field-group" style="max-width:220px; margin-top:1rem">
+          <label>Margem de lucro padrão para novos produtos (%)</label>
+          <div class="rate-input-wrap">
+            <input type="number" name="default_profit_margin" min="0" max="1000" step="0.01"
+              value="{{ settings.get('default_profit_margin', '100') }}" class="rate-input">
+            <span class="rate-pct">%</span>
+          </div>
+          <p class="param-hint-small">Será usada para calcular o preço de venda de novos produtos baseado no custo.</p>
+        </div>
         <h4 class="param-subtitle">Acréscimo por cartão</h4>
 
         <div class="param-check-row">

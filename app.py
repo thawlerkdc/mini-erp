@@ -874,6 +874,7 @@ SETTINGS_DEFAULTS = {
     "pix_key_value": "",
     "pix_receiver_name": "",
     "pix_receiver_city": "SAO PAULO",
+    "default_profit_margin": "100",
 }
 
 SMTP_PROVIDER_PRESETS = {
@@ -903,6 +904,40 @@ def _safe_int(raw, default=0):
         return int(raw)
     except (TypeError, ValueError):
         return default
+
+
+def _round_price_to_tenth(price):
+    """
+    Arredonda o preço para terminar em 0.
+    Exemplo: 23.84 -> 23.90, 23.81 -> 23.80
+    """
+    if price <= 0:
+        return 0.0
+    # Divide por 0.10 (1/10), arredonda para cima, multiplica por 0.10
+    return round(price / 0.10) * 0.10
+
+
+def _calculate_selling_price(cost, profit_margin_percent):
+    """
+    Calcula o preço de venda baseado no custo e margem de lucro.
+    Fórmula: preço_venda = custo * (1 + margem/100)
+    """
+    if cost <= 0:
+        return 0.0
+    margin_factor = (profit_margin_percent or 100) / 100.0
+    selling_price = cost * (1 + margin_factor)
+    return _round_price_to_tenth(selling_price)
+
+
+def _calculate_profit_margin(cost, selling_price):
+    """
+    Calcula o percentual de margem de lucro.
+    Fórmula: margem = ((preço_venda - custo) / custo) * 100
+    """
+    if cost <= 0:
+        return 0.0
+    margin_percent = ((selling_price - cost) / cost) * 100
+    return round(margin_percent, 2)
 
 
 def _to_bool(value):
@@ -2334,16 +2369,31 @@ def financeiro():
 
                 if entry_type not in {"payable", "receivable"}:
                     entry_type = "payable"
+                       # Calcular margem de lucro e preço sugerido
+                       margin_percent = _safe_float(request.form.get("margin_percent"), None)
+                       settings = get_account_settings(account_id)
+                       default_margin = _safe_float(settings.get("default_profit_margin", "100"))
+
+                       # Se margem não foi informada, usa a padrão
+                       if margin_percent is None:
+                           margin_percent = default_margin
+
+                       # Se há custo e preço é 0, calcula com base na margem
+                       if cost > 0 and price == 0:
+                           price = _calculate_selling_price(cost, margin_percent)
+                       # Se há custo e preço > 0, calcula a margem baseado no preço
+                       elif cost > 0 and price > 0:
+                           margin_percent = _calculate_profit_margin(cost, price)
                 if status not in {"pago", "pendente", "vencido"}:
                     status = "pendente"
 
-                if not description or amount <= 0 or not due_date:
-                    flash("Preencha descrição, valor e vencimento para lançar o título.", "error")
+                               "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, margin_percent = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
+                               (name, category_id, unit_id, supplier_id, cost, price, margin_percent, stock, stock_min, expiration_date, edit_id_form, account_id),
                 else:
                     paid_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "pago" else None
                     conn.execute(
-                        "INSERT INTO financial_entries (account_id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, status, is_recurring, recurrence_days, source, created_at, paid_at) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'manual', %s, %s)",
+                               "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                               (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, stock, stock_min, expiration_date),
                         (
                             account_id,
                             entry_type,

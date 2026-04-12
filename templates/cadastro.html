@@ -97,6 +97,9 @@
         <input type="number" name="cost" step="0.01" placeholder="0.00" value="{{ edit_data.get('cost', '0.00') if edit_data else '' }}" required>
         <label>{{ t('price_label') }}</label>
         <input type="number" name="price" step="0.01" placeholder="0.00" value="{{ edit_data.get('price', '0.00') if edit_data else '' }}" required>
+        <label>Margem de lucro (%)</label>
+        <input type="number" name="margin_percent" step="0.01" min="0" max="10000" placeholder="100" value="{{ edit_data.get('margin_percent', '100') if edit_data else '100' }}">
+        <p class="param-hint-small">Se preenchida e se não houver preço, este será calculado automaticamente com base na margem.</p>
         <label>{{ t('stock_label') }}</label>
         <input type="number" name="stock" placeholder="0" value="{{ edit_data.get('stock', '0') if edit_data else '' }}" required>
         <label>{{ t('stock_min_label') }}</label>
@@ -118,6 +121,7 @@
           <input type="hidden" name="supplier_id">
           <input type="hidden" name="cost">
           <input type="hidden" name="price">
+          <input type="hidden" name="margin_percent">
           <input type="hidden" name="stock">
           <input type="hidden" name="stock_min">
           <input type="hidden" name="expiration_date">
@@ -137,6 +141,7 @@
           <input type="hidden" name="supplier_id">
           <input type="hidden" name="cost">
           <input type="hidden" name="price">
+          <input type="hidden" name="margin_percent">
           <input type="hidden" name="stock">
           <input type="hidden" name="stock_min">
           <input type="hidden" name="expiration_date">
@@ -153,6 +158,7 @@
       <table id="products-table">
         <thead>
           <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>{{ t('unit_label') }}</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('cost_label') }}</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
+          <tr><th>{{ t('product_name') }}</th><th>{{ t('category_label') }}</th><th>{{ t('unit_label') }}</th><th>{{ t('supplier_name') }}</th><th>{{ t('stock_label') }}</th><th>{{ t('cost_label') }}</th><th>Margem</th><th>{{ t('price_label') }}</th><th>{{ t('product_net_profit') }}</th><th>{{ t('actions') }}</th></tr>
         </thead>
         <tbody>
           {% for product in rows %}
@@ -163,6 +169,7 @@
               <td>{{ product['supplier_name'] or '-' }}</td>
               <td>{{ product['stock'] }}</td>
               <td>$ {{ "%.2f"|format(product['cost']) }}</td>
+              <td>{{ "%.1f%"|format(product.get('margin_percent', 100)) if product.get('margin_percent') else '—' }}</td>
               <td>$ {{ "%.2f"|format(product['price']) }}</td>
               <td>$ {{ "%.2f"|format((product['price'] or 0) - (product['cost'] or 0)) }}</td>
               <td class="action-buttons">
