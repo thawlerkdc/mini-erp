@@ -9,7 +9,6 @@
       <option>Todos</option>
       <option>Este mês</option>
     </select>
-    <a href="{{ url_for('financeiro') }}" class="btn-add">+ Adicionar Lançamento</a>
   </div>
 
   <!-- Cards KPI -->
@@ -164,151 +163,180 @@
     </div>
   </div>
 
-  <!-- Seção de Novo Lançamento (colapsada ou discreta) -->
-  <details class="finance-form-details" open>
-    <summary class="finance-form-summary">
-      <h3 style="display: inline; margin: 0;">⚙️ Gerenciar lançamentos e categorias</h3>
-    </summary>
+  <!-- Seção de Gerenciamento de Lançamentos e Categorias -->
+  <div class="finance-management-section">
+    <div class="management-header">
+      <h3>⚙️ Gerenciar lançamentos e categorias</h3>
+    </div>
+    
+    <div class="management-tabs">
+      <button class="tab-btn active" onclick="switchFinanceTab('novo-lancamento')">
+        <span class="tab-icon">➕</span> Novo Lançamento
+      </button>
+      <button class="tab-btn" onclick="switchFinanceTab('categoria')">
+        <span class="tab-icon">🏷️</span> Categoria Financeira
+      </button>
+      <button class="tab-btn" onclick="switchFinanceTab('xml')">
+        <span class="tab-icon">📄</span> Importar XML
+      </button>
+    </div>
 
+    <!-- Aba: Novo Lançamento -->
+    <div id="novo-lancamento" class="management-tab-content active">
       <form method="post" action="{{ url_for('financeiro') }}">
         <input type="hidden" name="action" value="add_entry">
-        <label>Tipo</label>
-        <select id="entry-type-select" name="entry_type" required>
-          <option value="">Selecione o tipo</option>
-          <option value="payable">Conta a pagar</option>
-          <option value="receivable">Conta a receber</option>
-        </select>
+        <div class="finance-form-grid">
+          <div class="form-col">
+            <label>Tipo *</label>
+            <select id="entry-type-select" name="entry_type" required>
+              <option value="">Selecione o tipo</option>
+              <option value="payable">Conta a pagar</option>
+              <option value="receivable">Conta a receber</option>
+            </select>
 
-        <label>Descrição</label>
-        <input type="text" name="description" maxlength="200" required>
+            <label>Descrição *</label>
+            <input type="text" name="description" maxlength="200" required>
 
-        <label>Categoria financeira</label>
-        <select id="category-select" name="category_id">
-          <option value="">Sem categoria</option>
-          <optgroup label="Receitas">
-            {% for cat in categories %}
-              {% if cat['kind'] == 'receivable' %}
-                <option value="{{ cat['id'] }}" data-kind="receivable">{{ cat['name'] }}</option>
-              {% endif %}
-            {% endfor %}
-          </optgroup>
-          <optgroup label="Despesas">
-            {% for cat in categories %}
-              {% if cat['kind'] == 'payable' %}
-                <option value="{{ cat['id'] }}" data-kind="payable">{{ cat['name'] }}</option>
-              {% endif %}
-            {% endfor %}
-          </optgroup>
-          <optgroup label="Ambos">
-            {% for cat in categories %}
-              {% if cat['kind'] == 'both' %}
-                <option value="{{ cat['id'] }}" data-kind="both">{{ cat['name'] }}</option>
-              {% endif %}
-            {% endfor %}
-          </optgroup>
-        </select>
+            <label>Categoria financeira</label>
+            <select id="category-select" name="category_id">
+              <option value="">Sem categoria</option>
+              <optgroup label="Receitas">
+                {% for cat in categories %}
+                  {% if cat['kind'] == 'receivable' %}
+                    <option value="{{ cat['id'] }}" data-kind="receivable">{{ cat['name'] }}</option>
+                  {% endif %}
+                {% endfor %}
+              </optgroup>
+              <optgroup label="Despesas">
+                {% for cat in categories %}
+                  {% if cat['kind'] == 'payable' %}
+                    <option value="{{ cat['id'] }}" data-kind="payable">{{ cat['name'] }}</option>
+                  {% endif %}
+                {% endfor %}
+              </optgroup>
+              <optgroup label="Ambos">
+                {% for cat in categories %}
+                  {% if cat['kind'] == 'both' %}
+                    <option value="{{ cat['id'] }}" data-kind="both">{{ cat['name'] }}</option>
+                  {% endif %}
+                {% endfor %}
+              </optgroup>
+            </select>
+          </div>
 
-        <label>Fornecedor (opcional)</label>
-        <select name="supplier_id">
-          <option value="">Não vincular</option>
-          {% for sup in suppliers %}
-            <option value="{{ sup['id'] }}">{{ sup['name'] }}</option>
-          {% endfor %}
-        </select>
+          <div class="form-col">
+            <label>Fornecedor (opcional)</label>
+            <select name="supplier_id">
+              <option value="">Não vincular</option>
+              {% for sup in suppliers %}
+                <option value="{{ sup['id'] }}">{{ sup['name'] }}</option>
+              {% endfor %}
+            </select>
 
-        <label>Cliente (opcional)</label>
-        <select name="client_id">
-          <option value="">Não vincular</option>
-          {% for cli in clients %}
-            <option value="{{ cli['id'] }}">{{ cli['name'] }}</option>
-          {% endfor %}
-        </select>
+            <label>Cliente (opcional)</label>
+            <select name="client_id">
+              <option value="">Não vincular</option>
+              {% for cli in clients %}
+                <option value="{{ cli['id'] }}">{{ cli['name'] }}</option>
+              {% endfor %}
+            </select>
 
-        <label>Valor (R$)</label>
-        <input type="number" name="amount" step="0.01" min="0.01" required>
+            <label>Valor (R$) *</label>
+            <input type="number" name="amount" step="0.01" min="0.01" required>
+          </div>
 
-        <label>Vencimento</label>
-        <input type="date" name="due_date" required>
+          <div class="form-col">
+            <label>Vencimento *</label>
+            <input type="date" name="due_date" required>
 
-        <label>Status</label>
-        <select name="status" required>
-          <option value="pendente">Pendente</option>
-          <option value="vencido">Vencido</option>
-          <option value="pago">Pago</option>
-        </select>
+            <label>Status *</label>
+            <select name="status" required>
+              <option value="pendente">Pendente</option>
+              <option value="vencido">Vencido</option>
+              <option value="pago">Pago</option>
+            </select>
 
-        <div class="param-check-row">
-          <input id="is-recurring" type="checkbox" name="is_recurring" value="1">
-          <label for="is-recurring">Lançamento recorrente</label>
+            <div class="param-check-row" style="margin-top: 8px;">
+              <input id="is-recurring" type="checkbox" name="is_recurring" value="1">
+              <label for="is-recurring" style="margin: 0;">Recorrente</label>
+            </div>
+
+            <label style="margin-top: 8px;">Recorrência (dias)</label>
+            <input type="number" name="recurrence_days" min="1" value="30">
+          </div>
         </div>
-
-        <label>Recorrência em dias</label>
-        <input type="number" name="recurrence_days" min="1" value="30">
-
-        <button type="submit">Salvar lançamento</button>
+        <button type="submit" class="btn-confirm" style="margin-top: 20px;">Salvar lançamento</button>
       </form>
     </div>
 
-    <div class="form-card">
-      <h3>Categoria financeira</h3>
+    <!-- Aba: Categoria Financeira -->
+    <div id="categoria" class="management-tab-content" style="display:none">
       <form method="post" action="{{ url_for('financeiro') }}">
         <input type="hidden" name="action" value="add_category">
+        <div class="finance-form-grid">
+          <div class="form-col">
+            <label>Nome da categoria *</label>
+            <input type="text" name="name" maxlength="100" required>
 
-        <label>Nome da categoria</label>
-        <input type="text" name="name" maxlength="100" required>
+            <label>Tipo da categoria *</label>
+            <select name="kind">
+              <option value="both">Ambos (Receitas e Despesas)</option>
+              <option value="payable">Somente pagar</option>
+              <option value="receivable">Somente receber</option>
+            </select>
 
-        <label>Tipo da categoria</label>
-        <select name="kind">
-          <option value="both">Ambos</option>
-          <option value="payable">Somente pagar</option>
-          <option value="receivable">Somente receber</option>
-        </select>
-
-        <button type="submit">Adicionar categoria</button>
+            <p class="form-hint">Categorias agrupam seus lançamentos por tipo.</p>
+          </div>
+        </div>
+        <button type="submit" class="btn-confirm">Adicionar categoria</button>
       </form>
+    </div>
 
-      <h3 id="xml-import" style="margin-top:20px">Importação XML da NF-e</h3>
+    <!-- Aba: Importação XML -->
+    <div id="xml" class="management-tab-content" style="display:none">
       <form method="post" action="{{ url_for('financeiro') }}" enctype="multipart/form-data">
         <input type="hidden" name="action" value="preview_xml">
-        <label>Arquivo XML</label>
-        <input type="file" name="xml_file" accept=".xml,text/xml,application/xml" required>
-        <button type="submit">Gerar pré-visualização</button>
+        <div class="finance-form-grid">
+          <div class="form-col" style="max-width: 400px;">
+            <label>Selecione o arquivo XML da NF-e *</label>
+            <input type="file" name="xml_file" accept=".xml,text/xml,application/xml" required>
+            <p class="form-hint">Importe notas fiscais para atualizar estoque e criar contas a pagar automaticamente.</p>
+          </div>
+        </div>
+        <button type="submit" class="btn-confirm">Gerar pré-visualização</button>
       </form>
 
       {% if xml_preview %}
-        <div class="xml-preview-box">
+        <div class="xml-preview-box" style="margin-top: 20px;">
           <h4>Prévia da importação</h4>
-          <p><strong>NF:</strong> {{ xml_preview['invoice_number'] or 'Sem número' }}</p>
-          <p><strong>Emissão:</strong> {{ xml_preview['issue_date'] or '-' }}</p>
-          <p><strong>Fornecedor:</strong> {{ xml_preview['supplier_name'] or '-' }}</p>
-          <p><strong>CNPJ:</strong> {{ xml_preview['supplier_cnpj'] or '-' }}</p>
-          <p><strong>Total:</strong> R$ {{ "%.2f"|format(xml_preview['total_amount']|float)|replace('.', ',') }}</p>
-          <p><strong>Itens:</strong> {{ xml_preview['items']|length }}</p>
+          <div class="xml-preview-info">
+            <div class="xml-info-row">
+              <span class="xml-label">NF:</span>
+              <span class="xml-value">{{ xml_preview['invoice_number'] or 'Sem número' }}</span>
+            </div>
+            <div class="xml-info-row">
+              <span class="xml-label">Emissão:</span>
+              <span class="xml-value">{{ xml_preview['issue_date'] or '-' }}</span>
+            </div>
+            <div class="xml-info-row">
+              <span class="xml-label">Fornecedor:</span>
+              <span class="xml-value">{{ xml_preview['supplier_name'] or '-' }}</span>
+            </div>
+            <div class="xml-info-row">
+              <span class="xml-label">CNPJ:</span>
+              <span class="xml-value">{{ xml_preview['supplier_cnpj'] or '-' }}</span>
+            </div>
+            <div class="xml-info-row" style="border-top: 1px solid #e5e7eb; padding-top: 10px; margin-top: 10px;">
+              <span class="xml-label"><strong>Total:</strong></span>
+              <span class="xml-value" style="font-weight: 700; color: #059669;">R$ {{ "%.2f"|format(xml_preview['total_amount']|float)|replace('.', ',') }}</span>
+            </div>
+            <div class="xml-info-row">
+              <span class="xml-label">Itens:</span>
+              <span class="xml-value">{{ xml_preview['items']|length }}</span>
+            </div>
+          </div>
 
-          <form method="post" action="{{ url_for('financeiro') }}">
-            <input type="hidden" name="action" value="confirm_xml">
-            <div class="param-check-row">
-              <input id="create-supplier" type="checkbox" name="create_supplier" value="1" checked>
-              <label for="create-supplier">Criar fornecedor se não existir</label>
-            </div>
-            <div class="param-check-row">
-              <input id="create-products" type="checkbox" name="create_products" value="1" checked>
-              <label for="create-products">Criar produtos se não existirem</label>
-            </div>
-            <div class="param-check-row">
-              <input id="create-payable" type="checkbox" name="create_payable" value="1" checked>
-              <label for="create-payable">Gerar conta a pagar</label>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 12px;">
-              <button type="submit" class="btn-confirm">Confirmar importação XML</button>
-              <button type="button" class="btn-cancel" onclick="openCancelXmlModal()">Cancelar</button>
-            </div>
-          </form>
-          <form id="xml-cancel-form" method="post" action="{{ url_for('financeiro') }}" style="display:none">
-            <input type="hidden" name="action" value="cancel_xml_preview">
-          </form>
-
-          <div class="report-table-wrap" style="margin-top:12px">
+          <div class="report-table-wrap" style="margin-top: 16px;">
             <table class="report-table">
               <thead>
                 <tr>
@@ -332,11 +360,35 @@
               </tbody>
             </table>
           </div>
+
+          <form method="post" action="{{ url_for('financeiro') }}" style="margin-top: 20px;">
+            <input type="hidden" name="action" value="confirm_xml">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-bottom: 16px;">
+              <div class="param-check-row">
+                <input id="create-supplier" type="checkbox" name="create_supplier" value="1" checked>
+                <label for="create-supplier">Criar fornecedor se não existir</label>
+              </div>
+              <div class="param-check-row">
+                <input id="create-products" type="checkbox" name="create_products" value="1" checked>
+                <label for="create-products">Criar produtos se não existirem</label>
+              </div>
+              <div class="param-check-row">
+                <input id="create-payable" type="checkbox" name="create_payable" value="1" checked>
+                <label for="create-payable">Gerar conta a pagar</label>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button type="submit" class="btn-confirm">Confirmar importação XML</button>
+              <button type="button" class="btn-cancel" onclick="openCancelXmlModal()">Cancelar</button>
+            </div>
+          </form>
+          <form id="xml-cancel-form" method="post" action="{{ url_for('financeiro') }}" style="display:none">
+            <input type="hidden" name="action" value="cancel_xml_preview">
+          </form>
         </div>
       {% endif %}
     </div>
-    </div>
-  </details>
+  </div>
 
   <!-- Tabela de Lançamentos Financeiros -->
   <div class="table-card" id="lancamentos-financeiros">
@@ -522,6 +574,29 @@
         var current = categorySelect.options[categorySelect.selectedIndex];
         if (current && current.hidden) categorySelect.value = '';
       }
+    }
+
+    function switchFinanceTab(tabId) {
+      // Hide all tab contents
+      var contents = document.querySelectorAll('.management-tab-content');
+      contents.forEach(function (content) {
+        content.classList.remove('active');
+      });
+
+      // Remove active class from all buttons
+      var buttons = document.querySelectorAll('.tab-btn');
+      buttons.forEach(function (btn) {
+        btn.classList.remove('active');
+      });
+
+      // Show selected tab content
+      var selectedContent = document.getElementById(tabId);
+      if (selectedContent) {
+        selectedContent.classList.add('active');
+      }
+
+      // Mark clicked button as active
+      event.target.closest('.tab-btn').classList.add('active');
     }
 
     function handleCategoryFocus() {
