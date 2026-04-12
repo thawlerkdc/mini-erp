@@ -1783,15 +1783,32 @@ def cadastro(entity):
                     edit_id_form = request.form.get("edit_id")
 
                     if name and category_id and unit_id:
+                           # Calcular margem de lucro
+                           margin_percent = _safe_float(request.form.get("margin_percent"), None)
+                           settings = get_account_settings(account_id)
+                           default_margin = _safe_float(settings.get("default_profit_margin", "100"))
+                           if margin_percent is None:
+                               margin_percent = default_margin
+                           if cost > 0 and price == 0:
+                               price = _calculate_selling_price(cost, margin_percent)
+                           elif cost > 0 and price > 0:
+                               margin_percent = _calculate_profit_margin(cost, price)
+
+                           # Unidade de compra e fator de conversão
+                           unit_buy = (request.form.get("unit_buy") or "").strip() or None
+                           conversion_factor = _safe_float(request.form.get("conversion_factor"), 1.0)
+                           if conversion_factor <= 0:
+                               conversion_factor = 1.0
+
                         if edit_id_form:
                             conn.execute(
-                                "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
-                                (name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date, edit_id_form, account_id),
+                                   "UPDATE products SET name = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, margin_percent = %s, unit_buy = %s, conversion_factor = %s, stock = %s, stock_min = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
+                                   (name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date, edit_id_form, account_id),
                             )
                         else:
                             conn.execute(
-                                "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                (account_id, name, category_id, unit_id, supplier_id, cost, price, stock, stock_min, expiration_date),
+                                   "INSERT INTO products (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                   (account_id, name, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, expiration_date),
                             )
                         conn.commit()
                         flash(translate("record_saved"), "success")
