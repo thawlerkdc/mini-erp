@@ -145,6 +145,17 @@
     </div>
   </div>
 
+  <div id="clear-sale-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content">
+      <h3>Limpar venda</h3>
+      <p>Deseja realmente limpar os dados da venda atual?</p>
+      <div class="pix-modal-actions">
+        <button type="button" class="btn-add" onclick="clearSaleDataAndCloseModal()">Sim, limpar</button>
+        <button type="button" class="outline-button" onclick="closeClearSaleModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <script>
@@ -540,10 +551,21 @@
       updateTotals();
     }
 
+    function openClearSaleModal() {
+      document.getElementById('clear-sale-modal').style.display = 'flex';
+    }
+
+    function closeClearSaleModal() {
+      document.getElementById('clear-sale-modal').style.display = 'none';
+    }
+
+    function clearSaleDataAndCloseModal() {
+      clearSaleData();
+      closeClearSaleModal();
+    }
+
     function confirmClearSaleData() {
-      if (confirm('Deseja realmente limpar os dados da venda atual?')) {
-        clearSaleData();
-      }
+      openClearSaleModal();
     }
     function updateChange(orderTotal) {
       if (PAYMENT_UI_SETTINGS.allow_multi) {
