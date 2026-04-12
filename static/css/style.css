@@ -1838,22 +1838,18 @@ body {
 /* Financeiro page layout */
 .finance-page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   margin-bottom: 25px;
-  padding: 0;
   flex-wrap: wrap;
 }
 
-.finance-header-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.finance-header-title h2 {
+.finance-page-header h2 {
   color: #1f2c47;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .finance-period-selector {
@@ -1867,17 +1863,12 @@ body {
   color: #1f2937;
   transition: all 0.2s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .finance-period-selector:hover {
   background: #f59e0b;
   border-color: #d97706;
-}
-
-.finance-header-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
 }
 
 .finance-filter-select {
@@ -2117,23 +2108,11 @@ body {
 
 @media (max-width: 768px) {
   .finance-page-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    gap: 10px;
   }
 
-  .finance-header-title {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .finance-header-title h2 {
-    margin-bottom: 8px;
-  }
-
-  .finance-header-actions {
-    width: 100%;
-    justify-content: flex-start;
+  .finance-page-header h2 {
+    font-size: 1.4rem;
   }
 
   .finance-kpi-grid {

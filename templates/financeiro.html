@@ -2,17 +2,14 @@
 
 {% block content %}
   <div class="finance-page-header">
-    <div class="finance-header-title">
-      <h2 style="margin:0; display:inline-block; margin-right: 15px;">Financeiro</h2>
-      <button class="finance-period-selector">📅 Abril 2024 <span>▼</span></button>
-    </div>
-    <div class="finance-header-actions">
-      <select class="finance-filter-select">
-        <option>Todos</option>
-        <option>Este mês</option>
-      </select>
-      <a href="{{ url_for('financeiro') }}" class="btn-add">+ Adicionar Lançamento</a>
-    </div>
+    <h2 style="margin: 0; flex-shrink: 0;">Financeiro</h2>
+    <button class="finance-period-selector">📅 Abril 2024 <span>▼</span></button>
+    <div style="flex: 1;"></div>
+    <select class="finance-filter-select">
+      <option>Todos</option>
+      <option>Este mês</option>
+    </select>
+    <a href="{{ url_for('financeiro') }}" class="btn-add">+ Adicionar Lançamento</a>
   </div>
 
   <!-- Cards KPI -->
@@ -39,6 +36,7 @@
       </div>
     </div>
     <div class="kpi-card kpi-pagar">
+      <div class="kpi-icon">💳</div>
       <div class="kpi-content">
         <div class="kpi-label">A Pagar no Mês</div>
         <div class="kpi-value">R$ {{ "%.2f"|format(summary['payable']['pendente'])|replace('.', ',') }}</div>
