@@ -1197,6 +1197,7 @@ def _parse_nfe_xml(xml_bytes):
     invoice_number = _xml_find_first_text(root, ["nNF"])
     issue_raw = _xml_find_first_text(root, ["dhEmi", "dEmi"])
     issue_date = issue_raw[:10] if issue_raw else datetime.now().strftime("%Y-%m-%d")
+    issue_date_display = _format_date_br(issue_date)
     supplier_name = _xml_find_first_text(root, ["xNome"])
     supplier_cnpj = re.sub(r"\D", "", _xml_find_first_text(root, ["CNPJ"]))[:14]
     total_amount = _safe_money(_xml_find_first_text(root, ["vNF"]), 0)
@@ -1242,6 +1243,7 @@ def _parse_nfe_xml(xml_bytes):
         "invoice_key": invoice_key,
         "invoice_number": invoice_number,
         "issue_date": issue_date,
+        "issue_date_display": issue_date_display,
         "supplier_name": supplier_name,
         "supplier_cnpj": supplier_cnpj,
         "total_amount": float(total_amount or 0),

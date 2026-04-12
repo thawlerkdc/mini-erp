@@ -594,7 +594,7 @@
       openClearSaleModal();
     }
     function updateChange(orderTotal) {
-      if (PAYMENT_UI_SETTINGS.allow_multi) {
+      if (PAYMENT_UI_SETTINGS.allow_multi && document.querySelectorAll('#payment-rows .payment-row').length > 0) {
         document.getElementById('order-change').innerText = 'R$ ' + formatCurrency(0);
         return;
       }
