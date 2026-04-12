@@ -181,7 +181,7 @@
             <tr>
               <td>{{ row['date_display'] }}</td>
               <td>{{ row['product_name'] }}</td>
-              <td>{{ row['movement_type_label'] }}</td>
+              <td class="{% if row['movement_type'] in ['entrada', 'ajuste_entrada', 'xml_import'] %}kardex-add{% elif row['movement_type'] in ['sale', 'ajuste_saida'] %}kardex-sub{% endif %}">{{ row['movement_type_label'] }}</td>
               <td>{{ "%.3f"|format(row['quantity']|float) }}</td>
               <td>{{ row['user_name'] }}</td>
               <td>{{ row['notes'] }}</td>
@@ -220,6 +220,14 @@
       font-size: 1.15rem;
       font-weight: 800;
       color: #0f172a;
+    }
+    .kardex-add {
+      color: #15803d;
+      font-weight: 800;
+    }
+    .kardex-sub {
+      color: #dc2626;
+      font-weight: 800;
     }
   </style>
 

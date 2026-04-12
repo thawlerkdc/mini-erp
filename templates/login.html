@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Space+Grotesk:wght@400;500;700&display=swap');
+  </style>
+
   <div class="login-modern-wrap">
     <section class="login-hero-panel">
       <span class="login-kicker">Kdc Systems ERP</span>
@@ -16,7 +20,7 @@
     <section class="login-forms-panel">
       <div class="login-card modern-auth-card">
         <h3>{{ t('login_title') }}</h3>
-        <form method="post" action="{{ url_for('login') }}">
+        <form method="post" action="{{ url_for('login') }}" class="login-access-form">
           <label for="username">{{ t('username_label') }}</label>
           <input id="username" name="username" type="text" required>
 
@@ -24,32 +28,33 @@
           <input id="password" name="password" type="password" required>
 
           <button type="submit">Entrar no sistema</button>
+          <button type="button" class="outline-button login-signup-toggle" onclick="toggleSignupPanel()">Criar conta principal</button>
         </form>
+
+        <div id="login-signup-panel" class="login-signup-panel hidden">
+          <form method="post" action="{{ url_for('criar_conta_principal') }}" class="login-signup-form">
+            <label for="account_name">Empresa</label>
+            <input id="account_name" name="account_name" type="text" placeholder="Ex: Padaria Central" required>
+
+            <label for="owner_name">Responsável</label>
+            <input id="owner_name" name="owner_name" type="text" placeholder="Ex: Maria Souza" required>
+
+            <label for="signup_username">Usuário principal</label>
+            <input id="signup_username" name="username" type="text" placeholder="Ex: padaria.central" required>
+
+            <label for="signup_email">E-mail</label>
+            <input id="signup_email" name="email" type="email" placeholder="Ex: contato@empresa.com">
+
+            <label for="signup_password">Senha</label>
+            <input id="signup_password" name="password" type="password" required>
+
+            <button type="submit" class="btn-add">Finalizar criação da conta</button>
+          </form>
+        </div>
+
         <div class="login-footer">
           <a href="{{ url_for('forgot_password') }}" class="forgot-password-link">{{ t('forgot_password_label') }}</a>
         </div>
-      </div>
-
-      <div class="login-card signup-card modern-signup-card">
-        <h3>Criar conta principal</h3>
-        <form method="post" action="{{ url_for('criar_conta_principal') }}">
-          <label for="account_name">Empresa</label>
-          <input id="account_name" name="account_name" type="text" placeholder="Ex: Padaria Central" required>
-
-          <label for="owner_name">Responsável</label>
-          <input id="owner_name" name="owner_name" type="text" placeholder="Ex: Maria Souza" required>
-
-          <label for="signup_username">Usuário principal</label>
-          <input id="signup_username" name="username" type="text" placeholder="Ex: padaria.central" required>
-
-          <label for="signup_email">E-mail</label>
-          <input id="signup_email" name="email" type="email" placeholder="Ex: contato@empresa.com">
-
-          <label for="signup_password">Senha</label>
-          <input id="signup_password" name="password" type="password" required>
-
-          <button type="submit" class="btn-add">Criar conta</button>
-        </form>
       </div>
     </section>
   </div>
@@ -61,6 +66,57 @@
       gap: 14px;
       align-items: stretch;
       min-height: 0;
+    }
+    header {
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      inset: -20% auto auto 50%;
+      width: 380px;
+      height: 180px;
+      background: radial-gradient(circle, rgba(96,165,250,0.35), rgba(96,165,250,0) 70%);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    header .brand {
+      width: 100%;
+      justify-content: center;
+      margin: 0;
+      position: relative;
+      z-index: 1;
+    }
+    header .brand-name.brand-animated {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(1.9rem, 3vw, 2.7rem);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 10px 20px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(148,163,184,0.12));
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.24) inset, 0 0 24px rgba(59,130,246,0.22), 0 18px 45px rgba(7,31,66,0.28);
+      text-shadow: 0 0 16px rgba(191,219,254,0.6);
+    }
+    header .brand-subtitle {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.95rem;
+      letter-spacing: 0.35em;
+      color: #bfdbfe;
+    }
+    header .topbar {
+      justify-content: flex-end;
+      margin-top: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    main {
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+    footer {
+      display: none;
     }
     .login-hero-panel {
       border-radius: 18px;
@@ -75,22 +131,27 @@
       overflow: hidden;
     }
     .login-kicker {
-      font-size: 0.82rem;
+      font-size: 0.9rem;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.16em;
       font-weight: 800;
       opacity: 0.9;
+      font-family: 'Orbitron', sans-serif;
     }
     .login-hero-panel h2 {
       margin: 10px 0;
       font-size: 1.5rem;
       line-height: 1.2;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
     }
     .login-hero-panel p {
       margin: 0;
       max-width: 500px;
       color: rgba(255, 255, 255, 0.92);
       line-height: 1.6;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
     }
     .hero-badges {
       display: flex;
@@ -107,25 +168,37 @@
     }
     .login-forms-panel {
       display: grid;
-      gap: 12px;
+      gap: 10px;
       align-content: start;
     }
-    .modern-auth-card,
-    .modern-signup-card {
+    .modern-auth-card {
       margin: 0;
       max-width: none;
       border: 1px solid #dbe5f3;
       box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
     }
-    .modern-auth-card h3,
-    .modern-signup-card h3 {
+    .modern-auth-card h3 {
       margin-top: 0;
       margin-bottom: 8px;
       font-size: 1rem;
     }
+    .login-access-form,
+    .login-signup-form {
+      gap: 10px !important;
+    }
+    .login-signup-toggle {
+      width: 100%;
+      text-align: center;
+      margin-top: 2px;
+    }
+    .login-signup-panel {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #dbe5f3;
+    }
     .login-footer {
       text-align: right;
-      margin-top: 10px;
+      margin-top: 8px;
     }
     .forgot-password-link {
       color: #0f4e8b;
@@ -137,12 +210,29 @@
       text-decoration: underline;
     }
     @media (max-width: 960px) {
+      header .brand-name.brand-animated {
+        font-size: 1.45rem;
+        letter-spacing: 0.08em;
+      }
       .login-modern-wrap {
         grid-template-columns: 1fr;
       }
       .login-hero-panel {
-        min-height: 180px;
+        min-height: 150px;
+        padding: 18px;
       }
     }
   </style>
+
+  <script>
+    function toggleSignupPanel() {
+      var panel = document.getElementById('login-signup-panel');
+      if (!panel) return;
+      panel.classList.toggle('hidden');
+      if (!panel.classList.contains('hidden')) {
+        var firstField = panel.querySelector('input');
+        if (firstField) firstField.focus();
+      }
+    }
+  </script>
 {% endblock %}

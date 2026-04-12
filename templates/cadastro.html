@@ -263,7 +263,7 @@
         <label>{{ t('zipcode_label') }}</label>
         <input type="text" name="postal_code" inputmode="numeric" pattern="[0-9]*" maxlength="8" value="{{ edit_data.get('postal_code', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
         <label>Observações</label>
-        <textarea name="notes" rows="3" maxlength="1000" placeholder="Ex: paga sempre em dia, pode vender com prazo maior...">{{ edit_data.get('notes', '') if edit_data else '' }}</textarea>
+        <textarea name="notes" rows="3" maxlength="1000" placeholder="Sempre muito atencioso, nada a reclamar.">{{ edit_data.get('notes', '') if edit_data else '' }}</textarea>
         <button type="submit" class="btn-add">{% if edit_id %}Atualizar{% else %}{{ t('add_client') }}{% endif %}</button>
         {% if edit_id %}<a href="{{ url_for('cadastro', entity='clientes') }}" class="outline-button">Cancelar</a>{% endif %}
       </form>
@@ -350,7 +350,7 @@
         <label>{{ t('zipcode_label') }}</label>
         <input type="text" name="postal_code" inputmode="numeric" pattern="[0-9]*" maxlength="8" value="{{ edit_data.get('postal_code', '') if edit_data else '' }}" oninput="this.value=this.value.replace(/\D/g,'')">
         <label>Observações</label>
-        <textarea name="notes" rows="3" maxlength="1000" placeholder="Ex: entrega no prazo, liberar condição especial...">{{ edit_data.get('notes', '') if edit_data else '' }}</textarea>
+        <textarea name="notes" rows="3" maxlength="1000" placeholder="Sempre muito atencioso, nada a reclamar.">{{ edit_data.get('notes', '') if edit_data else '' }}</textarea>
         <label>{{ t('supplier_category') }}</label>
         <div class="inline-group">
           <select name="category_id" required>
