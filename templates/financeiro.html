@@ -73,7 +73,7 @@
         <table class="report-table compact">
           <tbody>
             {% for row in entries %}
-              {% if row['entry_type'] == 'payable' and forloop.counter <= 5 %}
+              {% if row['entry_type'] == 'payable' and loop.index <= 5 %}
                 <tr>
                   <td style="max-width: 100px; overflow: hidden; text-overflow: ellipsis;">{{ row['due_date_display'] }}</td>
                   <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem;">{{ row['category_name'] or '—' }}</td>
