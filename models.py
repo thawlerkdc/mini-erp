@@ -216,6 +216,23 @@ _TENANT_STATEMENTS = [
         created_at TEXT NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        supplier_id INTEGER REFERENCES suppliers(id),
+        product_id INTEGER REFERENCES products(id),
+        quantity DOUBLE PRECISION NOT NULL,
+        unit_cost DOUBLE PRECISION DEFAULT 0,
+        installments INTEGER DEFAULT 1,
+        first_due_date TEXT,
+        expected_date TEXT,
+        status TEXT NOT NULL DEFAULT 'aberto',
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        received_at TEXT
+    )
+    """,
 ]
 
 _TENANT_MIGRATIONS = [

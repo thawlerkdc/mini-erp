@@ -3582,38 +3582,143 @@ def estoque_entrada():
     ).fetchall()
 
     if request.method == "POST":
-        product_id = request.form.get("product_id")
-        try:
-            quantity = float(request.form.get("quantity") or 0)
-        except ValueError:
-            quantity = 0
-        date_val = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
-        supplier_id = request.form.get("supplier_id") or None
-        notes = (request.form.get("notes") or "").strip()
-        try:
-            cost_per_unit = float(request.form.get("cost_per_unit") or 0)
-        except ValueError:
-            cost_per_unit = 0
+        action = (request.form.get("action") or "register_purchase").strip()
 
-        if not product_id or quantity <= 0:
-            flash("Produto e quantidade são obrigatórios.", "error")
-        else:
-            conn.execute(
-                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (account_id, product_id, quantity, "entrada", date_val, notes),
-            )
-            conn.execute(
-                "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
-                (quantity, product_id, account_id),
-            )
-            if cost_per_unit > 0:
+        if action == "register_purchase":
+            product_id = request.form.get("product_id")
+            try:
+                quantity = float(request.form.get("quantity") or 0)
+            except ValueError:
+                quantity = 0
+            date_val = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
+            supplier_id = request.form.get("supplier_id") or None
+            notes = (request.form.get("notes") or "").strip()
+            try:
+                cost_per_unit = float(request.form.get("cost_per_unit") or 0)
+            except ValueError:
+                cost_per_unit = 0
+
+            if not product_id or quantity <= 0:
+                flash("Produto e quantidade são obrigatórios.", "error")
+            else:
                 conn.execute(
-                    "UPDATE products SET cost = %s WHERE id = %s AND account_id = %s",
-                    (cost_per_unit, product_id, account_id),
+                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (account_id, product_id, quantity, "entrada", date_val, notes),
                 )
-            conn.commit()
-            flash("Compra registrada com sucesso.", "success")
+                conn.execute(
+                    "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
+                    (quantity, product_id, account_id),
+                )
+                if cost_per_unit > 0:
+                    conn.execute(
+                        "UPDATE products SET cost = %s WHERE id = %s AND account_id = %s",
+                        (cost_per_unit, product_id, account_id),
+                    )
+                conn.commit()
+                flash("Compra registrada com sucesso.", "success")
+
+        elif action == "create_purchase_order":
+            product_id = request.form.get("po_product_id")
+            supplier_id = request.form.get("po_supplier_id") or None
+            notes = (request.form.get("po_notes") or "").strip()
+            expected_date = request.form.get("po_expected_date") or datetime.now().strftime("%Y-%m-%d")
+            first_due_date = request.form.get("po_first_due_date") or expected_date
+            try:
+                quantity = float(request.form.get("po_quantity") or 0)
+            except ValueError:
+                quantity = 0
+            try:
+                unit_cost = float(request.form.get("po_unit_cost") or 0)
+            except ValueError:
+                unit_cost = 0
+            installments = max(1, _safe_int(request.form.get("po_installments") or 1, 1))
+
+            if not product_id or quantity <= 0:
+                flash("Pedido de compra: informe produto e quantidade.", "error")
+            else:
+                conn.execute(
+                    "INSERT INTO purchase_orders (account_id, supplier_id, product_id, quantity, unit_cost, installments, first_due_date, expected_date, status, notes, created_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'aberto', %s, %s)",
+                    (
+                        account_id,
+                        supplier_id,
+                        product_id,
+                        quantity,
+                        unit_cost,
+                        installments,
+                        first_due_date,
+                        expected_date,
+                        notes,
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    ),
+                )
+                po_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('purchase_orders', 'id'))").fetchone()[0]
+
+                total_amount = max(quantity * unit_cost, 0)
+                if total_amount > 0 and request.form.get("po_generate_payable") == "1":
+                    installment_value = total_amount / installments
+                    base_due = datetime.strptime(first_due_date, "%Y-%m-%d") if first_due_date else datetime.now()
+                    for idx in range(installments):
+                        due_dt = base_due + timedelta(days=30 * idx)
+                        conn.execute(
+                            "INSERT INTO financial_entries (account_id, entry_type, description, supplier_id, amount, due_date, status, source, source_ref, created_at) "
+                            "VALUES (%s, 'payable', %s, %s, %s, %s, 'pendente', 'purchase_order', %s, %s)",
+                            (
+                                account_id,
+                                f"Pedido de compra #{po_id} - parcela {idx + 1}/{installments}",
+                                supplier_id,
+                                installment_value,
+                                due_dt.strftime("%Y-%m-%d"),
+                                str(po_id),
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            ),
+                        )
+
+                conn.commit()
+                flash("Pedido de compra criado com sucesso.", "success")
+
+        elif action == "receive_purchase_order":
+            po_id = request.form.get("po_id")
+            po = conn.execute(
+                "SELECT * FROM purchase_orders WHERE id = %s AND account_id = %s",
+                (po_id, account_id),
+            ).fetchone()
+            if not po:
+                flash("Pedido de compra não encontrado.", "error")
+            elif po["status"] == "recebido":
+                flash("Este pedido já foi recebido.", "info")
+            else:
+                movement_notes = f"Recebimento do pedido de compra #{po['id']}"
+                if po.get("notes"):
+                    movement_notes += f" - {po['notes']}"
+                conn.execute(
+                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (
+                        account_id,
+                        po["product_id"],
+                        po["quantity"],
+                        "entrada",
+                        datetime.now().strftime("%Y-%m-%d"),
+                        movement_notes,
+                    ),
+                )
+                conn.execute(
+                    "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
+                    (po["quantity"], po["product_id"], account_id),
+                )
+                if float(po.get("unit_cost") or 0) > 0:
+                    conn.execute(
+                        "UPDATE products SET cost = %s WHERE id = %s AND account_id = %s",
+                        (po["unit_cost"], po["product_id"], account_id),
+                    )
+                conn.execute(
+                    "UPDATE purchase_orders SET status = 'recebido', received_at = %s WHERE id = %s AND account_id = %s",
+                    (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), po_id, account_id),
+                )
+                conn.commit()
+                flash("Pedido marcado como recebido e estoque atualizado.", "success")
+
         products = conn.execute(
             "SELECT p.*, u.name AS unit_name FROM products p "
             "LEFT JOIN units u ON p.unit_id = u.id "
@@ -3636,6 +3741,25 @@ def estoque_entrada():
         for r in recent
     ]
 
+    purchase_orders = conn.execute(
+        "SELECT po.*, p.name AS product_name, s.name AS supplier_name "
+        "FROM purchase_orders po "
+        "LEFT JOIN products p ON po.product_id = p.id "
+        "LEFT JOIN suppliers s ON po.supplier_id = s.id "
+        "WHERE po.account_id = %s ORDER BY po.id DESC LIMIT 40",
+        (account_id,),
+    ).fetchall()
+    purchase_orders = [
+        {
+            **dict(po),
+            "expected_date_display": _format_date_br(po.get("expected_date")),
+            "first_due_date_display": _format_date_br(po.get("first_due_date")),
+            "created_at_display": _format_date_br(po.get("created_at")),
+            "received_at_display": _format_date_br(po.get("received_at")),
+        }
+        for po in purchase_orders
+    ]
+
     conn.close()
     return render_template(
         "estoque_entrada.html",
@@ -3643,6 +3767,7 @@ def estoque_entrada():
         products=products,
         suppliers=suppliers,
         recent=recent,
+        purchase_orders=purchase_orders,
         today=datetime.now().strftime("%Y-%m-%d"),
     )
 

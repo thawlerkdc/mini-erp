@@ -7,6 +7,7 @@
   <a class="outline-button small" href="{{ url_for('financeiro') }}#xml-import">Importar XML de compra</a>
 
   <form method="post" action="{{ url_for('estoque_entrada') }}">
+    <input type="hidden" name="action" value="register_purchase">
     <div class="stock-form-grid">
       <div class="field-group stock-field-product">
         <label>Produto *</label>
@@ -61,6 +62,73 @@
   </form>
 </div>
 
+<div class="form-card" style="margin-top:1.5rem">
+  <h3>Criar Pedido de Compra</h3>
+  <form method="post" action="{{ url_for('estoque_entrada') }}">
+    <input type="hidden" name="action" value="create_purchase_order">
+    <div class="stock-form-grid">
+      <div class="field-group stock-field-product">
+        <label>Produto *</label>
+        <select name="po_product_id" required>
+          <option value="">Selecione o produto</option>
+          {% for p in products %}
+            <option value="{{ p['id'] }}">{{ p['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>Fornecedor</label>
+        <select name="po_supplier_id">
+          <option value="">Nenhum</option>
+          {% for s in suppliers %}
+            <option value="{{ s['id'] }}">{{ s['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>Quantidade *</label>
+        <input type="number" name="po_quantity" min="0.001" step="0.001" required>
+      </div>
+
+      <div class="field-group">
+        <label>Custo unitário (R$)</label>
+        <input type="number" name="po_unit_cost" min="0" step="0.01" value="0">
+      </div>
+
+      <div class="field-group">
+        <label>Parcelas</label>
+        <input type="number" name="po_installments" min="1" max="24" value="1">
+      </div>
+
+      <div class="field-group">
+        <label>1º vencimento</label>
+        <input type="date" name="po_first_due_date" value="{{ today }}">
+      </div>
+
+      <div class="field-group">
+        <label>Previsão de entrega</label>
+        <input type="date" name="po_expected_date" value="{{ today }}">
+      </div>
+
+      <div class="field-group stock-field-notes">
+        <label>Observações</label>
+        <input type="text" name="po_notes" placeholder="Condição comercial, prazo, etc.">
+      </div>
+
+      <div class="field-group stock-field-notes">
+        <div class="param-check-row" style="margin-top: 8px;">
+          <input id="po-generate-payable" type="checkbox" name="po_generate_payable" value="1" checked>
+          <label for="po-generate-payable">Gerar contas a pagar automaticamente pelo parcelamento</label>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-confirm" style="margin-top:1.25rem">Criar pedido de compra</button>
+  </form>
+</div>
+
 {% if recent %}
 <div class="form-card" style="margin-top:1.5rem">
   <h3>Últimas entradas registradas</h3>
@@ -83,6 +151,56 @@
           <td>{{ r['quantity'] }} {{ r['unit_name'] or '' }}</td>
           <td>{{ r['date_display'] or '—' }}</td>
           <td>{{ r['notes'] or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if purchase_orders %}
+<div class="form-card" style="margin-top:1.5rem">
+  <h3>Pedidos de compra</h3>
+  <div class="report-table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Produto</th>
+          <th>Fornecedor</th>
+          <th>Qtd</th>
+          <th>Custo unit.</th>
+          <th>Parcelas</th>
+          <th>1º venc.</th>
+          <th>Prev. entrega</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for po in purchase_orders %}
+        <tr>
+          <td>{{ po['id'] }}</td>
+          <td>{{ po['product_name'] or '—' }}</td>
+          <td>{{ po['supplier_name'] or '—' }}</td>
+          <td>{{ "%.3f"|format(po['quantity']) }}</td>
+          <td>R$ {{ "%.2f"|format(po['unit_cost'] or 0)|replace('.', ',') }}</td>
+          <td>{{ po['installments'] or 1 }}</td>
+          <td>{{ po['first_due_date_display'] or '—' }}</td>
+          <td>{{ po['expected_date_display'] or '—' }}</td>
+          <td>{{ po['status']|capitalize }}</td>
+          <td>
+            {% if po['status'] != 'recebido' %}
+            <form method="post" action="{{ url_for('estoque_entrada') }}" style="display:inline">
+              <input type="hidden" name="action" value="receive_purchase_order">
+              <input type="hidden" name="po_id" value="{{ po['id'] }}">
+              <button type="submit" class="btn-confirm" title="Marcar como recebido">Receber</button>
+            </form>
+            {% else %}
+            <span class="field-hint">Recebido em {{ po['received_at_display'] or '—' }}</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
