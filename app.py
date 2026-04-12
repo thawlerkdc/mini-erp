@@ -875,6 +875,7 @@ SETTINGS_DEFAULTS = {
     "pix_receiver_name": "",
     "pix_receiver_city": "SAO PAULO",
     "default_profit_margin": "100",
+    "default_stock_min_percent": "20",
 }
 
 SMTP_PROVIDER_PRESETS = {
@@ -909,6 +910,14 @@ def _clamp_rate(raw):
 def _clamp_margin(raw, default="100"):
     try:
         return f"{min(max(float(raw if raw is not None and raw != '' else default), 0), 10000):.2f}"
+    except (ValueError, TypeError):
+        return f"{float(default):.2f}"
+
+
+def _clamp_percent(raw, default="0"):
+    try:
+        value = float(raw if raw is not None and raw != "" else default)
+        return f"{min(max(value, 0), 100):.2f}"
     except (ValueError, TypeError):
         return f"{float(default):.2f}"
 
@@ -1334,6 +1343,7 @@ def save_account_settings(account_id, form_data):
         **{f"card_credit_rate_{i}": _clamp_rate(form_data.get(f"card_credit_rate_{i}")) for i in range(1, 13)},
         "allow_multi_payment_sale": "1" if form_data.get("allow_multi_payment_sale") else "0",
         "default_profit_margin": _clamp_margin(form_data.get("default_profit_margin"), "100"),
+        "default_stock_min_percent": _clamp_percent(form_data.get("default_stock_min_percent"), "20"),
         "pix_key_type": pix_key_type,
         "pix_key_value": pix_key_value,
         "pix_receiver_name": (form_data.get("pix_receiver_name") or "").strip(),
@@ -1655,6 +1665,7 @@ def cadastro(entity):
     suppliers = conn.execute("SELECT * FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall() if entity != "usuarios" else []
     account_settings = get_account_settings(account_id) if entity == "produtos" else {}
     default_profit_margin = account_settings.get("default_profit_margin", "100") if entity == "produtos" else "100"
+    default_stock_min_percent = account_settings.get("default_stock_min_percent", "20") if entity == "produtos" else "20"
     edit_id = request.args.get("edit_id") or request.form.get("edit_id")
     edit_data = None
 
@@ -1819,12 +1830,16 @@ def cadastro(entity):
                         margin_percent = _safe_float(request.form.get("margin_percent"), None)
                         settings = get_account_settings(account_id)
                         default_margin = _safe_float(settings.get("default_profit_margin", "100"))
+                        default_stock_percent = _safe_float(settings.get("default_stock_min_percent", "20"))
                         if margin_percent is None:
                             margin_percent = default_margin
                         if cost > 0 and price == 0:
                             price = _calculate_selling_price(cost, margin_percent)
                         elif cost > 0 and price > 0:
                             margin_percent = _calculate_profit_margin(cost, price)
+
+                        if stock > 0 and stock_min <= 0:
+                            stock_min = max(0, int(round(stock * (default_stock_percent / 100))))
 
                         # Unidade de compra e fator de conversao
                         unit_buy = (request.form.get("unit_buy") or "").strip() or None
@@ -1999,6 +2014,7 @@ def cadastro(entity):
         ).fetchall()
     elif entity == "clientes":
         rows = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+        rows = [{**dict(r), "birth_date_display": _format_date_br(r.get("birth_date"))} for r in rows]
     elif entity == "fornecedores":
         rows = conn.execute(
             "SELECT s.*, c.name AS category_name FROM suppliers s LEFT JOIN categories c ON s.category_id = c.id WHERE s.account_id = %s ORDER BY s.name",
@@ -2023,6 +2039,7 @@ def cadastro(entity):
         units=units,
         suppliers=suppliers,
         default_profit_margin=default_profit_margin,
+        default_stock_min_percent=default_stock_min_percent,
         edit_id=edit_id,
         edit_data=edit_data,
     )
@@ -2644,7 +2661,8 @@ def financeiro():
     end_date = request.args.get("end_date") or today
 
     categories = conn.execute(
-        "SELECT * FROM financial_categories WHERE account_id = %s ORDER BY name",
+        "SELECT * FROM financial_categories WHERE account_id = %s "
+        "ORDER BY CASE kind WHEN 'receivable' THEN 0 WHEN 'payable' THEN 1 ELSE 2 END, name",
         (account_id,),
     ).fetchall()
     suppliers = conn.execute("SELECT id, name FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
@@ -2730,6 +2748,65 @@ def financeiro():
     ).fetchall()
     imports_history = [{**dict(r), "created_date_display": _format_date_br(r["created_at"])} for r in imports_history]
 
+    # DRE simplificado para o periodo selecionado
+    sales_period = conn.execute(
+        "SELECT COALESCE(SUM(total), 0) AS gross_revenue, COALESCE(SUM(discount), 0) AS discounts "
+        "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
+        (account_id, start_date, end_date),
+    ).fetchone()
+    gross_revenue = float(sales_period["gross_revenue"] or 0)
+    discounts = float(sales_period["discounts"] or 0)
+    net_revenue = gross_revenue - discounts
+
+    cogs_row = conn.execute(
+        "SELECT COALESCE(SUM(si.quantity * p.cost), 0) AS cogs "
+        "FROM sale_items si "
+        "JOIN sales s ON si.sale_id = s.id "
+        "JOIN products p ON si.product_id = p.id "
+        "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s",
+        (account_id, start_date, end_date),
+    ).fetchone()
+    cogs = float(cogs_row["cogs"] or 0)
+    gross_profit = net_revenue - cogs
+
+    expense_groups = conn.execute(
+        "SELECT COALESCE(fc.name, 'Sem categoria') AS category_name, COALESCE(SUM(e.amount), 0) AS total "
+        "FROM financial_entries e "
+        "LEFT JOIN financial_categories fc ON e.category_id = fc.id "
+        "WHERE e.account_id = %s AND e.entry_type = 'payable' AND e.status = 'pago' AND e.due_date BETWEEN %s AND %s "
+        "GROUP BY fc.name ORDER BY total DESC",
+        (account_id, start_date, end_date),
+    ).fetchall()
+
+    operational_expenses = []
+    operational_total = 0.0
+    tax_total = 0.0
+    for row in expense_groups:
+        name = row["category_name"] or "Sem categoria"
+        total = float(row["total"] or 0)
+        lowered = unicodedata.normalize("NFKD", name.lower()).encode("ascii", "ignore").decode("ascii")
+        if "impost" in lowered:
+            tax_total += total
+        else:
+            operational_expenses.append({"name": name, "total": total})
+            operational_total += total
+
+    operating_result = gross_profit - operational_total
+    net_profit = operating_result - tax_total
+
+    dre = {
+        "gross_revenue": gross_revenue,
+        "discounts": discounts,
+        "net_revenue": net_revenue,
+        "cogs": cogs,
+        "gross_profit": gross_profit,
+        "operational_expenses": operational_expenses,
+        "operational_total": operational_total,
+        "operating_result": operating_result,
+        "tax_total": tax_total,
+        "net_profit": net_profit,
+    }
+
     xml_preview = session.get("finance_xml_preview")
 
     conn.close()
@@ -2747,6 +2824,7 @@ def financeiro():
         alert_snapshot=alert_snapshot,
         xml_preview=xml_preview,
         imports_history=imports_history,
+        dre=dre,
     )
 
 
@@ -3321,6 +3399,60 @@ def relatorios():
             ).fetchall()
             report_total = sum(float(row[1] or 0) for row in report_rows)
 
+    elif section == "financeiro":
+        section_title = "Relatórios financeiros"
+        report_options = [
+            {
+                "key": "cashflow_summary",
+                "label": "Fluxo de caixa",
+                "description": "Resumo de entradas, saídas e saldo no período.",
+            },
+            {
+                "key": "dre_simplificado",
+                "label": "DRE simplificado",
+                "description": "Demonstrativo de resultado com receitas, custos e despesas.",
+            },
+        ]
+        if report == "cashflow_summary":
+            report_title = "Fluxo de caixa"
+            report_description = "Entradas e saídas do período com saldo final."
+            report_headers = ["Métrica", "Valor"]
+
+            inflow_sales = conn.execute(
+                "SELECT COALESCE(SUM(total), 0) AS total FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
+                (account_id, start_date, end_date),
+            ).fetchone()["total"]
+            inflow_receivable = conn.execute(
+                "SELECT COALESCE(SUM(amount), 0) AS total FROM financial_entries WHERE account_id = %s AND entry_type = 'receivable' AND status = 'pago' AND due_date BETWEEN %s AND %s",
+                (account_id, start_date, end_date),
+            ).fetchone()["total"]
+            outflow = conn.execute(
+                "SELECT COALESCE(SUM(amount), 0) AS total FROM financial_entries WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s",
+                (account_id, start_date, end_date),
+            ).fetchone()["total"]
+
+            total_inflow = float(inflow_sales or 0) + float(inflow_receivable or 0)
+            total_outflow = float(outflow or 0)
+            balance = total_inflow - total_outflow
+
+            report_rows = [
+                ("Entradas (vendas)", f"R$ {total_inflow:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
+                ("Saídas", f"R$ {total_outflow:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
+                ("Saldo", f"R$ {balance:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
+            ]
+        elif report == "dre_simplificado":
+            report_title = "DRE simplificado"
+            report_description = "Receita líquida, CMV, despesas e lucro no período."
+            report_headers = ["Linha", "Valor"]
+            d = relatorio_gerencial["dre"]
+            report_rows = [
+                ("Receita bruta", f"R$ {d['receitas']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
+                ("(-) CMV", f"R$ {d['cmv']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
+                ("= Lucro bruto", f"R$ {d['lucro_bruto']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
+                ("(-) Despesas operacionais", f"R$ {d['despesas']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
+                ("= Lucro operacional", f"R$ {d['lucro_operacional']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
+            ]
+
     elif section == "vendas_periodo":
         section_title = translate("sales_period_report_card")
 
@@ -3481,7 +3613,7 @@ def estoque_entrada():
                     (cost_per_unit, product_id, account_id),
                 )
             conn.commit()
-            flash("Entrada de mercadoria registrada com sucesso.", "success")
+            flash("Compra registrada com sucesso.", "success")
         products = conn.execute(
             "SELECT p.*, u.name AS unit_name FROM products p "
             "LEFT JOIN units u ON p.unit_id = u.id "
@@ -3507,7 +3639,7 @@ def estoque_entrada():
     conn.close()
     return render_template(
         "estoque_entrada.html",
-        title="Entrada de Mercadoria",
+        title="Compras",
         products=products,
         suppliers=suppliers,
         recent=recent,

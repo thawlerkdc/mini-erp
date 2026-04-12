@@ -56,9 +56,27 @@
         <label>Categoria financeira</label>
         <select name="category_id">
           <option value="">Sem categoria</option>
-          {% for cat in categories %}
-            <option value="{{ cat['id'] }}">{{ cat['name'] }} ({{ cat['kind'] }})</option>
-          {% endfor %}
+          <optgroup label="Receitas">
+            {% for cat in categories %}
+              {% if cat['kind'] == 'receivable' %}
+                <option value="{{ cat['id'] }}">{{ cat['name'] }}</option>
+              {% endif %}
+            {% endfor %}
+          </optgroup>
+          <optgroup label="Despesas">
+            {% for cat in categories %}
+              {% if cat['kind'] == 'payable' %}
+                <option value="{{ cat['id'] }}">{{ cat['name'] }}</option>
+              {% endif %}
+            {% endfor %}
+          </optgroup>
+          <optgroup label="Ambos">
+            {% for cat in categories %}
+              {% if cat['kind'] == 'both' %}
+                <option value="{{ cat['id'] }}">{{ cat['name'] }}</option>
+              {% endif %}
+            {% endfor %}
+          </optgroup>
         </select>
 
         <label>Fornecedor (opcional)</label>
@@ -269,6 +287,31 @@
           {% else %}
             <tr><td colspan="4">Sem movimentação no período selecionado.</td></tr>
           {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <h3>DRE Simplificado</h3>
+    <p>Período: {{ start_date[8:10] }}/{{ start_date[5:7] }}/{{ start_date[0:4] }} até {{ end_date[8:10] }}/{{ end_date[5:7] }}/{{ end_date[0:4] }}</p>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <tbody>
+          <tr><td><strong>RECEITA BRUTA DE VENDAS</strong></td><td><strong>R$ {{ "%.2f"|format(dre['gross_revenue'])|replace('.', ',') }}</strong></td></tr>
+          <tr><td>(-) Descontos concedidos</td><td>R$ {{ "%.2f"|format(dre['discounts'])|replace('.', ',') }}</td></tr>
+          <tr><td><strong>= RECEITA LÍQUIDA</strong></td><td><strong>R$ {{ "%.2f"|format(dre['net_revenue'])|replace('.', ',') }}</strong></td></tr>
+          <tr><td>(-) Custo das mercadorias (CMV)</td><td>R$ {{ "%.2f"|format(dre['cogs'])|replace('.', ',') }}</td></tr>
+          <tr><td><strong>= LUCRO BRUTO</strong></td><td><strong>R$ {{ "%.2f"|format(dre['gross_profit'])|replace('.', ',') }}</strong></td></tr>
+          <tr><td colspan="2"><strong>(-) Despesas operacionais</strong></td></tr>
+          {% for item in dre['operational_expenses'] %}
+            <tr><td style="padding-left: 28px;">- {{ item['name'] }}</td><td>R$ {{ "%.2f"|format(item['total'])|replace('.', ',') }}</td></tr>
+          {% else %}
+            <tr><td style="padding-left: 28px;">- Sem despesas operacionais no período</td><td>R$ 0,00</td></tr>
+          {% endfor %}
+          <tr><td><strong>= RESULTADO OPERACIONAL</strong></td><td><strong>R$ {{ "%.2f"|format(dre['operating_result'])|replace('.', ',') }}</strong></td></tr>
+          <tr><td>(-) Impostos</td><td>R$ {{ "%.2f"|format(dre['tax_total'])|replace('.', ',') }}</td></tr>
+          <tr><td><strong>= LUCRO LÍQUIDO</strong></td><td><strong>R$ {{ "%.2f"|format(dre['net_profit'])|replace('.', ',') }}</strong></td></tr>
         </tbody>
       </table>
     </div>

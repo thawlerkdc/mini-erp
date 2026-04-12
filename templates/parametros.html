@@ -20,6 +20,16 @@
           </div>
           <p class="param-hint-small">Será usada para calcular o preço de venda de novos produtos baseado no custo.</p>
         </div>
+
+        <div class="field-group" style="max-width:220px; margin-top:0.5rem">
+          <label>Percentual padrão de estoque mínimo (%)</label>
+          <div class="rate-input-wrap">
+            <input type="number" name="default_stock_min_percent" min="0" max="100" step="0.01"
+              value="{{ settings.get('default_stock_min_percent', '20') }}" class="rate-input">
+            <span class="rate-pct">%</span>
+          </div>
+          <p class="param-hint-small">Ao cadastrar produto, o estoque mínimo pode ser sugerido por este percentual do estoque inicial.</p>
+        </div>
         <h4 class="param-subtitle">Acréscimo por cartão</h4>
 
         <div class="param-check-row">

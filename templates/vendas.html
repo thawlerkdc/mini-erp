@@ -243,7 +243,12 @@
     function buildInstallmentsSelect(name, selected) {
       let html = '<select name="' + name + '" onchange="onPaymentRowChange(this)">';
       for (let i = 1; i <= 12; i++) {
-        html += '<option value="' + i + '"' + (selected === i ? ' selected' : '') + '>' + i + 'x</option>';
+        let rate = parseFloat(CARD_SETTINGS.credit_rates[String(i)]) || 0;
+        let label = i + 'x';
+        if (i > 1) {
+          label += rate > 0 ? ' (com juros)' : ' (sem juros)';
+        }
+        html += '<option value="' + i + '"' + (selected === i ? ' selected' : '') + '>' + label + '</option>';
       }
       html += '</select>';
       return html;

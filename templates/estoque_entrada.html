@@ -2,7 +2,9 @@
 
 {% block content %}
 <div class="form-card">
-  <h3>Registrar Entrada de Mercadoria</h3>
+  <h3>Registrar Compra</h3>
+  <p class="form-helper">Dica: para importar NF-e em XML e integrar com contas a pagar, use o atalho abaixo.</p>
+  <a class="outline-button small" href="{{ url_for('financeiro') }}#xml-import">Importar XML de compra</a>
 
   <form method="post" action="{{ url_for('estoque_entrada') }}">
     <div class="stock-form-grid">

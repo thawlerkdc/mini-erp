@@ -108,6 +108,11 @@
         <p>{{ t('sales_period_desc') }}</p>
         <span class="report-card-button">{{ t('view_report') }}</span>
       </a>
+      <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section='financeiro') }}" class="report-card pagamentos">
+        <h3>Relatórios Financeiros</h3>
+        <p>Fluxo de caixa e DRE simplificado para gestão do resultado.</p>
+        <span class="report-card-button">{{ t('view_report') }}</span>
+      </a>
     </div>
   {% endif %}
 
