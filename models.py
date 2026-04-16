@@ -1,3 +1,24 @@
+import logging
+import os
+
+import psycopg
+from datetime import datetime
+from pathlib import Path
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Estado da conexão
+_DB_INITIALIZED = False
+_DB_ERROR = None
+
+# ---------------------------------------------------------------------------
+# Schemas (PostgreSQL)
+# ---------------------------------------------------------------------------
+
+# ... (definição de _AUTH_STATEMENTS e _TENANT_STATEMENTS)
+
 _TENANT_STATEMENTS.append('''
 CREATE TABLE IF NOT EXISTS logs (
     id SERIAL PRIMARY KEY,
