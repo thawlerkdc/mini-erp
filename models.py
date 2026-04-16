@@ -17,33 +17,6 @@ _DB_ERROR = None
 # Schemas (PostgreSQL)
 # ---------------------------------------------------------------------------
 
-
-# ... definição de _AUTH_STATEMENTS e _TENANT_STATEMENTS ...
-
-# (restante do código)
-
-# Adiciona tabela de logs e permissões após a definição de _TENANT_STATEMENTS
-# (coloque este bloco após a definição de _TENANT_STATEMENTS, não no topo do arquivo)
-import logging
-import os
-
-import psycopg
-from datetime import datetime
-from pathlib import Path
-
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Estado da conexão
-_DB_INITIALIZED = False
-_DB_ERROR = None
-
-
-# ---------------------------------------------------------------------------
-# Schemas (PostgreSQL)
-# ---------------------------------------------------------------------------
-
 _AUTH_STATEMENTS = [
     """
     CREATE TABLE IF NOT EXISTS accounts (
@@ -287,12 +260,16 @@ _TENANT_STATEMENTS = [
         can_edit INTEGER DEFAULT 0,
         can_delete INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
-        updated_at TEXT
+        updated_at TEXT,
+        UNIQUE (account_id, user_id, module)
     )
     """,
 ]
 
 _TENANT_MIGRATIONS = [
+    "CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), user_id INTEGER REFERENCES users(id), endpoint TEXT, method TEXT, path TEXT, data TEXT, created_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS user_permissions (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), user_id INTEGER NOT NULL REFERENCES users(id), module TEXT NOT NULL, can_view INTEGER DEFAULT 1, can_edit INTEGER DEFAULT 0, can_delete INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_permissions_unique ON user_permissions (account_id, user_id, module)",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'nao_informar'",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS email TEXT",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_date TEXT",

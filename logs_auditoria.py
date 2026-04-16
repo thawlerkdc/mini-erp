@@ -9,20 +9,29 @@ auditoria_bp = Blueprint('auditoria', __name__)
 def registrar_log():
     if not session.get('user_id'):
         return
-    conn = get_db_connection()
-    account_id = session.get('account_id')
-    user_id = session.get('user_id')
-    endpoint = request.endpoint or ''
-    method = request.method
-    path = request.path
-    data = dict(request.form) if request.form else None
-    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn.execute("""
-        INSERT INTO logs (account_id, user_id, endpoint, method, path, data, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (account_id, user_id, endpoint, method, path, str(data), now))
-    conn.commit()
-    conn.close()
+    conn = None
+    try:
+        conn = get_db_connection()
+        account_id = session.get('account_id')
+        user_id = session.get('user_id')
+        endpoint = request.endpoint or ''
+        method = request.method
+        path = request.path
+        data = dict(request.form) if request.form else None
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        conn.execute(
+            """
+            INSERT INTO logs (account_id, user_id, endpoint, method, path, data, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (account_id, user_id, endpoint, method, path, str(data), now),
+        )
+        conn.commit()
+    except Exception as exc:
+        logging.exception("Falha ao registrar log de auditoria: %s", exc)
+    finally:
+        if conn:
+            conn.close()
 
 @auditoria_bp.route('/auditoria')
 def auditoria():
