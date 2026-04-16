@@ -17,37 +17,13 @@ _DB_ERROR = None
 # Schemas (PostgreSQL)
 # ---------------------------------------------------------------------------
 
-## Os comandos de append/insert devem vir após a definição de _TENANT_STATEMENTS
 
 # ... definição de _AUTH_STATEMENTS e _TENANT_STATEMENTS ...
 
-# Adiciona tabela de logs
-_TENANT_STATEMENTS.append('''
-CREATE TABLE IF NOT EXISTS logs (
-    id SERIAL PRIMARY KEY,
-    account_id INTEGER NOT NULL REFERENCES accounts(id),
-    user_id INTEGER REFERENCES users(id),
-    endpoint TEXT,
-    method TEXT,
-    path TEXT,
-    data TEXT,
-    created_at TEXT NOT NULL
-)
-''')
-# Adiciona tabela de permissões de usuário
-_TENANT_STATEMENTS.insert(1, '''
-CREATE TABLE IF NOT EXISTS user_permissions (
-    id SERIAL PRIMARY KEY,
-    account_id INTEGER NOT NULL REFERENCES accounts(id),
-    user_id INTEGER NOT NULL REFERENCES users(id),
-    module TEXT NOT NULL,
-    can_view INTEGER DEFAULT 1,
-    can_edit INTEGER DEFAULT 0,
-    can_delete INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL,
-    updated_at TEXT
-)
-''')
+# (restante do código)
+
+# Adiciona tabela de logs e permissões após a definição de _TENANT_STATEMENTS
+# (coloque este bloco após a definição de _TENANT_STATEMENTS, não no topo do arquivo)
 import logging
 import os
 
@@ -287,6 +263,31 @@ _TENANT_STATEMENTS = [
         notes TEXT,
         created_at TEXT NOT NULL,
         received_at TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS logs (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        user_id INTEGER REFERENCES users(id),
+        endpoint TEXT,
+        method TEXT,
+        path TEXT,
+        data TEXT,
+        created_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS user_permissions (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        module TEXT NOT NULL,
+        can_view INTEGER DEFAULT 1,
+        can_edit INTEGER DEFAULT 0,
+        can_delete INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT
     )
     """,
 ]
