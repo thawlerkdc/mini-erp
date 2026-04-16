@@ -1601,19 +1601,40 @@ def criar_conta_principal():
 def dashboard():
     if not session.get("user"):
         return redirect(url_for("login"))
-    
-    account_id = get_current_account_id()
-    run_daily_birthday_automation(account_id)
-    conn = get_tenant_connection()
-    _run_financial_recurring_generation(conn, account_id)
-    financial_alert_snapshot = _financial_due_alert_snapshot(conn, account_id)
-    _send_financial_due_alert_email(conn, account_id, financial_alert_snapshot)
-    _maybe_flash_financial_alerts(financial_alert_snapshot)
-    conn.commit()
-    total_clients = conn.execute("SELECT COUNT(*) FROM clients WHERE account_id = %s", (account_id,)).fetchone()[0]
-    total_products = conn.execute("SELECT COUNT(*) FROM products WHERE account_id = %s", (account_id,)).fetchone()[0]
-    total_sales = conn.execute("SELECT COUNT(*) FROM sales WHERE account_id = %s", (account_id,)).fetchone()[0]
-    conn.close()
+    total_clients = 0
+    total_products = 0
+    total_sales = 0
+    conn = None
+
+    try:
+        account_id = get_current_account_id()
+
+        try:
+            run_daily_birthday_automation(account_id)
+        except Exception as exc:
+            logger.exception("Falha em automação de aniversário: %s", exc)
+
+        conn = get_tenant_connection()
+
+        try:
+            _run_financial_recurring_generation(conn, account_id)
+            financial_alert_snapshot = _financial_due_alert_snapshot(conn, account_id)
+            _send_financial_due_alert_email(conn, account_id, financial_alert_snapshot)
+            _maybe_flash_financial_alerts(financial_alert_snapshot)
+            conn.commit()
+        except Exception as exc:
+            logger.exception("Falha em rotinas financeiras da dashboard: %s", exc)
+            conn.rollback()
+
+        total_clients = conn.execute("SELECT COUNT(*) FROM clients WHERE account_id = %s", (account_id,)).fetchone()[0]
+        total_products = conn.execute("SELECT COUNT(*) FROM products WHERE account_id = %s", (account_id,)).fetchone()[0]
+        total_sales = conn.execute("SELECT COUNT(*) FROM sales WHERE account_id = %s", (account_id,)).fetchone()[0]
+    except Exception as exc:
+        logger.exception("Falha ao carregar dashboard: %s", exc)
+        flash("Houve um problema ao carregar o painel. Exibindo dados parciais.", "error")
+    finally:
+        if conn:
+            conn.close()
     
     return render_template(
         "dashboard.html",
