@@ -8,7 +8,7 @@ MODULES = [
     'dashboard', 'vendas', 'financeiro', 'estoque', 'compras', 'relatorios', 'cadastro', 'parametros', 'usuarios'
 ]
 
-@access_bp.route('/controle_acesso', methods=['GET', 'POST'])
+@access_bp.route('/controle_acesso', methods=['GET', 'POST'], endpoint='controle_acesso')
 def controle_acesso():
     if session.get('role') != 'owner':
         flash('Acesso restrito ao administrador.', 'error')

@@ -12,7 +12,7 @@ MODULES = {
     'fornecedores': ['Nome', 'Email', 'Telefone', 'CNPJ'],
 }
 
-@import_excel_bp.route('/importar_dados', methods=['GET', 'POST'])
+@import_excel_bp.route('/importar_dados', methods=['GET', 'POST'], endpoint='importar_dados')
 def importar_dados():
     if request.method == 'POST':
         file = request.files.get('excel_file')
@@ -50,7 +50,7 @@ def importar_dados():
         return redirect(url_for('importar_dados'))
     return render_template('importar_dados.html', modules=MODULES)
 
-@import_excel_bp.route('/download_template')
+@import_excel_bp.route('/download_template', endpoint='download_template')
 def download_template():
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
