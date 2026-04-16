@@ -6,11 +6,6 @@ import os
 load_dotenv()
 
 from models import (
-    from export_report import export_bp
-    from generate_po_pdf import generate_po_pdf_bp
-    from import_excel import import_excel_bp
-    from access_control import access_bp
-    from logs_auditoria import auditoria_bp
     authenticate_user,
     create_account_with_owner,
     get_db_connection,
@@ -20,6 +15,13 @@ from models import (
     seed_admin,
     seed_all_accounts_default_data,
 )
+
+# Importação dos blueprints deve ser feita após a definição do app e models
+from export_report import export_bp
+from generate_po_pdf import generate_po_pdf_bp
+from import_excel import import_excel_bp
+from access_control import access_bp
+from logs_auditoria import auditoria_bp
 from datetime import datetime, timedelta
 from calendar import monthrange
 import re
