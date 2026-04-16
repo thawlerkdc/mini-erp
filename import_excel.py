@@ -18,12 +18,12 @@ def importar_dados():
         file = request.files.get('excel_file')
         if not file:
             flash('Selecione um arquivo Excel.', 'error')
-            return redirect(url_for('importar_dados'))
+            return redirect(url_for('.importar_dados'))
         try:
             df_dict = pd.read_excel(file, sheet_name=None)
         except Exception as e:
             flash(f'Erro ao ler o arquivo: {e}', 'error')
-            return redirect(url_for('importar_dados'))
+            return redirect(url_for('.importar_dados'))
         errors = {}
         for module, df in df_dict.items():
             expected_cols = MODULES.get(module.lower())
@@ -47,7 +47,7 @@ def importar_dados():
             return send_file(output, as_attachment=True, download_name='import_erros.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         # TODO: Inserir dados no banco se não houver erros
         flash('Importação realizada com sucesso!', 'success')
-        return redirect(url_for('importar_dados'))
+        return redirect(url_for('.importar_dados'))
     return render_template('importar_dados.html', modules=MODULES)
 
 @import_excel_bp.route('/download_template', endpoint='download_template')

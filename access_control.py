@@ -31,7 +31,7 @@ def controle_acesso():
             """, (account_id, user_id, module, can_view, can_edit, can_delete, now, now))
         conn.commit()
         flash('Permissões atualizadas!', 'success')
-        return redirect(url_for('controle_acesso'))
+        return redirect(url_for('.controle_acesso'))
     permissions = {}
     for user in users:
         perms = conn.execute("SELECT module, can_view, can_edit, can_delete FROM user_permissions WHERE account_id = %s AND user_id = %s", (account_id, user['id'])).fetchall()
