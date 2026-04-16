@@ -17,8 +17,11 @@ _DB_ERROR = None
 # Schemas (PostgreSQL)
 # ---------------------------------------------------------------------------
 
-# ... (definição de _AUTH_STATEMENTS e _TENANT_STATEMENTS)
+## Os comandos de append/insert devem vir após a definição de _TENANT_STATEMENTS
 
+# ... definição de _AUTH_STATEMENTS e _TENANT_STATEMENTS ...
+
+# Adiciona tabela de logs
 _TENANT_STATEMENTS.append('''
 CREATE TABLE IF NOT EXISTS logs (
     id SERIAL PRIMARY KEY,
@@ -31,6 +34,7 @@ CREATE TABLE IF NOT EXISTS logs (
     created_at TEXT NOT NULL
 )
 ''')
+# Adiciona tabela de permissões de usuário
 _TENANT_STATEMENTS.insert(1, '''
 CREATE TABLE IF NOT EXISTS user_permissions (
     id SERIAL PRIMARY KEY,
