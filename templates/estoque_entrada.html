@@ -265,7 +265,8 @@
           <td>{{ po['first_due_date_display'] or '—' }}</td>
           <td>{{ po['expected_date_display'] or '—' }}</td>
           <td>{{ po['status']|capitalize }}</td>
-          <td>
+          <td style="display:flex; gap:6px; align-items:center;">
+            <a href="/pedido_compra/pdf/{{ po['id'] }}" target="_blank" class="outline-button small" title="Gerar PDF"><span aria-hidden="true">📄</span> PDF</a>
             {% if po['status'] != 'recebido' %}
             <form method="post" action="{{ url_for('estoque_entrada') }}" style="display:inline">
               <input type="hidden" name="action" value="receive_purchase_order">

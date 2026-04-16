@@ -136,15 +136,46 @@
     </div>
   {% endif %}
 
-  {% if report %}
+      {% if report %}
     <div class="table-card report-result-card">
       <div class="report-result-header">
         <div>
           <h3>{{ report_title }}</h3>
           <p>{{ report_description }}</p>
         </div>
-        <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section=section) }}" class="outline-button small">{{ t('back_to_reports') }}</a>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button type="button" class="outline-button small" onclick="exportReport('excel')">Exportar Excel</button>
+          <button type="button" class="outline-button small" onclick="exportReport('pdf')">Exportar PDF</button>
+          <a href="{{ url_for('relatorios', start_date=filters.start_date, end_date=filters.end_date, section=section) }}" class="outline-button small">{{ t('back_to_reports') }}</a>
+        </div>
       </div>
+{% block scripts %}
+<script>
+function exportReport(type) {
+  const headers = Array.from(document.querySelectorAll('.report-result-card table th')).map(th => th.innerText);
+  const rows = Array.from(document.querySelectorAll('.report-result-card table tbody tr'))
+    .filter(tr => tr.querySelectorAll('td').length === headers.length)
+    .map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.innerText));
+  const title = document.querySelector('.report-result-header h3')?.innerText || 'Relatório';
+  fetch(`/export/${type}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ headers, rows, title })
+  })
+  .then(resp => resp.blob())
+  .then(blob => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/\s+/g, '_').toLowerCase()}.${type === 'excel' ? 'xlsx' : 'pdf'}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  });
+}
+</script>
+{% endblock %}
 
       {% if section == 'estoque' and report == 'stock_by_product' %}
         <div class="report-toolbar">

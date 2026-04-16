@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-card" style="max-width:1100px;margin:2rem auto;">
+  <h2>Logs e Auditoria</h2>
+  <p>Rastreabilidade de operações do sistema. Apenas administradores podem acessar.</p>
+  <div class="report-table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Usuário</th>
+          <th>Endpoint</th>
+          <th>Método</th>
+          <th>Path</th>
+          <th>Dados</th>
+          <th>Data/Hora</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log['id'] }}</td>
+          <td>{{ log['username'] or '-' }}</td>
+          <td>{{ log['endpoint'] }}</td>
+          <td>{{ log['method'] }}</td>
+          <td>{{ log['path'] }}</td>
+          <td style="max-width:320px;overflow-x:auto;font-size:0.9em">{{ log['data'] }}</td>
+          <td>{{ log['created_at'] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-card" style="max-width:600px;margin:2rem auto;">
+  <h2>Importar/Integrar Dados</h2>
+  <p>Faça upload do arquivo Excel preenchido conforme o template. Cada aba representa um módulo (clientes, produtos, fornecedores, etc).</p>
+  <a href="{{ url_for('download_template') }}" class="outline-button" style="margin-bottom:18px;">Baixar template Excel</a>
+  <form method="post" enctype="multipart/form-data">
+    <label>Arquivo Excel (.xlsx):</label>
+    <input type="file" name="excel_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+    <button type="submit" class="btn-confirm" style="margin-top:1rem">Importar Dados</button>
+  </form>
+  <div style="margin-top:1.5rem">
+    <h4>Módulos disponíveis:</h4>
+    <ul>
+      {% for module, cols in modules.items() %}
+      <li><strong>{{ module|capitalize }}</strong>: {{ cols|join(', ') }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

@@ -1,3 +1,28 @@
+_TENANT_STATEMENTS.append('''
+CREATE TABLE IF NOT EXISTS logs (
+    id SERIAL PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id),
+    user_id INTEGER REFERENCES users(id),
+    endpoint TEXT,
+    method TEXT,
+    path TEXT,
+    data TEXT,
+    created_at TEXT NOT NULL
+)
+''')
+_TENANT_STATEMENTS.insert(1, '''
+CREATE TABLE IF NOT EXISTS user_permissions (
+    id SERIAL PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    module TEXT NOT NULL,
+    can_view INTEGER DEFAULT 1,
+    can_edit INTEGER DEFAULT 0,
+    can_delete INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+)
+''')
 import logging
 import os
 

@@ -6,6 +6,11 @@ import os
 load_dotenv()
 
 from models import (
+    from export_report import export_bp
+    from generate_po_pdf import generate_po_pdf_bp
+    from import_excel import import_excel_bp
+    from access_control import access_bp
+    from logs_auditoria import auditoria_bp
     authenticate_user,
     create_account_with_owner,
     get_db_connection,
@@ -28,8 +33,14 @@ from email.message import EmailMessage
 
 logger = logging.getLogger(__name__)
 
+
 app = Flask(__name__)
 app.secret_key = "kdc_systems_secret_key"
+app.register_blueprint(export_bp)
+app.register_blueprint(generate_po_pdf_bp)
+app.register_blueprint(import_excel_bp)
+app.register_blueprint(access_bp)
+app.register_blueprint(auditoria_bp)
 
 LANGUAGES = {
     "pt": "Português",
