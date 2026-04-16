@@ -1,7 +1,6 @@
 import io
 import pandas as pd
-from flask import Blueprint, request, send_file, session
-from app import app
+from flask import Blueprint, request, send_file
 from datetime import datetime
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
@@ -50,4 +49,3 @@ def export_pdf():
     filename = f"relatorio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     return send_file(output, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
-app.register_blueprint(export_bp)

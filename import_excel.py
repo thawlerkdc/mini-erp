@@ -1,7 +1,6 @@
 import io
 import pandas as pd
 from flask import Blueprint, request, render_template, send_file, flash, redirect, url_for, session
-from app import app
 from models import get_db_connection
 from datetime import datetime
 
@@ -13,7 +12,7 @@ MODULES = {
     'fornecedores': ['Nome', 'Email', 'Telefone', 'CNPJ'],
 }
 
-@app.route('/importar_dados', methods=['GET', 'POST'])
+@import_excel_bp.route('/importar_dados', methods=['GET', 'POST'])
 def importar_dados():
     if request.method == 'POST':
         file = request.files.get('excel_file')
@@ -51,7 +50,7 @@ def importar_dados():
         return redirect(url_for('importar_dados'))
     return render_template('importar_dados.html', modules=MODULES)
 
-@app.route('/download_template')
+@import_excel_bp.route('/download_template')
 def download_template():
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -61,4 +60,3 @@ def download_template():
     output.seek(0)
     return send_file(output, as_attachment=True, download_name='template_importacao.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-app.register_blueprint(import_excel_bp)

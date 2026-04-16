@@ -1,5 +1,4 @@
 from flask import Blueprint, request, render_template, redirect, url_for, session, flash
-from app import app
 from models import get_db_connection
 from datetime import datetime
 
@@ -9,7 +8,7 @@ MODULES = [
     'dashboard', 'vendas', 'financeiro', 'estoque', 'compras', 'relatorios', 'cadastro', 'parametros', 'usuarios'
 ]
 
-@app.route('/controle_acesso', methods=['GET', 'POST'])
+@access_bp.route('/controle_acesso', methods=['GET', 'POST'])
 def controle_acesso():
     if session.get('role') != 'owner':
         flash('Acesso restrito ao administrador.', 'error')
@@ -40,4 +39,3 @@ def controle_acesso():
     conn.close()
     return render_template('controle_acesso.html', users=users, modules=MODULES, permissions=permissions)
 
-app.register_blueprint(access_bp)

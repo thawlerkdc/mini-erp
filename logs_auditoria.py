@@ -1,12 +1,11 @@
 import logging
 from flask import Blueprint, request, render_template, session
-from app import app
 from models import get_db_connection
 from datetime import datetime
 
 auditoria_bp = Blueprint('auditoria', __name__)
 
-@app.before_request
+@auditoria_bp.before_app_request
 def registrar_log():
     if not session.get('user_id'):
         return
@@ -25,7 +24,7 @@ def registrar_log():
     conn.commit()
     conn.close()
 
-@app.route('/auditoria')
+@auditoria_bp.route('/auditoria')
 def auditoria():
     if session.get('role') != 'owner':
         return 'Acesso restrito', 403
@@ -34,4 +33,3 @@ def auditoria():
     conn.close()
     return render_template('auditoria.html', logs=logs)
 
-app.register_blueprint(auditoria_bp)

@@ -1,6 +1,5 @@
 import io
 from flask import Blueprint, request, send_file, session
-from app import app
 from models import get_db_connection
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -76,4 +75,3 @@ def pedido_compra_pdf(po_id):
     filename = f"pedido_compra_{po['id']}.pdf"
     return send_file(output, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
-app.register_blueprint(generate_po_pdf_bp)
