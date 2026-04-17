@@ -3010,22 +3010,27 @@ def financeiro():
     xml_preview = session.get("finance_xml_preview")
 
     conn.close()
-    return render_template(
-        "financeiro.html",
-        title=translate("menu_finance"),
-        entries=entries,
-        categories=categories,
-        suppliers=suppliers,
-        clients=clients,
-        summary=summary,
-        start_date=start_date,
-        end_date=end_date,
-        cashflow_rows=cashflow_rows,
-        alert_snapshot=alert_snapshot,
-        xml_preview=xml_preview,
-        imports_history=imports_history,
-        dre=dre,
-    )
+    finance_context = {
+        "title": translate("menu_finance"),
+        "entries": entries,
+        "categories": categories,
+        "suppliers": suppliers,
+        "clients": clients,
+        "summary": summary,
+        "start_date": start_date,
+        "end_date": end_date,
+        "cashflow_rows": cashflow_rows,
+        "alert_snapshot": alert_snapshot,
+        "xml_preview": xml_preview,
+        "imports_history": imports_history,
+        "dre": dre,
+    }
+    try:
+        return render_template("financeiro.html", **finance_context)
+    except Exception as exc:
+        logger.exception("Falha ao renderizar template financeiro: %s", exc)
+        flash("A tela de financeiro teve uma falha de visualização. Exibindo modo seguro.", "error")
+        return render_template("placeholder.html", title=translate("menu_finance"))
 
 
 @app.route("/relatorios")
