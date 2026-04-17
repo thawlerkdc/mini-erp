@@ -3018,40 +3018,21 @@ def relatorios():
             dt_end = datetime.strptime(end_date, "%Y-%m-%d")
             if dt_end < dt_start:
                 flash("A data final não pode ser menor que a data inicial.", "error")
-                # Opcional: Redireciona para a página de relatórios sem executar consulta
-                return render_template(
-                    "relatorios.html",
-                    sales=[],
-                    top_customers=[],
-                    profit_top=[],
-                    payment_totals=[],
-                    highest_stock=None,
-                    lowest_stock=None,
-                    near_min_stock=[],
-                    sales_kpi=None,
-                    ticket_medio=0.0,
-                    relatorio_gerencial={},
-                    report_options=[],
-                    report_title=None,
-                    report_description=None,
-                    report_headers=[],
-                    report_rows=[],
-                    section_title=None,
-                    report_total=None,
-                    report_row_classes=[],
-                    product_gender_overall=None,
-                    stock_categories=[],
-                    selected_stock_category=None,
-                    selected_stock_order=None,
-                    selected_min_order=None,
-                    client_top_rows=[],
-                    selected_client_name=None,
-                    client_purchase_rows=[],
-                )
-            sales_conditions.append("s.date BETWEEN %s AND %s")
-            sales_params.extend([f"{start_date} 00:00:00", f"{end_date} 23:59:59"])
+                now = datetime.now()
+                first_day = now.replace(day=1)
+                last_day = now.replace(day=monthrange(now.year, now.month)[1])
+                start_date = first_day.strftime("%Y-%m-%d")
+                end_date = last_day.strftime("%Y-%m-%d")
         except ValueError:
             flash(translate("error_invalid_date"), "error")
+            now = datetime.now()
+            first_day = now.replace(day=1)
+            last_day = now.replace(day=monthrange(now.year, now.month)[1])
+            start_date = first_day.strftime("%Y-%m-%d")
+            end_date = last_day.strftime("%Y-%m-%d")
+
+        sales_conditions.append("s.date BETWEEN %s AND %s")
+        sales_params.extend([f"{start_date} 00:00:00", f"{end_date} 23:59:59"])
 
     sales_where = " WHERE " + " AND ".join(sales_conditions)
 
