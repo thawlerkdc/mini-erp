@@ -4,6 +4,55 @@
 <div class="form-card" style="max-width:1100px;margin:2rem auto;">
   <h2>Logs e Auditoria</h2>
   <p>Rastreabilidade de operações do sistema. Apenas administradores podem acessar.</p>
+
+  <form method="get" class="toolbar-group" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px;align-items:end;">
+    <div>
+      <label>Data inicial</label>
+      <input type="date" name="start_date" value="{{ filters.start_date if filters else '' }}">
+    </div>
+    <div>
+      <label>Data final</label>
+      <input type="date" name="end_date" value="{{ filters.end_date if filters else '' }}">
+    </div>
+    <div>
+      <label>Usuário</label>
+      <select name="user_id">
+        <option value="">Todos</option>
+        {% for u in users %}
+          <option value="{{ u['id'] }}" {% if filters and filters.user_id == (u['id']|string) %}selected{% endif %}>{{ u['username'] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Método</label>
+      <select name="method">
+        <option value="">Todos</option>
+        {% for m in ['GET','POST','PUT','PATCH','DELETE'] %}
+          <option value="{{ m }}" {% if filters and filters.method == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Tipo de evento</label>
+      <select name="event_type">
+        <option value="">Todos</option>
+        <option value="access_denied" {% if filters and filters.event_type == 'access_denied' %}selected{% endif %}>Acesso negado</option>
+      </select>
+    </div>
+    <div>
+      <label>Endpoint contém</label>
+      <input type="text" name="endpoint" value="{{ filters.endpoint if filters else '' }}" placeholder="Ex.: financeiro">
+    </div>
+    <div>
+      <label>Path contém</label>
+      <input type="text" name="path" value="{{ filters.path if filters else '' }}" placeholder="Ex.: /dashboard">
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button type="submit" class="btn-confirm">Filtrar</button>
+      <a href="{{ url_for('auditoria.auditoria') }}" class="outline-button">Limpar</a>
+    </div>
+  </form>
+
   <div class="report-table-wrap">
     <table class="report-table">
       <thead>
@@ -25,8 +74,12 @@
           <td>{{ log['endpoint'] }}</td>
           <td>{{ log['method'] }}</td>
           <td>{{ log['path'] }}</td>
-          <td style="max-width:320px;overflow-x:auto;font-size:0.9em">{{ log['data'] }}</td>
+          <td style="max-width:360px;overflow-x:auto;font-size:0.88em;white-space:pre-wrap;word-break:break-word;">{{ log['data'] }}</td>
           <td>{{ log['created_at'] }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7">Nenhum log encontrado para os filtros selecionados.</td>
         </tr>
         {% endfor %}
       </tbody>

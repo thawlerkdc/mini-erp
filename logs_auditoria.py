@@ -75,8 +75,67 @@ def registrar_log():
 def auditoria():
     if session.get('role') != 'owner':
         return 'Acesso restrito', 403
+
+    account_id = session.get('account_id')
+    start_date = (request.args.get('start_date') or '').strip()
+    end_date = (request.args.get('end_date') or '').strip()
+    user_id = (request.args.get('user_id') or '').strip()
+    method = (request.args.get('method') or '').strip().upper()
+    endpoint_q = (request.args.get('endpoint') or '').strip()
+    path_q = (request.args.get('path') or '').strip()
+    event_type = (request.args.get('event_type') or '').strip()
+
+    where = ["l.account_id = %s"]
+    params = [account_id]
+
+    if start_date:
+        where.append("SUBSTRING(l.created_at, 1, 10) >= %s")
+        params.append(start_date)
+    if end_date:
+        where.append("SUBSTRING(l.created_at, 1, 10) <= %s")
+        params.append(end_date)
+    if user_id:
+        where.append("CAST(l.user_id AS TEXT) = %s")
+        params.append(user_id)
+    if method:
+        where.append("UPPER(COALESCE(l.method, '')) = %s")
+        params.append(method)
+    if endpoint_q:
+        where.append("LOWER(COALESCE(l.endpoint, '')) LIKE %s")
+        params.append(f"%{endpoint_q.lower()}%")
+    if path_q:
+        where.append("LOWER(COALESCE(l.path, '')) LIKE %s")
+        params.append(f"%{path_q.lower()}%")
+    if event_type:
+        where.append("LOWER(COALESCE(l.data, '')) LIKE %s")
+        params.append(f'%"audit_event": "{event_type.lower()}"%')
+
     conn = get_db_connection()
-    logs = conn.execute("SELECT l.*, u.username FROM logs l LEFT JOIN users u ON l.user_id = u.id ORDER BY l.id DESC LIMIT 200").fetchall()
+    users = conn.execute(
+        "SELECT id, username FROM users WHERE account_id = %s ORDER BY username",
+        (account_id,),
+    ).fetchall()
+
+    logs = conn.execute(
+        "SELECT l.*, u.username FROM logs l "
+        "LEFT JOIN users u ON l.user_id = u.id "
+        "WHERE " + " AND ".join(where) + " "
+        "ORDER BY l.id DESC LIMIT 500",
+        tuple(params),
+    ).fetchall()
     conn.close()
-    return render_template('auditoria.html', logs=logs)
+    return render_template(
+        'auditoria.html',
+        logs=logs,
+        users=users,
+        filters={
+            'start_date': start_date,
+            'end_date': end_date,
+            'user_id': user_id,
+            'method': method,
+            'endpoint': endpoint_q,
+            'path': path_q,
+            'event_type': event_type,
+        },
+    )
 
