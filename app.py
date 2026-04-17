@@ -775,10 +775,13 @@ def normalize_date_for_input(value):
 
 @app.context_processor
 def inject_translations():
+    permissions = get_current_user_permissions() if session.get("user") else {}
     return {
         "t": lambda key: translate(key),
         "languages": LANGUAGES,
         "current_language": session.get("lang", DEFAULT_LANG),
+        "current_permissions": permissions,
+        "can_access": lambda module_key: user_can_view_module(module_key),
     }
 
 
@@ -840,6 +843,62 @@ def get_current_user_role():
     return session.get("role")
 
 
+def get_current_user_permissions():
+    if not session.get("user_id") or not session.get("account_id"):
+        return {}
+    if get_current_user_role() == "owner":
+        return {"__owner__": True}
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        rows = conn.execute(
+            "SELECT module, can_view, can_edit, can_delete FROM user_permissions WHERE account_id = %s AND user_id = %s",
+            (session.get("account_id"), session.get("user_id")),
+        ).fetchall()
+        return {
+            row["module"]: {
+                "can_view": bool(row["can_view"]),
+                "can_edit": bool(row["can_edit"]),
+                "can_delete": bool(row["can_delete"]),
+            }
+            for row in rows
+        }
+    except Exception as exc:
+        logger.exception("Falha ao carregar permissões do usuário atual: %s", exc)
+        return {}
+    finally:
+        if conn:
+            conn.close()
+
+
+def user_can_view_module(module_key):
+    if get_current_user_role() == "owner":
+        return True
+    permissions = get_current_user_permissions()
+    module_permissions = permissions.get(module_key) or {}
+    return bool(module_permissions.get("can_view"))
+
+
+def get_default_route_for_current_user():
+    if get_current_user_role() == "owner":
+        return url_for("dashboard")
+
+    route_by_module = [
+        ("dashboard", lambda: url_for("dashboard")),
+        ("vendas", lambda: url_for("vendas")),
+        ("financeiro", lambda: url_for("financeiro")),
+        ("estoque", lambda: url_for("controle_estoque")),
+        ("compras", lambda: url_for("estoque_entrada")),
+        ("relatorios", lambda: url_for("relatorios")),
+        ("cadastro", lambda: url_for("cadastro", entity="clientes")),
+    ]
+    for module_key, route_getter in route_by_module:
+        if user_can_view_module(module_key):
+            return route_getter()
+    return url_for("logout")
+
+
 def get_tenant_connection(account_id=None):
     return get_db_connection()
 
@@ -849,6 +908,45 @@ def require_owner_access():
         flash("Somente o usuário principal pode gerenciar usuários desta conta.", "error")
         return False
     return True
+
+
+ENDPOINT_MODULE_MAP = {
+    "dashboard": "dashboard",
+    "vendas": "vendas",
+    "financeiro": "financeiro",
+    "relatorios": "relatorios",
+    "controle_estoque": "estoque",
+    "estoque_ajuste": "estoque",
+    "estoque_entrada": "compras",
+    "cadastro": "cadastro",
+    "parametros": "parametros",
+    "import_excel.importar_dados": "cadastro",
+    "access.controle_acesso": "usuarios",
+    "auditoria.auditoria": "auditoria",
+}
+
+
+@app.before_request
+def enforce_module_permissions():
+    if not session.get("user"):
+        return None
+    if get_current_user_role() == "owner":
+        return None
+
+    endpoint = request.endpoint or ""
+    if endpoint.startswith("static"):
+        return None
+    if endpoint in {"login", "logout", "set_language", "forgot_password", "criar_conta_principal"}:
+        return None
+
+    module_key = ENDPOINT_MODULE_MAP.get(endpoint)
+    if not module_key:
+        return None
+
+    if not user_can_view_module(module_key):
+        flash("Você não tem permissão para acessar este menu.", "error")
+        return redirect(get_default_route_for_current_user())
+    return None
 
 
 SETTINGS_DEFAULTS = {
@@ -1549,13 +1647,14 @@ def get_primary_notification_recipients(account_id):
 def set_language(lang_code):
     if lang_code in LANGUAGES:
         session["lang"] = lang_code
-    return redirect(request.referrer or url_for("dashboard"))
+    fallback = get_default_route_for_current_user() if session.get("user") else url_for("dashboard")
+    return redirect(request.referrer or fallback)
 
 
 @app.route("/", methods=["GET", "POST"])
 def login():
     if session.get("user"):
-        return redirect(url_for("dashboard"))
+        return redirect(get_default_route_for_current_user())
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
@@ -1567,7 +1666,7 @@ def login():
             session["account_id"] = user["account_id"]
             session["account_name"] = user["account_name"]
             session["role"] = user["role"]
-            return redirect(url_for("dashboard"))
+            return redirect(get_default_route_for_current_user())
         flash(translate("invalid_login"), "error")
     return render_template("login.html", title=translate("login_title"), hide_page_title=True)
 
