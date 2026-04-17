@@ -2517,14 +2517,25 @@ def financeiro():
         return redirect(url_for("login"))
 
     account_id = get_current_account_id()
-    conn = get_tenant_connection()
+    if not account_id:
+        session.clear()
+        flash("Sessão inválida. Faça login novamente.", "error")
+        return redirect(url_for("login"))
+
+    try:
+        conn = get_tenant_connection()
+    except Exception as exc:
+        logger.exception("Falha ao conectar no banco para abrir financeiro: %s", exc)
+        flash("Não foi possível conectar ao banco para carregar o financeiro.", "error")
+        return render_template("placeholder.html", title=translate("menu_finance"))
     generated_recurring = 0
     alert_snapshot = None
     try:
         _ensure_default_financial_categories(conn, account_id)
         generated_recurring = _run_financial_recurring_generation(conn, account_id)
         alert_snapshot = _financial_due_alert_snapshot(conn, account_id)
-        _send_financial_due_alert_email(conn, account_id, alert_snapshot)
+        # Evita dependência externa (SMTP) durante navegação do usuário no menu.
+        # O envio de alerta por e-mail deve ocorrer em rotina assíncrona/scheduler.
         conn.commit()
         if generated_recurring > 0:
             flash(f"Recorrência: {generated_recurring} novo(s) título(s) gerado(s) automaticamente.", "success")
