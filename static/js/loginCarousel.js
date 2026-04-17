@@ -1,71 +1,134 @@
-// Carrossel de imagens para tela de login
-// Requer um elemento com id="login-rotary-stage" e um array de imagens
+function initLoginRotaryCarousel(config) {
+  const stage = config && config.stage;
+  const dotsWrap = config && config.dots;
+  const items = (config && config.items) || [];
+  const holdMs = Math.max(4000, Math.min(5000, Number((config && config.holdMs) || 4500)));
+  const transitionMs = Math.max(500, Number((config && config.transitionMs) || 760));
 
-(function() {
-  const images = [
-    '/static/img/previews/login1.jpg',
-    '/static/img/previews/login2.jpg',
-    '/static/img/previews/login3.jpg'
-    // Adicione mais imagens conforme necessário
-  ];
-  const stage = document.getElementById('login-rotary-stage');
-  const dots = document.getElementById('login-rotary-dots');
-  if (!stage || !dots) return;
+  if (!stage || !dotsWrap || items.length < 3) {
+    return null;
+  }
 
   let current = 0;
   let timer = null;
+  let isAnimating = false;
+  const track = document.createElement('div');
+  track.className = 'login-rotary-track';
+  stage.innerHTML = '';
+  stage.appendChild(track);
 
-  // Cria slides
-  stage.innerHTML = images.map((src, idx) =>
-    `<div class="login-slide" style="background-image:url('${src}'); left:${idx*100}%"></div>`
-  ).join('');
-  dots.innerHTML = images.map((_, idx) =>
-    `<span class="login-dot${idx===0?' active':''}" data-idx="${idx}"></span>`
-  ).join('');
+  const dots = items.map(function(_, index) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Ir para imagem ' + (index + 1));
+    button.addEventListener('click', function() {
+      if (isAnimating) return;
+      current = index;
+      renderWindow();
+      updateDots();
+      restart();
+    });
+    dotsWrap.appendChild(button);
+    return button;
+  });
 
-  function goTo(idx) {
-    const slides = stage.querySelectorAll('.login-slide');
-    slides.forEach((slide, i) => {
-      slide.style.transition = 'left 0.7s cubic-bezier(.77,0,.18,1)';
-      slide.style.left = ((i-idx)*100)+"%";
-    });
-    dots.querySelectorAll('.login-dot').forEach((dot, i) => {
-      dot.classList.toggle('active', i === idx);
-    });
-    current = idx;
+  function modulo(index) {
+    return (index + items.length) % items.length;
   }
 
-  function next() {
-    goTo((current+1)%images.length);
+  function buildCard(item, positionClass) {
+    const card = document.createElement('figure');
+    card.className = 'login-rotary-card ' + positionClass;
+
+    const image = document.createElement('img');
+    image.src = item.src;
+    image.alt = item.cap;
+    image.loading = 'lazy';
+
+    const caption = document.createElement('figcaption');
+    caption.textContent = item.cap;
+
+    card.appendChild(image);
+    card.appendChild(caption);
+    return card;
   }
 
-  // Timer
+  function renderWindow() {
+    const left = modulo(current - 1);
+    const center = modulo(current);
+    const right = modulo(current + 1);
+    const trailing = modulo(current + 2);
+
+    track.replaceChildren(
+      buildCard(items[left], 'pos-left'),
+      buildCard(items[center], 'pos-center'),
+      buildCard(items[right], 'pos-right'),
+      buildCard(items[trailing], 'pos-trailing')
+    );
+
+    track.style.transition = 'none';
+    track.style.transform = 'translate3d(0, 0, 0)';
+  }
+
+  function updateDots() {
+    dots.forEach(function(dot, index) {
+      dot.classList.toggle('is-active', index === current);
+    });
+  }
+
+  function goNext() {
+    if (isAnimating) return;
+    isAnimating = true;
+    track.style.transition = 'transform ' + transitionMs + 'ms ease-in-out';
+    track.style.transform = 'translate3d(-25%, 0, 0)';
+  }
+
+  track.addEventListener('transitionend', function() {
+    if (!isAnimating) return;
+    current = modulo(current + 1);
+    renderWindow();
+    updateDots();
+    isAnimating = false;
+  });
+
   function start() {
-    timer = setInterval(next, 4500);
-  }
-  function stop() {
-    clearInterval(timer);
+    timer = window.setInterval(goNext, holdMs);
   }
 
-  // Dot click
-  dots.addEventListener('click', function(e) {
-    if (e.target.classList.contains('login-dot')) {
+  function stop() {
+    if (timer) {
+      window.clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  function restart() {
+    stop();
+    start();
+  }
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
       stop();
-      goTo(Number(e.target.dataset.idx));
-      start();
+    } else {
+      restart();
     }
   });
 
-  // Responsivo: ajusta altura
-  function adjustHeight() {
-    const slide = stage.querySelector('.login-slide');
-    if (slide) {
-      stage.style.height = (slide.offsetWidth * 0.6) + 'px';
-    }
-  }
-  window.addEventListener('resize', adjustHeight);
-
-  goTo(0);
+  renderWindow();
+  updateDots();
   start();
-  setTimeout(adjustHeight, 100);
-})();
+
+  return {
+    next: goNext,
+    stop: stop,
+    start: start,
+    goTo: function(index) {
+      if (isAnimating) return;
+      current = modulo(index);
+      renderWindow();
+      updateDots();
+      restart();
+    }
+  };
+}

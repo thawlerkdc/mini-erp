@@ -45,6 +45,20 @@
   background: #fdeaea !important;
   transition: border 0.3s, background 0.3s;
 }
+
+.readonly-access-note {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.form-card fieldset[disabled] {
+  opacity: 0.78;
+}
 * {
   box-sizing: border-box;
 }
@@ -2512,6 +2526,22 @@ body {
 .access-permission-table td {
   text-align: center;
   vertical-align: middle;
+}
+
+.access-select-all-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.access-select-all-label input {
+  width: 14px;
+  height: 14px;
 }
 
 .access-permission-table .module-name {

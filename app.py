@@ -782,6 +782,8 @@ def inject_translations():
         "current_language": session.get("lang", DEFAULT_LANG),
         "current_permissions": permissions,
         "can_access": lambda module_key: user_can_view_module(module_key),
+        "can_edit": lambda module_key: user_can_edit_module(module_key),
+        "can_delete": lambda module_key: user_can_delete_module(module_key),
     }
 
 
@@ -892,6 +894,26 @@ def user_can_view_module(module_key):
     return bool(module_permissions.get("can_view"))
 
 
+def user_can_edit_module(module_key):
+    if get_current_user_role() == "owner":
+        return True
+    permissions = get_current_user_permissions()
+    if permissions.get("__legacy_full_access__"):
+        return True
+    module_permissions = permissions.get(module_key) or {}
+    return bool(module_permissions.get("can_edit"))
+
+
+def user_can_delete_module(module_key):
+    if get_current_user_role() == "owner":
+        return True
+    permissions = get_current_user_permissions()
+    if permissions.get("__legacy_full_access__"):
+        return True
+    module_permissions = permissions.get(module_key) or {}
+    return bool(module_permissions.get("can_delete"))
+
+
 def get_default_route_for_current_user():
     if get_current_user_role() == "owner":
         return url_for("dashboard")
@@ -943,6 +965,26 @@ ENDPOINT_MODULE_MAP = {
 }
 
 
+def _resolve_module_for_request(endpoint_name):
+    module_key = ENDPOINT_MODULE_MAP.get(endpoint_name)
+    if endpoint_name == "cadastro":
+        entity = ((request.view_args or {}).get("entity") or "").lower()
+        if entity == "usuarios":
+            module_key = "usuarios"
+    return module_key
+
+
+def _request_attempts_delete():
+    if request.method == "DELETE":
+        return True
+    if request.form.get("delete_id"):
+        return True
+    action = (request.form.get("action") or "").strip().lower()
+    if action in {"delete", "delete_entry", "delete_category", "remove", "remove_item", "excluir"}:
+        return True
+    return False
+
+
 @app.before_request
 def enforce_module_permissions():
     if not session.get("user"):
@@ -956,11 +998,7 @@ def enforce_module_permissions():
     if endpoint in {"login", "logout", "set_language", "forgot_password", "criar_conta_principal"}:
         return None
 
-    module_key = ENDPOINT_MODULE_MAP.get(endpoint)
-    if endpoint == "cadastro":
-        entity = ((request.view_args or {}).get("entity") or "").lower()
-        if entity == "usuarios":
-            module_key = "usuarios"
+    module_key = _resolve_module_for_request(endpoint)
     if not module_key:
         return None
 
@@ -975,6 +1013,38 @@ def enforce_module_permissions():
         )
         flash("Você não tem permissão para acessar este menu.", "error")
         return redirect(get_default_route_for_current_user())
+
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not user_can_edit_module(module_key):
+        log_audit_event(
+            "write_denied",
+            {
+                "module": module_key,
+                "endpoint": endpoint,
+                "reason": "missing_can_edit_permission",
+                "method": request.method,
+            },
+        )
+        flash(
+            "Dados disponíveis somente para consulta. Em caso de necessidade de acesso, consulte o administrador da conta.",
+            "error",
+        )
+        return redirect(request.referrer or get_default_route_for_current_user())
+
+    if _request_attempts_delete() and not user_can_delete_module(module_key):
+        log_audit_event(
+            "delete_denied",
+            {
+                "module": module_key,
+                "endpoint": endpoint,
+                "reason": "missing_can_delete_permission",
+                "method": request.method,
+            },
+        )
+        flash(
+            "Você não possui permissão para remover dados neste módulo. Consulte o administrador da conta.",
+            "error",
+        )
+        return redirect(request.referrer or get_default_route_for_current_user())
     return None
 
 
@@ -1832,7 +1902,14 @@ def parametros():
         return redirect(url_for("dashboard"))
 
     account_id = get_current_account_id()
+    read_only = not user_can_edit_module("parametros")
     if request.method == "POST":
+        if read_only:
+            flash(
+                "Dados disponíveis somente para consulta. Em caso de necessidade de acesso, consulte o administrador da conta.",
+                "error",
+            )
+            return redirect(url_for("parametros"))
         if request.form.get("action") == "test_smtp":
             test_email = (request.form.get("test_email") or "").strip()
             recipients = [test_email] if test_email else get_primary_notification_recipients(account_id)
@@ -1856,7 +1933,7 @@ def parametros():
         return redirect(url_for("parametros"))
 
     settings = get_account_settings(account_id)
-    return render_template("parametros.html", title="Parâmetros", settings=settings)
+    return render_template("parametros.html", title="Parâmetros", settings=settings, read_only=read_only)
 
 
 @app.route("/cadastro/<entity>", methods=["GET", "POST"])

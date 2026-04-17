@@ -2,7 +2,14 @@
 
 {% block content %}
   <div class="form-card">
+    {% if read_only %}
+      <div class="readonly-access-note">
+        Dados disponíveis somente para consulta. Em caso de necessidade de acesso, consulte o administrador da conta.
+      </div>
+    {% endif %}
+
     <form method="post" action="{{ url_for('parametros') }}">
+      <fieldset {% if read_only %}disabled{% endif %}>
       <section class="param-section">
         <h3>Precificação e estoque</h3>
 
@@ -175,7 +182,8 @@
         </details>
       </section>
 
-      <button type="submit" class="btn-add">Salvar parametros</button>
+      <button type="submit" class="btn-add" {% if read_only %}disabled title="Somente consulta"{% endif %}>Salvar parametros</button>
+      </fieldset>
     </form>
 
     <hr>
@@ -184,8 +192,8 @@
     <form method="post" action="{{ url_for('parametros') }}">
       <input type="hidden" name="action" value="test_smtp">
       <label>E-mail para teste (opcional)</label>
-      <input type="email" name="test_email" placeholder="Se vazio, usa e-mail de destino principal">
-      <button type="submit" class="btn-add">Enviar e-mail de teste</button>
+      <input type="email" name="test_email" placeholder="Se vazio, usa e-mail de destino principal" {% if read_only %}disabled{% endif %}>
+      <button type="submit" class="btn-add" {% if read_only %}disabled title="Somente consulta"{% endif %}>Enviar e-mail de teste</button>
     </form>
   </div>
 

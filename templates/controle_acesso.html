@@ -29,9 +29,27 @@
           <thead>
             <tr>
               <th>Módulo</th>
-              <th>Ver</th>
-              <th>Editar</th>
-              <th>Excluir</th>
+              <th>
+                Ver
+                <label class="access-select-all-label">
+                  <input type="checkbox" data-select-all="view">
+                  <span>Marcar todos</span>
+                </label>
+              </th>
+              <th>
+                Editar
+                <label class="access-select-all-label">
+                  <input type="checkbox" data-select-all="edit">
+                  <span>Marcar todos</span>
+                </label>
+              </th>
+              <th>
+                Excluir
+                <label class="access-select-all-label">
+                  <input type="checkbox" data-select-all="delete">
+                  <span>Marcar todos</span>
+                </label>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -39,9 +57,9 @@
               {% set perm = selected_permissions[module['key']] if selected_permissions[module['key']] is defined else None %}
               <tr>
                 <td class="module-name">{{ module['label'] }}</td>
-                <td><input type="checkbox" name="{{ module['key'] }}_view" value="1" {% if perm and perm['can_view'] %}checked{% endif %}></td>
-                <td><input type="checkbox" name="{{ module['key'] }}_edit" value="1" {% if perm and perm['can_edit'] %}checked{% endif %}></td>
-                <td><input type="checkbox" name="{{ module['key'] }}_delete" value="1" {% if perm and perm['can_delete'] %}checked{% endif %}></td>
+                <td><input type="checkbox" data-col="view" name="{{ module['key'] }}_view" value="1" {% if perm and perm['can_view'] %}checked{% endif %}></td>
+                <td><input type="checkbox" data-col="edit" name="{{ module['key'] }}_edit" value="1" {% if perm and perm['can_edit'] %}checked{% endif %}></td>
+                <td><input type="checkbox" data-col="delete" name="{{ module['key'] }}_delete" value="1" {% if perm and perm['can_delete'] %}checked{% endif %}></td>
               </tr>
             {% endfor %}
           </tbody>
@@ -52,4 +70,45 @@
     </form>
   {% endif %}
 </div>
+
+<script>
+  (function() {
+    const table = document.querySelector('.access-permission-table');
+    if (!table) return;
+
+    function getColumnBoxes(col) {
+      return table.querySelectorAll('tbody input[type="checkbox"][data-col="' + col + '"]');
+    }
+
+    function syncHeader(col) {
+      const headerToggle = table.querySelector('thead input[data-select-all="' + col + '"]');
+      const boxes = getColumnBoxes(col);
+      if (!headerToggle || !boxes.length) return;
+      const checkedCount = Array.from(boxes).filter(function(box) { return box.checked; }).length;
+      headerToggle.checked = checkedCount === boxes.length;
+      headerToggle.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+    }
+
+    ['view', 'edit', 'delete'].forEach(function(col) {
+      const headerToggle = table.querySelector('thead input[data-select-all="' + col + '"]');
+      const boxes = getColumnBoxes(col);
+      if (!headerToggle || !boxes.length) return;
+
+      headerToggle.addEventListener('change', function() {
+        boxes.forEach(function(box) {
+          box.checked = headerToggle.checked;
+        });
+        headerToggle.indeterminate = false;
+      });
+
+      boxes.forEach(function(box) {
+        box.addEventListener('change', function() {
+          syncHeader(col);
+        });
+      });
+
+      syncHeader(col);
+    });
+  })();
+</script>
 {% endblock %}
