@@ -957,6 +957,10 @@ def enforce_module_permissions():
         return None
 
     module_key = ENDPOINT_MODULE_MAP.get(endpoint)
+    if endpoint == "cadastro":
+        entity = ((request.view_args or {}).get("entity") or "").lower()
+        if entity == "usuarios":
+            module_key = "usuarios"
     if not module_key:
         return None
 
@@ -1823,7 +1827,8 @@ def get_entity_title(entity):
 def parametros():
     if not session.get("user"):
         return redirect(url_for("login"))
-    if not require_owner_access():
+    if not user_can_view_module("parametros"):
+        flash("Você não tem permissão para acessar este menu.", "error")
         return redirect(url_for("dashboard"))
 
     account_id = get_current_account_id()
@@ -1860,7 +1865,8 @@ def cadastro(entity):
         return redirect(url_for("login"))
 
     entity = entity.lower()
-    if entity == "usuarios" and not require_owner_access():
+    if entity == "usuarios" and not user_can_view_module("usuarios"):
+        flash("Você não tem permissão para acessar este menu.", "error")
         return redirect(url_for("dashboard"))
 
     conn = get_auth_connection() if entity == "usuarios" else get_tenant_connection()

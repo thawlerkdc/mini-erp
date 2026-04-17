@@ -73,7 +73,7 @@ def registrar_log():
 
 @auditoria_bp.route('/auditoria', endpoint='auditoria')
 def auditoria():
-    if session.get('role') != 'owner':
+    if not session.get('user'):
         return 'Acesso restrito', 403
 
     account_id = session.get('account_id')

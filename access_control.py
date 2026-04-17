@@ -19,9 +19,9 @@ MODULES = [
 
 @access_bp.route('/controle_acesso', methods=['GET', 'POST'], endpoint='controle_acesso')
 def controle_acesso():
-    if session.get('role') != 'owner':
-        flash('Acesso restrito ao administrador.', 'error')
-        return redirect(url_for('dashboard'))
+    if not session.get('user'):
+        flash('Faça login para acessar este menu.', 'error')
+        return redirect(url_for('login'))
 
     conn = get_db_connection()
     account_id = session.get('account_id')
