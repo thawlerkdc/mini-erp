@@ -2518,13 +2518,20 @@ def financeiro():
 
     account_id = get_current_account_id()
     conn = get_tenant_connection()
-    _ensure_default_financial_categories(conn, account_id)
-    generated_recurring = _run_financial_recurring_generation(conn, account_id)
-    alert_snapshot = _financial_due_alert_snapshot(conn, account_id)
-    _send_financial_due_alert_email(conn, account_id, alert_snapshot)
-    conn.commit()
-    if generated_recurring > 0:
-        flash(f"Recorrência: {generated_recurring} novo(s) título(s) gerado(s) automaticamente.", "success")
+    generated_recurring = 0
+    alert_snapshot = None
+    try:
+        _ensure_default_financial_categories(conn, account_id)
+        generated_recurring = _run_financial_recurring_generation(conn, account_id)
+        alert_snapshot = _financial_due_alert_snapshot(conn, account_id)
+        _send_financial_due_alert_email(conn, account_id, alert_snapshot)
+        conn.commit()
+        if generated_recurring > 0:
+            flash(f"Recorrência: {generated_recurring} novo(s) título(s) gerado(s) automaticamente.", "success")
+    except Exception as exc:
+        conn.rollback()
+        logger.exception("Falha em rotinas automáticas do financeiro: %s", exc)
+        flash("Algumas rotinas automáticas do financeiro falharam. Exibindo dados disponíveis.", "error")
 
     if request.method == "POST":
         action = (request.form.get("action") or "").strip()
@@ -2819,152 +2826,186 @@ def financeiro():
     start_date = request.args.get("start_date") or datetime.now().replace(day=1).strftime("%Y-%m-%d")
     end_date = request.args.get("end_date") or today
 
-    categories = conn.execute(
-        "SELECT * FROM financial_categories WHERE account_id = %s "
-        "ORDER BY CASE kind WHEN 'receivable' THEN 0 WHEN 'payable' THEN 1 ELSE 2 END, name",
-        (account_id,),
-    ).fetchall()
-    suppliers = conn.execute("SELECT id, name FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
-    clients = conn.execute("SELECT id, name FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
-
-    entries = conn.execute(
-        "SELECT e.*, fc.name AS category_name, s.name AS supplier_name, c.name AS client_name "
-        "FROM financial_entries e "
-        "LEFT JOIN financial_categories fc ON e.category_id = fc.id "
-        "LEFT JOIN suppliers s ON e.supplier_id = s.id "
-        "LEFT JOIN clients c ON e.client_id = c.id "
-        "WHERE e.account_id = %s "
-        "ORDER BY CASE e.status WHEN 'vencido' THEN 0 WHEN 'pendente' THEN 1 ELSE 2 END, e.due_date ASC, e.id DESC "
-        "LIMIT 200",
-        (account_id,),
-    ).fetchall()
-    entries = [{**dict(r), "due_date_display": _format_date_br(r["due_date"])} for r in entries]
-
-    summary_rows = conn.execute(
-        "SELECT entry_type, status, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS qty "
-        "FROM financial_entries WHERE account_id = %s GROUP BY entry_type, status",
-        (account_id,),
-    ).fetchall()
-
+    # Fallback seguro: garante que o template sempre tenha contexto válido.
+    categories = []
+    suppliers = []
+    clients = []
+    entries = []
     summary = {
         "payable": {"pago": 0.0, "pendente": 0.0, "vencido": 0.0},
         "receivable": {"pago": 0.0, "pendente": 0.0, "vencido": 0.0},
     }
-    for row in summary_rows:
-        etype = row["entry_type"] if row["entry_type"] in {"payable", "receivable"} else "payable"
-        st = row["status"] if row["status"] in {"pago", "pendente", "vencido"} else "pendente"
-        summary[etype][st] = float(row["total"] or 0)
-
-    sales_cashflow = conn.execute(
-        "SELECT SUBSTRING(date, 1, 10) AS day, COALESCE(SUM(total), 0) AS inflow "
-        "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s "
-        "GROUP BY SUBSTRING(date, 1, 10)",
-        (account_id, start_date, end_date),
-    ).fetchall()
-    receivable_cashflow = conn.execute(
-        "SELECT due_date AS day, COALESCE(SUM(amount), 0) AS inflow "
-        "FROM financial_entries WHERE account_id = %s AND entry_type = 'receivable' AND status = 'pago' AND due_date BETWEEN %s AND %s "
-        "GROUP BY due_date",
-        (account_id, start_date, end_date),
-    ).fetchall()
-    payable_cashflow = conn.execute(
-        "SELECT due_date AS day, COALESCE(SUM(amount), 0) AS outflow "
-        "FROM financial_entries WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s "
-        "GROUP BY due_date",
-        (account_id, start_date, end_date),
-    ).fetchall()
-
-    flow_map = {}
-    for row in sales_cashflow:
-        day = row["day"]
-        flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
-        flow_map[day]["inflow"] += float(row["inflow"] or 0)
-    for row in receivable_cashflow:
-        day = row["day"]
-        flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
-        flow_map[day]["inflow"] += float(row["inflow"] or 0)
-    for row in payable_cashflow:
-        day = row["day"]
-        flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
-        flow_map[day]["outflow"] += float(row["outflow"] or 0)
-
     cashflow_rows = []
-    for day in sorted(flow_map.keys()):
-        inflow = flow_map[day]["inflow"]
-        outflow = flow_map[day]["outflow"]
-        cashflow_rows.append(
-            {
-                "day": day,
-                "inflow": inflow,
-                "outflow": outflow,
-                "balance": inflow - outflow,
-            }
-        )
-
-    imports_history = conn.execute(
-        "SELECT * FROM nfe_imports WHERE account_id = %s ORDER BY id DESC LIMIT 30",
-        (account_id,),
-    ).fetchall()
-    imports_history = [{**dict(r), "created_date_display": _format_date_br(r["created_at"])} for r in imports_history]
-
-    # DRE simplificado para o periodo selecionado
-    sales_period = conn.execute(
-        "SELECT COALESCE(SUM(total), 0) AS gross_revenue, COALESCE(SUM(discount), 0) AS discounts "
-        "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
-        (account_id, start_date, end_date),
-    ).fetchone()
-    gross_revenue = float(sales_period["gross_revenue"] or 0)
-    discounts = float(sales_period["discounts"] or 0)
-    net_revenue = gross_revenue - discounts
-
-    cogs_row = conn.execute(
-        "SELECT COALESCE(SUM(si.quantity * p.cost), 0) AS cogs "
-        "FROM sale_items si "
-        "JOIN sales s ON si.sale_id = s.id "
-        "JOIN products p ON si.product_id = p.id "
-        "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s",
-        (account_id, start_date, end_date),
-    ).fetchone()
-    cogs = float(cogs_row["cogs"] or 0)
-    gross_profit = net_revenue - cogs
-
-    expense_groups = conn.execute(
-        "SELECT COALESCE(fc.name, 'Sem categoria') AS category_name, COALESCE(SUM(e.amount), 0) AS total "
-        "FROM financial_entries e "
-        "LEFT JOIN financial_categories fc ON e.category_id = fc.id "
-        "WHERE e.account_id = %s AND e.entry_type = 'payable' AND e.status = 'pago' AND e.due_date BETWEEN %s AND %s "
-        "GROUP BY fc.name ORDER BY total DESC",
-        (account_id, start_date, end_date),
-    ).fetchall()
-
-    operational_expenses = []
-    operational_total = 0.0
-    tax_total = 0.0
-    for row in expense_groups:
-        name = row["category_name"] or "Sem categoria"
-        total = float(row["total"] or 0)
-        lowered = unicodedata.normalize("NFKD", name.lower()).encode("ascii", "ignore").decode("ascii")
-        if "impost" in lowered:
-            tax_total += total
-        else:
-            operational_expenses.append({"name": name, "total": total})
-            operational_total += total
-
-    operating_result = gross_profit - operational_total
-    net_profit = operating_result - tax_total
-
+    imports_history = []
     dre = {
-        "gross_revenue": gross_revenue,
-        "discounts": discounts,
-        "net_revenue": net_revenue,
-        "cogs": cogs,
-        "gross_profit": gross_profit,
-        "operational_expenses": operational_expenses,
-        "operational_total": operational_total,
-        "operating_result": operating_result,
-        "tax_total": tax_total,
-        "net_profit": net_profit,
+        "gross_revenue": 0.0,
+        "discounts": 0.0,
+        "net_revenue": 0.0,
+        "cogs": 0.0,
+        "gross_profit": 0.0,
+        "operational_expenses": [],
+        "operational_total": 0.0,
+        "operating_result": 0.0,
+        "tax_total": 0.0,
+        "net_profit": 0.0,
     }
+
+    try:
+        dt_start = datetime.strptime(start_date, "%Y-%m-%d")
+        dt_end = datetime.strptime(end_date, "%Y-%m-%d")
+        if dt_end < dt_start:
+            flash("A data final não pode ser menor que a data inicial.", "error")
+            start_date = datetime.now().replace(day=1).strftime("%Y-%m-%d")
+            end_date = today
+    except ValueError:
+        flash("Período inválido. Aplicando período padrão do mês atual.", "error")
+        start_date = datetime.now().replace(day=1).strftime("%Y-%m-%d")
+        end_date = today
+
+    try:
+        categories = conn.execute(
+            "SELECT * FROM financial_categories WHERE account_id = %s "
+            "ORDER BY CASE kind WHEN 'receivable' THEN 0 WHEN 'payable' THEN 1 ELSE 2 END, name",
+            (account_id,),
+        ).fetchall()
+        suppliers = conn.execute("SELECT id, name FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+        clients = conn.execute("SELECT id, name FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+
+        entries = conn.execute(
+            "SELECT e.*, fc.name AS category_name, s.name AS supplier_name, c.name AS client_name "
+            "FROM financial_entries e "
+            "LEFT JOIN financial_categories fc ON e.category_id = fc.id "
+            "LEFT JOIN suppliers s ON e.supplier_id = s.id "
+            "LEFT JOIN clients c ON e.client_id = c.id "
+            "WHERE e.account_id = %s "
+            "ORDER BY CASE e.status WHEN 'vencido' THEN 0 WHEN 'pendente' THEN 1 ELSE 2 END, e.due_date ASC, e.id DESC "
+            "LIMIT 200",
+            (account_id,),
+        ).fetchall()
+        entries = [{**dict(r), "due_date_display": _format_date_br(r["due_date"])} for r in entries]
+
+        summary_rows = conn.execute(
+            "SELECT entry_type, status, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS qty "
+            "FROM financial_entries WHERE account_id = %s GROUP BY entry_type, status",
+            (account_id,),
+        ).fetchall()
+
+        for row in summary_rows:
+            etype = row["entry_type"] if row["entry_type"] in {"payable", "receivable"} else "payable"
+            st = row["status"] if row["status"] in {"pago", "pendente", "vencido"} else "pendente"
+            summary[etype][st] = float(row["total"] or 0)
+
+        sales_cashflow = conn.execute(
+            "SELECT SUBSTRING(date, 1, 10) AS day, COALESCE(SUM(total), 0) AS inflow "
+            "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s "
+            "GROUP BY SUBSTRING(date, 1, 10)",
+            (account_id, start_date, end_date),
+        ).fetchall()
+        receivable_cashflow = conn.execute(
+            "SELECT due_date AS day, COALESCE(SUM(amount), 0) AS inflow "
+            "FROM financial_entries WHERE account_id = %s AND entry_type = 'receivable' AND status = 'pago' AND due_date BETWEEN %s AND %s "
+            "GROUP BY due_date",
+            (account_id, start_date, end_date),
+        ).fetchall()
+        payable_cashflow = conn.execute(
+            "SELECT due_date AS day, COALESCE(SUM(amount), 0) AS outflow "
+            "FROM financial_entries WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s "
+            "GROUP BY due_date",
+            (account_id, start_date, end_date),
+        ).fetchall()
+
+        flow_map = {}
+        for row in sales_cashflow:
+            day = row["day"]
+            flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
+            flow_map[day]["inflow"] += float(row["inflow"] or 0)
+        for row in receivable_cashflow:
+            day = row["day"]
+            flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
+            flow_map[day]["inflow"] += float(row["inflow"] or 0)
+        for row in payable_cashflow:
+            day = row["day"]
+            flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
+            flow_map[day]["outflow"] += float(row["outflow"] or 0)
+
+        for day in sorted(flow_map.keys()):
+            inflow = flow_map[day]["inflow"]
+            outflow = flow_map[day]["outflow"]
+            cashflow_rows.append(
+                {
+                    "day": day,
+                    "inflow": inflow,
+                    "outflow": outflow,
+                    "balance": inflow - outflow,
+                }
+            )
+
+        imports_history = conn.execute(
+            "SELECT * FROM nfe_imports WHERE account_id = %s ORDER BY id DESC LIMIT 30",
+            (account_id,),
+        ).fetchall()
+        imports_history = [{**dict(r), "created_date_display": _format_date_br(r["created_at"])} for r in imports_history]
+
+        sales_period = conn.execute(
+            "SELECT COALESCE(SUM(total), 0) AS gross_revenue, COALESCE(SUM(discount), 0) AS discounts "
+            "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
+            (account_id, start_date, end_date),
+        ).fetchone()
+        gross_revenue = float(sales_period["gross_revenue"] or 0)
+        discounts = float(sales_period["discounts"] or 0)
+        net_revenue = gross_revenue - discounts
+
+        cogs_row = conn.execute(
+            "SELECT COALESCE(SUM(si.quantity * p.cost), 0) AS cogs "
+            "FROM sale_items si "
+            "JOIN sales s ON si.sale_id = s.id "
+            "JOIN products p ON si.product_id = p.id "
+            "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s",
+            (account_id, start_date, end_date),
+        ).fetchone()
+        cogs = float(cogs_row["cogs"] or 0)
+        gross_profit = net_revenue - cogs
+
+        expense_groups = conn.execute(
+            "SELECT COALESCE(fc.name, 'Sem categoria') AS category_name, COALESCE(SUM(e.amount), 0) AS total "
+            "FROM financial_entries e "
+            "LEFT JOIN financial_categories fc ON e.category_id = fc.id "
+            "WHERE e.account_id = %s AND e.entry_type = 'payable' AND e.status = 'pago' AND e.due_date BETWEEN %s AND %s "
+            "GROUP BY fc.name ORDER BY total DESC",
+            (account_id, start_date, end_date),
+        ).fetchall()
+
+        operational_expenses = []
+        operational_total = 0.0
+        tax_total = 0.0
+        for row in expense_groups:
+            name = row["category_name"] or "Sem categoria"
+            total = float(row["total"] or 0)
+            lowered = unicodedata.normalize("NFKD", name.lower()).encode("ascii", "ignore").decode("ascii")
+            if "impost" in lowered:
+                tax_total += total
+            else:
+                operational_expenses.append({"name": name, "total": total})
+                operational_total += total
+
+        operating_result = gross_profit - operational_total
+        net_profit = operating_result - tax_total
+
+        dre = {
+            "gross_revenue": gross_revenue,
+            "discounts": discounts,
+            "net_revenue": net_revenue,
+            "cogs": cogs,
+            "gross_profit": gross_profit,
+            "operational_expenses": operational_expenses,
+            "operational_total": operational_total,
+            "operating_result": operating_result,
+            "tax_total": tax_total,
+            "net_profit": net_profit,
+        }
+    except Exception as exc:
+        logger.exception("Falha ao carregar dados do financeiro: %s", exc)
+        flash("Houve um problema ao carregar o financeiro. Exibindo dados parciais.", "error")
 
     xml_preview = session.get("finance_xml_preview")
 
