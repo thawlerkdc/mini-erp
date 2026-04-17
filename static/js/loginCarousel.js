@@ -12,6 +12,9 @@ function initLoginRotaryCarousel(config) {
   let current = 0;
   let timer = null;
   let isAnimating = false;
+  let cardWidthPx = 0;
+  let gapPx = 14;
+  let resizeRaf = null;
   const track = document.createElement('div');
   track.className = 'login-rotary-track';
   stage.innerHTML = '';
@@ -53,6 +56,14 @@ function initLoginRotaryCarousel(config) {
     return card;
   }
 
+  function setupLayout() {
+    const stageWidth = stage.clientWidth || 0;
+    gapPx = stageWidth < 720 ? 10 : 14;
+    cardWidthPx = Math.max(120, (stageWidth - (gapPx * 2)) / 3);
+    track.style.setProperty('--carousel-gap', gapPx + 'px');
+    track.style.setProperty('--carousel-card-width', cardWidthPx + 'px');
+  }
+
   function renderWindow() {
     const left = modulo(current - 1);
     const center = modulo(current);
@@ -80,7 +91,8 @@ function initLoginRotaryCarousel(config) {
     if (isAnimating) return;
     isAnimating = true;
     track.style.transition = 'transform ' + transitionMs + 'ms ease-in-out';
-    track.style.transform = 'translate3d(-25%, 0, 0)';
+    const shiftPx = cardWidthPx + gapPx;
+    track.style.transform = 'translate3d(-' + shiftPx + 'px, 0, 0)';
   }
 
   track.addEventListener('transitionend', function() {
@@ -115,6 +127,17 @@ function initLoginRotaryCarousel(config) {
     }
   });
 
+  window.addEventListener('resize', function() {
+    if (resizeRaf) return;
+    resizeRaf = window.requestAnimationFrame(function() {
+      resizeRaf = null;
+      setupLayout();
+      renderWindow();
+      updateDots();
+    });
+  });
+
+  setupLayout();
   renderWindow();
   updateDots();
   start();

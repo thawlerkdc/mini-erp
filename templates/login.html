@@ -183,21 +183,21 @@
     }
     .login-rotary-stage {
       position: relative;
-      height: clamp(240px, 30vw, 310px);
+      height: clamp(190px, 24vw, 250px);
       overflow: hidden;
       border-radius: 12px;
     }
     .login-rotary-track {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      width: 133.3333%;
+      display: flex;
+      align-items: stretch;
+      gap: var(--carousel-gap, 14px);
       height: 100%;
       transform: translate3d(0, 0, 0);
       will-change: transform;
     }
     .login-rotary-card {
       margin: 0;
-      width: 100%;
+      flex: 0 0 var(--carousel-card-width, 33.333%);
       height: 100%;
       border-radius: 10px;
       overflow: hidden;
@@ -237,7 +237,7 @@
     }
     .login-rotary-card.pos-left,
     .login-rotary-card.pos-right {
-      transform: scale(0.92);
+      transform: scale(0.95);
       opacity: 0.88;
       filter: saturate(0.9);
     }
@@ -248,7 +248,7 @@
       box-shadow: 0 18px 32px rgba(15, 23, 42, 0.28);
     }
     .login-rotary-card.pos-trailing {
-      transform: scale(0.9);
+      transform: scale(0.93);
       opacity: 0.82;
       filter: saturate(0.86);
     }
@@ -360,7 +360,7 @@
         padding: 18px;
       }
       .login-rotary-stage {
-        height: clamp(210px, 52vw, 280px);
+        height: clamp(180px, 48vw, 230px);
       }
     }
   </style>
