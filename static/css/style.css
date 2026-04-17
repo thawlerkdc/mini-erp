@@ -2471,3 +2471,56 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Access control redesign */
+.access-control-card {
+  max-width: 980px;
+  margin: 2rem auto;
+}
+
+.access-header h2 {
+  margin-bottom: 6px;
+}
+
+.access-header p {
+  margin-top: 0;
+  color: #475569;
+}
+
+.access-user-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 12px;
+}
+
+.access-user-picker select {
+  min-width: 280px;
+}
+
+.access-permission-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.access-permission-table {
+  min-width: 560px;
+}
+
+.access-permission-table th,
+.access-permission-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.access-permission-table .module-name {
+  text-align: left;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.access-save-btn {
+  margin-top: 1rem;
+  width: 100%;
+}

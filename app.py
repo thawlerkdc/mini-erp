@@ -1601,6 +1601,12 @@ def criar_conta_principal():
 def dashboard():
     if not session.get("user"):
         return redirect(url_for("login"))
+
+    if not get_current_account_id():
+        session.clear()
+        flash("Sessão inválida. Faça login novamente.", "error")
+        return redirect(url_for("login"))
+
     total_clients = 0
     total_products = 0
     total_sales = 0
@@ -1636,15 +1642,20 @@ def dashboard():
         if conn:
             conn.close()
     
-    return render_template(
-        "dashboard.html",
-        title=translate("dashboard_title"),
-        user=session.get("user_name") or session.get("user"),
-        welcome_text=translate("dashboard_welcome_text"),
-        total_clients=total_clients,
-        total_products=total_products,
-        total_sales=total_sales,
-    )
+    try:
+        return render_template(
+            "dashboard.html",
+            title=translate("dashboard_title"),
+            user=session.get("user_name") or session.get("user"),
+            welcome_text=translate("dashboard_welcome_text"),
+            total_clients=total_clients,
+            total_products=total_products,
+            total_sales=total_sales,
+        )
+    except Exception as exc:
+        logger.exception("Falha ao renderizar dashboard: %s", exc)
+        flash("Houve uma falha ao abrir o Dashboard. Exibindo modo seguro.", "error")
+        return render_template("placeholder.html", title=translate("dashboard_title"))
 
 
 @app.route("/logout")
