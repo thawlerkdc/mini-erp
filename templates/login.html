@@ -71,7 +71,7 @@
   <style>
     .login-modern-wrap {
       display: grid;
-      grid-template-columns: 1.2fr 1fr;
+      grid-template-columns: 1.4fr 0.9fr;
       gap: 14px;
       align-items: stretch;
       min-height: 0;
@@ -179,7 +179,7 @@
     }
     .login-rotary-wrap {
       margin-top: 18px;
-      padding: 12px;
+      padding: 14px 16px 12px;
       border-radius: 16px;
       background: rgba(2, 6, 23, 0.22);
       border: 1px solid rgba(255, 255, 255, 0.16);
@@ -187,18 +187,18 @@
     }
     .login-rotary-shell {
       display: grid;
-      grid-template-columns: 34px 1fr 34px;
-      gap: 10px;
+      grid-template-columns: 42px 1fr 42px;
+      gap: 12px;
       align-items: center;
     }
     .login-rotary-nav {
-      width: 34px;
-      height: 34px;
+      width: 42px;
+      height: 42px;
       border: 0;
       border-radius: 999px;
-      background: rgba(148, 163, 184, 0.35);
+      background: rgba(148, 163, 184, 0.42);
       color: rgba(241, 245, 249, 0.95);
-      font-size: 1.15rem;
+      font-size: 1.3rem;
       font-weight: 900;
       line-height: 1;
       cursor: pointer;
@@ -213,14 +213,16 @@
     }
     .login-rotary-stage {
       position: relative;
-      height: clamp(170px, 19vw, 210px);
+      width: 100%;
+      aspect-ratio: 3.25 / 1;
+      min-height: 220px;
       overflow: hidden;
       border-radius: 12px;
     }
     .login-rotary-track {
       display: flex;
       align-items: stretch;
-      gap: var(--carousel-gap, 18px);
+      gap: var(--carousel-gap, 20px);
       height: 100%;
       transform: translate3d(0, 0, 0);
       will-change: transform;
@@ -244,10 +246,10 @@
     .login-rotary-card img {
       width: 100%;
       flex: 1;
-      object-fit: contain;
-      object-position: center center;
+      object-fit: cover;
+      object-position: center top;
       display: block;
-      background: #eef2f7;
+      background: #ffffff;
     }
     .login-rotary-card figcaption {
       height: 34px;
@@ -396,7 +398,8 @@
         display: none;
       }
       .login-rotary-stage {
-        height: clamp(180px, 52vw, 240px);
+        aspect-ratio: 2.2 / 1;
+        min-height: 200px;
       }
     }
   </style>

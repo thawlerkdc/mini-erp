@@ -60,7 +60,7 @@ function initLoginRotaryCarousel(config) {
 
   function setupLayout() {
     const stageWidth = stage.clientWidth || 0;
-    gapPx = stageWidth < 720 ? 10 : 18;
+    gapPx = stageWidth < 720 ? 10 : 20;
     cardWidthPx = Math.max(120, (stageWidth - (gapPx * 2)) / 3);
     track.style.setProperty('--carousel-gap', gapPx + 'px');
     track.style.setProperty('--carousel-card-width', cardWidthPx + 'px');
