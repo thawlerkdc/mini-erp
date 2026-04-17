@@ -21,7 +21,7 @@ from export_report import export_bp
 from generate_po_pdf import generate_po_pdf_bp
 from import_excel import import_excel_bp
 from access_control import access_bp
-from logs_auditoria import auditoria_bp
+from logs_auditoria import auditoria_bp, log_audit_event
 from datetime import datetime, timedelta
 from calendar import monthrange
 import re
@@ -961,6 +961,14 @@ def enforce_module_permissions():
         return None
 
     if not user_can_view_module(module_key):
+        log_audit_event(
+            "access_denied",
+            {
+                "module": module_key,
+                "endpoint": endpoint,
+                "reason": "missing_can_view_permission",
+            },
+        )
         flash("Você não tem permissão para acessar este menu.", "error")
         return redirect(get_default_route_for_current_user())
     return None
