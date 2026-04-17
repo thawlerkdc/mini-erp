@@ -1,6 +1,8 @@
 function initLoginRotaryCarousel(config) {
   const stage = config && config.stage;
   const dotsWrap = config && config.dots;
+  const prevButton = config && config.prevButton;
+  const nextButton = config && config.nextButton;
   const items = (config && config.items) || [];
   const holdMs = Math.max(4000, Math.min(5000, Number((config && config.holdMs) || 4500)));
   const transitionMs = Math.max(500, Number((config && config.transitionMs) || 760));
@@ -58,7 +60,7 @@ function initLoginRotaryCarousel(config) {
 
   function setupLayout() {
     const stageWidth = stage.clientWidth || 0;
-    gapPx = stageWidth < 720 ? 10 : 14;
+    gapPx = stageWidth < 720 ? 10 : 18;
     cardWidthPx = Math.max(120, (stageWidth - (gapPx * 2)) / 3);
     track.style.setProperty('--carousel-gap', gapPx + 'px');
     track.style.setProperty('--carousel-card-width', cardWidthPx + 'px');
@@ -95,6 +97,14 @@ function initLoginRotaryCarousel(config) {
     track.style.transform = 'translate3d(-' + shiftPx + 'px, 0, 0)';
   }
 
+  function goPrev() {
+    if (isAnimating) return;
+    current = modulo(current - 1);
+    renderWindow();
+    updateDots();
+    restart();
+  }
+
   track.addEventListener('transitionend', function() {
     if (!isAnimating) return;
     current = modulo(current + 1);
@@ -126,6 +136,19 @@ function initLoginRotaryCarousel(config) {
       restart();
     }
   });
+
+  if (prevButton) {
+    prevButton.addEventListener('click', function() {
+      goPrev();
+    });
+  }
+
+  if (nextButton) {
+    nextButton.addEventListener('click', function() {
+      goNext();
+      restart();
+    });
+  }
 
   window.addEventListener('resize', function() {
     if (resizeRaf) return;

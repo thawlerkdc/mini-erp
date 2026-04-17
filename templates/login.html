@@ -17,7 +17,11 @@
         <span>Relatórios de giro</span>
       </div>
       <div class="login-rotary-wrap" aria-label="Prévia do sistema">
-        <div class="login-rotary-stage" id="login-rotary-stage"></div>
+        <div class="login-rotary-shell">
+          <button type="button" class="login-rotary-nav prev" id="login-rotary-prev" aria-label="Imagem anterior">&#10094;</button>
+          <div class="login-rotary-stage" id="login-rotary-stage"></div>
+          <button type="button" class="login-rotary-nav next" id="login-rotary-next" aria-label="Próxima imagem">&#10095;</button>
+        </div>
         <div class="login-rotary-dots" id="login-rotary-dots"></div>
       </div>
     </section>
@@ -181,16 +185,42 @@
       border: 1px solid rgba(255, 255, 255, 0.16);
       backdrop-filter: blur(12px);
     }
+    .login-rotary-shell {
+      display: grid;
+      grid-template-columns: 34px 1fr 34px;
+      gap: 10px;
+      align-items: center;
+    }
+    .login-rotary-nav {
+      width: 34px;
+      height: 34px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.35);
+      color: rgba(241, 245, 249, 0.95);
+      font-size: 1.15rem;
+      font-weight: 900;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    .login-rotary-nav:hover {
+      background: rgba(148, 163, 184, 0.55);
+      transform: scale(1.06);
+    }
     .login-rotary-stage {
       position: relative;
-      height: clamp(190px, 24vw, 250px);
+      height: clamp(170px, 19vw, 210px);
       overflow: hidden;
       border-radius: 12px;
     }
     .login-rotary-track {
       display: flex;
       align-items: stretch;
-      gap: var(--carousel-gap, 14px);
+      gap: var(--carousel-gap, 18px);
       height: 100%;
       transform: translate3d(0, 0, 0);
       will-change: transform;
@@ -214,10 +244,10 @@
     .login-rotary-card img {
       width: 100%;
       flex: 1;
-      object-fit: cover;
-      object-position: center top;
+      object-fit: contain;
+      object-position: center center;
       display: block;
-      background: #ffffff;
+      background: #eef2f7;
     }
     .login-rotary-card figcaption {
       height: 34px;
@@ -359,8 +389,14 @@
         min-height: 150px;
         padding: 18px;
       }
+      .login-rotary-shell {
+        grid-template-columns: 1fr;
+      }
+      .login-rotary-nav {
+        display: none;
+      }
       .login-rotary-stage {
-        height: clamp(180px, 48vw, 230px);
+        height: clamp(180px, 52vw, 240px);
       }
     }
   </style>
@@ -393,6 +429,8 @@
       initLoginRotaryCarousel({
         stage: document.getElementById('login-rotary-stage'),
         dots: document.getElementById('login-rotary-dots'),
+        prevButton: document.getElementById('login-rotary-prev'),
+        nextButton: document.getElementById('login-rotary-next'),
         items: items,
         holdMs: 4500,
         transitionMs: 760
