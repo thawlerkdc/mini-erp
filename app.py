@@ -1614,23 +1614,7 @@ def dashboard():
 
     try:
         account_id = get_current_account_id()
-
-        try:
-            run_daily_birthday_automation(account_id)
-        except Exception as exc:
-            logger.exception("Falha em automação de aniversário: %s", exc)
-
         conn = get_tenant_connection()
-
-        try:
-            _run_financial_recurring_generation(conn, account_id)
-            financial_alert_snapshot = _financial_due_alert_snapshot(conn, account_id)
-            _send_financial_due_alert_email(conn, account_id, financial_alert_snapshot)
-            _maybe_flash_financial_alerts(financial_alert_snapshot)
-            conn.commit()
-        except Exception as exc:
-            logger.exception("Falha em rotinas financeiras da dashboard: %s", exc)
-            conn.rollback()
 
         total_clients = conn.execute("SELECT COUNT(*) FROM clients WHERE account_id = %s", (account_id,)).fetchone()[0]
         total_products = conn.execute("SELECT COUNT(*) FROM products WHERE account_id = %s", (account_id,)).fetchone()[0]
