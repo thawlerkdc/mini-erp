@@ -849,6 +849,10 @@ def get_current_user_permissions():
     if get_current_user_role() == "owner":
         return {"__owner__": True}
 
+    cached_permissions = session.get("module_permissions")
+    if isinstance(cached_permissions, dict):
+        return cached_permissions
+
     conn = None
     try:
         conn = get_db_connection()
@@ -856,7 +860,7 @@ def get_current_user_permissions():
             "SELECT module, can_view, can_edit, can_delete FROM user_permissions WHERE account_id = %s AND user_id = %s",
             (session.get("account_id"), session.get("user_id")),
         ).fetchall()
-        return {
+        permissions = {
             row["module"]: {
                 "can_view": bool(row["can_view"]),
                 "can_edit": bool(row["can_edit"]),
@@ -864,9 +868,15 @@ def get_current_user_permissions():
             }
             for row in rows
         }
+        if not permissions:
+            permissions = {"__legacy_full_access__": True}
+        session["module_permissions"] = permissions
+        return permissions
     except Exception as exc:
         logger.exception("Falha ao carregar permissões do usuário atual: %s", exc)
-        return {}
+        fallback_permissions = {"__legacy_full_access__": True}
+        session["module_permissions"] = fallback_permissions
+        return fallback_permissions
     finally:
         if conn:
             conn.close()
@@ -876,12 +886,18 @@ def user_can_view_module(module_key):
     if get_current_user_role() == "owner":
         return True
     permissions = get_current_user_permissions()
+    if permissions.get("__legacy_full_access__"):
+        return True
     module_permissions = permissions.get(module_key) or {}
     return bool(module_permissions.get("can_view"))
 
 
 def get_default_route_for_current_user():
     if get_current_user_role() == "owner":
+        return url_for("dashboard")
+
+    permissions = get_current_user_permissions()
+    if permissions.get("__legacy_full_access__"):
         return url_for("dashboard")
 
     route_by_module = [
@@ -896,6 +912,7 @@ def get_default_route_for_current_user():
     for module_key, route_getter in route_by_module:
         if user_can_view_module(module_key):
             return route_getter()
+    flash("Seu usuário dependente não possui menus liberados. Solicite acesso ao administrador.", "error")
     return url_for("logout")
 
 
@@ -1666,6 +1683,9 @@ def login():
             session["account_id"] = user["account_id"]
             session["account_name"] = user["account_name"]
             session["role"] = user["role"]
+            session.pop("module_permissions", None)
+            if user["role"] != "owner":
+                get_current_user_permissions()
             return redirect(get_default_route_for_current_user())
         flash(translate("invalid_login"), "error")
     return render_template("login.html", title=translate("login_title"), hide_page_title=True)
