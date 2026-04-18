@@ -1777,6 +1777,7 @@ def set_language(lang_code):
 
 
 @app.route("/", methods=["GET", "POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("user"):
         return redirect(get_default_route_for_current_user())
