@@ -1,0 +1,20 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd \"c:\\\\Users\\\\thawl\\\\Projetos\\\\Mini ERP\" ; python -c \"from PIL import Image; print\\('✓ Pillow está instalado'\\)\" 2>&1 ; echo \"Pillow não instalado\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd \"c:\\\\Users\\\\thawl\\\\Projetos\\\\Mini ERP\" ; pip install Pillow --quiet ; python -c \"from PIL import Image; print\\('✓ Pillow instalado com sucesso'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd \"c:\\\\Users\\\\thawl\\\\Projetos\\\\Mini ERP\" ; python << 'EOF'\nfrom PIL import Image\nimport os\n\npreview_dir = r\"static/img/previews\"\n\nprint\\(\"Verificando dimensões das imagens:\"\\)\nprint\\(\"=\" \\* 60\\)\n\nfor filename in sorted\\(os\\.listdir\\(preview_dir\\)\\):\n    if filename\\.endswith\\(\\('\\.png', '\\.jpg', '\\.jpeg'\\)\\):\n        filepath = os\\.path\\.join\\(preview_dir, filename\\)\n        img = Image\\.open\\(filepath\\)\n        ratio = img\\.width / img\\.height\n        orientation = \"Paisagem\" if ratio > 1 else \"Retrato\"\n        print\\(f\"\\{filename:20\\} \\{img\\.width\\}x\\{img\\.height:5\\} \\(ratio: \\{ratio:\\.3f\\}\\) \\[\\{orientation\\}\\]\"\\)\n\nprint\\(\"=\" \\* 60\\)\nEOF$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd \"c:\\\\Users\\\\thawl\\\\Projetos\\\\Mini ERP\" ; python check_images\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
