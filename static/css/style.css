@@ -305,6 +305,9 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  overflow: visible;
+  position: relative;
+  z-index: 100;
 }
 header .brand {
   font-size: 1.25rem;
@@ -472,7 +475,7 @@ header .topbar {
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
   min-width: 180px;
   padding: 8px 0;
-  z-index: 20;
+  z-index: 9999;
   overflow-y: auto;
 }
 .language-dropdown.open-up .language-dropdown-menu {
