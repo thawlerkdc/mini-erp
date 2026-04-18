@@ -1,7 +1,13 @@
 import logging
 import os
 
-import psycopg
+# Importar psycopg para PostgreSQL (opcional em desenvolvimento)
+try:
+    import psycopg
+except ImportError:
+    psycopg = None
+    print("⚠️  psycopg não disponível - usando SQLite para desenvolvimento local")
+
 from datetime import datetime
 from pathlib import Path
 

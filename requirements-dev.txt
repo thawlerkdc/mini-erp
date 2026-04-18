@@ -1,0 +1,11 @@
+# Dependências mínimas para desenvolvimento local
+# Use este arquivo para testar localmente: pip install -r requirements-dev.txt
+# NÃO instala postgres/pandas/pandas - apenas o essencial para Flask
+
+Flask==3.1.3
+python-dotenv==1.1.1
+Werkzeug==3.1.3
+Jinja2==3.1.6
+click==8.3.2
+itsdangerous==2.2.0
+MarkupSafe==3.0.3

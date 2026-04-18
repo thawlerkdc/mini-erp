@@ -17,9 +17,24 @@ from models import (
 )
 
 # Importação dos blueprints deve ser feita após a definição do app e models
-from export_report import export_bp
-from generate_po_pdf import generate_po_pdf_bp
-from import_excel import import_excel_bp
+try:
+    from export_report import export_bp
+except ImportError:
+    export_bp = None
+    print("⚠️  export_report não disponível (requer pandas)")
+
+try:
+    from generate_po_pdf import generate_po_pdf_bp
+except ImportError:
+    generate_po_pdf_bp = None
+    print("⚠️  generate_po_pdf não disponível")
+
+try:
+    from import_excel import import_excel_bp
+except ImportError:
+    import_excel_bp = None
+    print("⚠️  import_excel não disponível (requer pandas)")
+
 from access_control import access_bp
 from logs_auditoria import auditoria_bp, log_audit_event
 from datetime import datetime, timedelta
@@ -29,18 +44,29 @@ import json
 import logging
 import smtplib
 import unicodedata
-import psycopg
 import xml.etree.ElementTree as ET
 from email.message import EmailMessage
+
+# Importar psycopg para PostgreSQL (opcional em desenvolvimento)
+try:
+    import psycopg
+except ImportError:
+    psycopg = None
+    print("⚠️  psycopg não disponível - usando SQLite para desenvolvimento local")
 
 logger = logging.getLogger(__name__)
 
 
 app = Flask(__name__)
 app.secret_key = "kdc_systems_secret_key"
-app.register_blueprint(export_bp)
-app.register_blueprint(generate_po_pdf_bp)
-app.register_blueprint(import_excel_bp)
+
+# Registrar blueprints disponíveis
+if export_bp:
+    app.register_blueprint(export_bp)
+if generate_po_pdf_bp:
+    app.register_blueprint(generate_po_pdf_bp)
+if import_excel_bp:
+    app.register_blueprint(import_excel_bp)
 app.register_blueprint(access_bp)
 app.register_blueprint(auditoria_bp)
 
