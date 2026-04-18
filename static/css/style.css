@@ -394,6 +394,12 @@ header .brand-subtitle {
   margin-left: auto;
 }
 
+header .topbar .actions {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 .public-theme-switch {
   display: inline-flex;
   align-items: center;
@@ -3163,4 +3169,74 @@ body.theme-dark .public-theme-switch .user-menu-theme.active {
 
 body.theme-dark .login-signup-panel {
   border-top-color: #334155;
+}
+
+/* Fixes for remaining light blocks seen in production screens */
+body.theme-dark .param-section,
+body.theme-dark .param-section-email,
+body.theme-dark .multi-payment-block,
+body.theme-dark .totals-section,
+body.theme-dark .payment-details-card,
+body.theme-dark .payment-summary-card,
+body.theme-dark .checkout-totals,
+body.theme-dark .finance-alert-card,
+body.theme-dark .pix-copy-code,
+body.theme-dark .pix-modal-content,
+body.theme-dark .inline-add-category,
+body.theme-dark .search-input,
+body.theme-dark .dashboard-card.neutral,
+body.theme-dark .dashboard-card.neutral .card-icon {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #eaf1fb !important;
+}
+
+body.theme-dark .report-table thead th,
+body.theme-dark .table-card thead,
+body.theme-dark .compact-status-table thead,
+body.theme-dark .performance-table thead {
+  background: #172133 !important;
+  color: #eaf1fb !important;
+}
+
+body.theme-dark .report-table th,
+body.theme-dark .report-table td,
+body.theme-dark .table-card th,
+body.theme-dark .table-card td,
+body.theme-dark .compact-status-table td,
+body.theme-dark .performance-table td {
+  border-color: #334155 !important;
+  color: #eaf1fb !important;
+}
+
+body.theme-dark .field-group label,
+body.theme-dark .param-subtitle,
+body.theme-dark .rate-field label,
+body.theme-dark .param-check-row label {
+  color: #c9d8ea !important;
+}
+
+body.theme-dark .rate-input-wrap,
+body.theme-dark .rate-pct {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #c9d8ea !important;
+}
+
+body.theme-dark .form-card fieldset[disabled] {
+  opacity: 1 !important;
+}
+
+/* Safety net for legacy inline white backgrounds */
+body.theme-dark [style*="background: #fff"],
+body.theme-dark [style*="background:#fff"],
+body.theme-dark [style*="background: #ffffff"],
+body.theme-dark [style*="background:#ffffff"],
+body.theme-dark [style*="background: #f9fafb"],
+body.theme-dark [style*="background:#f9fafb"],
+body.theme-dark [style*="background: #f3f4f6"],
+body.theme-dark [style*="background:#f3f4f6"] {
+  background: #1e293b !important;
+  color: #eaf1fb !important;
+  border-color: #334155 !important;
 }
