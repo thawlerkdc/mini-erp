@@ -1112,6 +1112,7 @@ SETTINGS_DEFAULTS = {
     "pix_receiver_city": "SAO PAULO",
     "default_profit_margin": "100",
     "default_stock_min_percent": "20",
+    "log_retention_days": "30",
 }
 
 SMTP_PROVIDER_PRESETS = {
@@ -1635,6 +1636,7 @@ def save_account_settings(account_id, form_data):
         "pix_key_value": pix_key_value,
         "pix_receiver_name": (form_data.get("pix_receiver_name") or "").strip(),
         "pix_receiver_city": (form_data.get("pix_receiver_city") or "SAO PAULO").strip().upper(),
+        "log_retention_days": str(max(1, min(3650, int(form_data.get("log_retention_days") or 30)))),
     }
 
     conn = get_tenant_connection()
@@ -3068,6 +3070,11 @@ def financeiro():
     today = datetime.now().strftime("%Y-%m-%d")
     start_date = request.args.get("start_date") or datetime.now().replace(day=1).strftime("%Y-%m-%d")
     end_date = request.args.get("end_date") or today
+
+    # Server-side date validation
+    if start_date and end_date and end_date < start_date:
+        flash("A data final não pode ser menor que a data inicial.", "error")
+        end_date = today
 
     # Fallback seguro: garante que o template sempre tenha contexto válido.
     categories = []

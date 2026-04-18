@@ -1,8 +1,8 @@
 import logging
 import json
-from flask import Blueprint, request, render_template, session
+from flask import Blueprint, request, render_template, session, flash, redirect, url_for
 from models import get_db_connection
-from datetime import datetime
+from datetime import datetime, timedelta
 
 auditoria_bp = Blueprint('auditoria', __name__)
 
@@ -79,6 +79,14 @@ def auditoria():
     account_id = session.get('account_id')
     start_date = (request.args.get('start_date') or '').strip()
     end_date = (request.args.get('end_date') or '').strip()
+
+    # Date range validation
+    if start_date and end_date and end_date < start_date:
+        flash('A data final não pode ser menor que a data inicial.', 'error')
+        return redirect(url_for('auditoria.auditoria'))
+
+    # Auto-purge old logs based on retention setting
+    _purge_old_logs(account_id)
     user_id = (request.args.get('user_id') or '').strip()
     method = (request.args.get('method') or '').strip().upper()
     endpoint_q = (request.args.get('endpoint') or '').strip()
@@ -139,3 +147,25 @@ def auditoria():
         },
     )
 
+
+def _purge_old_logs(account_id):
+    """Delete logs older than log_retention_days setting (default 30)."""
+    try:
+        conn = get_db_connection()
+        row = conn.execute(
+            "SELECT setting_value FROM account_settings WHERE account_id = %s AND setting_key = 'log_retention_days'",
+            (account_id,),
+        ).fetchone()
+        retention_days = int(row['setting_value']) if row and row['setting_value'] else 30
+        if retention_days <= 0:
+            conn.close()
+            return
+        cutoff = (datetime.now() - timedelta(days=retention_days)).strftime('%Y-%m-%d %H:%M:%S')
+        conn.execute(
+            "DELETE FROM logs WHERE account_id = %s AND created_at < %s",
+            (account_id, cutoff),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as exc:
+        logging.exception("Falha ao limpar logs antigos: %s", exc)

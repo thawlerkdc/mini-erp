@@ -78,7 +78,13 @@
         var favorites = loadFavorites();
         container.innerHTML = '';
 
-        favorites.forEach(function (key) {
+        // sort favorite keys alphabetically by their display text
+        var sortedFavs = favorites.filter(function(key) { return !!map[key]; });
+        sortedFavs.sort(function(a, b) {
+          return (map[a].text || '').localeCompare(map[b].text || '', 'pt-BR');
+        });
+
+        sortedFavs.forEach(function (key) {
           var item = map[key];
           if (!item) return;
           var card = document.createElement('a');

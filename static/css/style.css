@@ -659,6 +659,13 @@ button.btn-cancel:hover,
 .smtp-advanced-block[open] {
   padding-bottom: 14px;
 }
+
+/* Placeholder so owner row aligns with dependent rows */
+.btn-delete-placeholder {
+  display: inline-block;
+  width: 68px; /* approximate width of Deletar button */
+  visibility: hidden;
+}
 .dashboard-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1918,13 +1925,58 @@ body.theme-dark .user-menu-theme.active {
   padding: 10px 14px;
   border-radius: 10px;
   background: #fee2e2;
-  border-color: #fca5a5;
+  border: 1px solid #fca5a5;
   color: #991b1b;
+  font-weight: 700;
 }
 
 .sale-clear-btn:hover {
   background: #fecaca;
   border-color: #f87171;
+}
+
+body.theme-dark .sale-clear-btn {
+  background: rgba(220, 38, 38, 0.18) !important;
+  border-color: #dc2626 !important;
+  color: #fca5a5 !important;
+}
+
+body.theme-dark .sale-clear-btn:hover {
+  background: rgba(220, 38, 38, 0.3) !important;
+}
+
+/* Fechar caixa button */
+.btn-close-cash {
+  display: inline-block;
+  padding: 12px 24px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  border: none;
+  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.4);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-close-cash:hover {
+  background: linear-gradient(135deg, #b45309, #92400e);
+  box-shadow: 0 6px 18px rgba(180, 83, 9, 0.5);
+  transform: translateY(-1px);
+  color: #ffffff;
+}
+
+body.theme-dark .btn-close-cash {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #1f2937 !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35) !important;
+}
+
+body.theme-dark .btn-close-cash:hover {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+  color: #1f2937 !important;
 }
 
 /* Product row */
@@ -3271,11 +3323,52 @@ body.theme-dark .pix-copy-code,
 body.theme-dark .pix-modal-content,
 body.theme-dark .inline-add-category,
 body.theme-dark .search-input,
+body.theme-dark .hero-banner {
+  background: linear-gradient(135deg, #1e3a6e 0%, #1e2d5a 100%) !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.theme-dark .metric-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #eaf1fb !important;
+}
+
+body.theme-dark .metric-card h3 {
+  color: #eaf1fb !important;
+}
+
+body.theme-dark .metric-card p {
+  color: #94a3b8 !important;
+}
+
+body.theme-dark .metric-card strong {
+  color: #60a5fa !important;
+}
+
 body.theme-dark .dashboard-card.neutral,
 body.theme-dark .dashboard-card.neutral .card-icon {
   background: #1e293b !important;
   border-color: #334155 !important;
   color: #eaf1fb !important;
+}
+
+body.theme-dark .dashboard-card.neutral h3 {
+  color: #eaf1fb !important;
+}
+
+body.theme-dark .dashboard-card.neutral p {
+  color: #94a3b8 !important;
+}
+
+body.theme-dark .dashboard-card.neutral:hover {
+  background: #263449 !important;
+  border-color: #3b82f6 !important;
+  transform: translateY(-4px);
+}
+
+body.theme-dark .dashboard-card.neutral .card-icon {
+  background: #334155 !important;
 }
 
 body.theme-dark .report-table thead th,

@@ -43,6 +43,8 @@
                     <input type="hidden" name="delete_id" value="{{ user['id'] }}">
                     <button type="submit" class="btn-delete">Deletar</button>
                   </form>
+                {% else %}
+                  <span class="btn-delete-placeholder"></span>
                 {% endif %}
                 <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='usuarios') }}">
                   <input type="hidden" name="reset_id" value="{{ user['id'] }}">
