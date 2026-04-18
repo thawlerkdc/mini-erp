@@ -16,7 +16,8 @@
   width: 100%;
   /* Aspecto 16:9 para imagens horizontais */
   aspect-ratio: 16 / 9;
-  min-height: 300px;
+  min-height: 280px;
+  max-height: 65vh;
   position: relative;
   overflow: hidden;
   border-radius: 16px;
