@@ -368,24 +368,55 @@ def _log_db_info():
 
 
 class _Conn:
-    """Thin wrapper around psycopg connection that mimics sqlite3's conn.execute() API."""
+    """Wrapper que funciona com psycopg (PostgreSQL) ou sqlite3."""
 
-    def __init__(self, pg_conn):
-        self._c = pg_conn
+    def __init__(self, conn):
+        self._conn = conn
+        # Detectar tipo de conexão
+        self._is_sqlite = hasattr(conn, 'isolation_level')  # sqlite3 tem isolation_level
+        self._is_psycopg = hasattr(conn, 'autocommit')      # psycopg tem autocommit
+
+    def _convert_sql_for_sqlite(self, sql):
+        """Converte SQL PostgreSQL para SQLite: %s -> ?, SERIAL -> INTEGER, etc."""
+        if not self._is_sqlite:
+            return sql
+        
+        # Converter %s para ?
+        import re
+        
+        # Contar %s para saber quantos ? adicionar
+        count = sql.count('%s')
+        if count > 0:
+            # Substituir %s por ?
+            parts = sql.split('%s')
+            sql = '?'.join(parts)
+        
+        # Converter tipos PostgreSQL para SQLite
+        sql = sql.replace('SERIAL PRIMARY KEY', 'INTEGER PRIMARY KEY AUTOINCREMENT')
+        sql = sql.replace('SERIAL', 'INTEGER')
+        sql = sql.replace('REFERENCES', 'REFERENCES')  # SQLite suporta, mas nenhuma ação em delete
+        
+        return sql
 
     def execute(self, sql, params=()):
-        cur = self._c.cursor()
-        cur.execute(sql, params)
-        return _Cursor(cur)
+        if self._is_sqlite:
+            sql = self._convert_sql_for_sqlite(sql)
+            cur = self._conn.execute(sql, params)
+            return _Cursor(cur)
+        else:
+            # PostgreSQL
+            cur = self._conn.cursor()
+            cur.execute(sql, params)
+            return _Cursor(cur)
 
     def commit(self):
-        self._c.commit()
+        self._conn.commit()
 
     def rollback(self):
-        self._c.rollback()
+        self._conn.rollback()
 
     def close(self):
-        self._c.close()
+        self._conn.close()
 
 
 class _Row:
@@ -422,7 +453,16 @@ class _Cursor:
     def _columns(self):
         if not self._cursor.description:
             return []
-        return [column.name for column in self._cursor.description]
+        # sqlite3 e psycopg retorna diferentes tipos de description
+        columns = []
+        for col_desc in self._cursor.description:
+            if hasattr(col_desc, 'name'):
+                # psycopg: psycopg.extensions.Column object com .name
+                columns.append(col_desc.name)
+            else:
+                # sqlite3: tuple onde primeiro elemento é o nome
+                columns.append(col_desc[0])
+        return columns
 
     def fetchone(self):
         row = self._cursor.fetchone()
