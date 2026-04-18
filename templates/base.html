@@ -3,12 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0b4a82">
     <title>Kdc Systems - {{ title if title else 'ERP' }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260417fix') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v='20260418') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260416a') }}"></script>
-    <script src="{{ url_for('static', filename='js/themeManager.js', v='20260418') }}"></script>
   </head>
   <body>
     {% if session.get('user') %}
@@ -94,18 +91,6 @@
                   <span class="menu-icon" aria-hidden="true">&#9733;</span>
                   <span id="user-menu-sort-label">{{ t('menu_favorites') }}: desligado</span>
                 </button>
-                 <button type="button" class="user-menu-item" id="theme-toggle-menu-btn" title="Alternar tema">
-                   <span class="menu-icon" aria-hidden="true">🎨</span>
-                   <span id="theme-label-menu">Tema</span>
-                 </button>
-                 <div id="theme-menu" class="theme-menu hidden">
-                   <button type="button" class="theme-menu-option" id="theme-light-btn" title="Tema claro">
-                     <span>☀️</span> Claro
-                   </button>
-                   <button type="button" class="theme-menu-option" id="theme-dark-btn" title="Tema escuro">
-                     <span>🌙</span> Escuro
-                   </button>
-                 </div>
                 <hr class="user-menu-divider">
                 <a href="{{ url_for('logout') }}" class="user-menu-item user-menu-logout">
                   <span class="menu-icon" aria-hidden="true">&#128681;</span>
