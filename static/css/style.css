@@ -1,43 +1,269 @@
-﻿/* Carrossel de imagens da tela de login */
+﻿/* ========== CARROSSEL MODERNO ESTILO NETFLIX/APPLE ========== */
+
 .login-rotary-wrap {
   width: 100%;
-  max-width: 420px;
   margin: 0 auto 24px auto;
   position: relative;
+  padding: 0 8px;
 }
+
+.login-rotary-shell {
+  position: relative;
+  width: 100%;
+}
+
 .login-rotary-stage {
   width: 100%;
-  height: 220px;
+  /* Aspecto 16:9 para imagens horizontais */
+  aspect-ratio: 16 / 9;
+  min-height: 300px;
   position: relative;
   overflow: hidden;
-  border-radius: 18px;
-  background: #e5e7eb;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  box-shadow: 
+    0 0 40px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  perspective: 1000px;
 }
-.login-slide {
+
+/* Container para o track do carrossel */
+.login-rotary-track {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  gap: var(--carousel-gap, 16px);
+  padding: var(--carousel-gap, 16px);
+  box-sizing: border-box;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Cards individuais do carrossel */
+.login-rotary-card {
+  --card-width: var(--carousel-card-width, 300px);
+  width: var(--card-width);
+  height: 100%;
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+  
+  /* Transição suave para scale e opacity */
+  transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              filter 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  
+  transform: scale(0.8);
+  opacity: 0.6;
+  filter: blur(0px) brightness(0.95);
+  
+  /* Efeito de profundidade */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Imagem dentro do card */
+.login-rotary-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* Caption/legenda do card */
+.login-rotary-card figcaption {
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background-size: cover;
-  background-position: center;
-  transition: left 0.7s cubic-bezier(.77,0,.18,1);
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.3) 60%, transparent);
+  color: #fff;
+  padding: 16px 12px 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  opacity: 0.9;
 }
+
+/* Posição: Card anterior (esquerda) */
+.login-rotary-card.pos-left {
+  transform: scale(0.82);
+  opacity: 0.55;
+  filter: blur(0.3px) brightness(0.92);
+}
+
+/* Posição: Card central (centro/destacado) */
+.login-rotary-card.pos-center {
+  transform: scale(1.05);
+  opacity: 1;
+  filter: blur(0px) brightness(1);
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  z-index: 10;
+}
+
+/* Posição: Card posterior (direita) */
+.login-rotary-card.pos-right {
+  transform: scale(0.82);
+  opacity: 0.55;
+  filter: blur(0.3px) brightness(0.92);
+}
+
+/* Posição: Card escondido (para animação contínua) */
+.login-rotary-card.pos-trailing {
+  transform: scale(0.78);
+  opacity: 0.3;
+  filter: blur(0.5px) brightness(0.85);
+}
+
+/* Botões de navegação anterior/próximo */
+.login-rotary-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1.2rem;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.login-rotary-nav:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.login-rotary-nav:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.login-rotary-nav.prev {
+  left: 16px;
+}
+
+.login-rotary-nav.next {
+  right: 16px;
+}
+
+/* Indicadores (dots) */
 .login-rotary-dots {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-top: 12px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 8px;
 }
-.login-dot {
-  width: 12px; height: 12px;
+
+.login-rotary-dots button {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #cbd5e1;
-  display: inline-block;
+  border: none;
+  background: rgba(11, 74, 130, 0.3);
   cursor: pointer;
-  transition: background 0.3s;
+  transition: all 0.3s ease;
+  padding: 0;
+  
+  /* Efeito de hover */
 }
-.login-dot.active {
+
+.login-rotary-dots button:hover {
+  background: rgba(11, 74, 130, 0.5);
+  transform: scale(1.2);
+}
+
+.login-rotary-dots button.is-active {
   background: #0b4a82;
+  width: 28px;
+  border-radius: 5px;
+  box-shadow: 0 0 12px rgba(11, 74, 130, 0.5);
+}
+
+/* ========== RESPONSIVIDADE ========== */
+
+/* Tablet e pequenas telas */
+@media (max-width: 768px) {
+  .login-rotary-stage {
+    min-height: 220px;
+  }
+  
+  .login-rotary-card {
+    border-radius: 10px;
+  }
+  
+  .login-rotary-nav {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+  
+  .login-rotary-nav.prev {
+    left: 12px;
+  }
+  
+  .login-rotary-nav.next {
+    right: 12px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .login-rotary-wrap {
+    padding: 0 4px;
+  }
+  
+  .login-rotary-stage {
+    min-height: 180px;
+    border-radius: 12px;
+  }
+  
+  .login-rotary-track {
+    padding: var(--carousel-gap, 8px);
+    gap: var(--carousel-gap, 8px);
+  }
+  
+  .login-rotary-card {
+    border-radius: 8px;
+  }
+  
+  .login-rotary-card figcaption {
+    padding: 12px 8px 8px;
+    font-size: 0.85rem;
+  }
+  
+  .login-rotary-nav {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
+  
+  .login-rotary-nav.prev {
+    left: 8px;
+  }
+  
+  .login-rotary-nav.next {
+    right: 8px;
+  }
+  
+  .login-rotary-dots {
+    gap: 8px;
+  }
 }
 /* Destaca campos de data inválidos */
 .invalid-date-field {
