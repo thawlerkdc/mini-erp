@@ -435,6 +435,19 @@ header .topbar {
   font-size: 0.82rem;
 }
 
+body:not(.theme-dark) .public-theme-switch #theme-light-btn.active {
+  background: linear-gradient(135deg, #fff7d6, #fde68a);
+  color: #1f2937;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.28) inset, 0 8px 18px rgba(15, 23, 42, 0.18);
+}
+
+body:not(.theme-dark) .public-theme-switch #theme-dark-btn.active {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
 .account-badge {
   display: inline-flex;
   align-items: center;
