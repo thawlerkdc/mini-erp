@@ -461,10 +461,21 @@ def get_db_connection() -> _Conn:
         )
     
     try:
+        if psycopg is None:
+            # Fallback para desenvolvimento local com SQLite
+            import sqlite3
+            logger.info("📦 Conectando ao SQLite (desenvolvimento local)")
+            return _Conn(sqlite3.connect("kdc_systems.db"))
+        
         pg_conn = psycopg.connect(db_url)
         return _Conn(pg_conn)
-    except (psycopg.OperationalError, psycopg.DatabaseError) as exc:
-        logger.error(f"❌ Erro ao conectar ao banco de dados: {exc}")
+    except Exception as exc:
+        # Capturar exceções genéricas se psycopg não está disponível
+        if psycopg and hasattr(psycopg, 'OperationalError'):
+            if isinstance(exc, (psycopg.OperationalError, psycopg.DatabaseError)):
+                logger.error(f"❌ Erro ao conectar ao banco de dados: {exc}")
+        else:
+            logger.error(f"❌ Erro ao conectar ao banco de dados: {exc}")
         raise
 
 
