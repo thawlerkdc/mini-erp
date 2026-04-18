@@ -142,6 +142,16 @@
         </div>
         <div class="topbar">
           <div class="actions">
+            <div class="public-theme-switch" aria-label="Alternar tema da interface">
+              <button type="button" class="user-menu-theme" id="theme-light-btn" onclick="switchTheme('light')">
+                <span class="menu-icon" aria-hidden="true">☀️</span>
+                <span>Claro</span>
+              </button>
+              <button type="button" class="user-menu-theme" id="theme-dark-btn" onclick="switchTheme('dark')">
+                <span class="menu-icon" aria-hidden="true">🌙</span>
+                <span>Escuro</span>
+              </button>
+            </div>
             <div class="language-dropdown">
               <button type="button"><span class="menu-icon" aria-hidden="true">&#127760;</span><span>{{ t('select_language') }}</span></button>
               <div class="language-dropdown-menu">

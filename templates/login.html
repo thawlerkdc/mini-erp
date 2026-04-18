@@ -531,67 +531,6 @@
     }
 
     (function() {
-      var themeKey = 'mini_erp_login_theme';
-      var actions = document.querySelector('header .topbar .actions');
-
-      function applyLoginTheme(theme) {
-        var isDark = theme === 'dark';
-        document.body.classList.toggle('login-theme-dark', isDark);
-        document.body.classList.toggle('login-theme-light', !isDark);
-
-        var lightBtn = document.getElementById('login-theme-light-btn');
-        var darkBtn = document.getElementById('login-theme-dark-btn');
-        if (lightBtn) lightBtn.classList.toggle('is-active', !isDark);
-        if (darkBtn) darkBtn.classList.toggle('is-active', isDark);
-
-        try {
-          localStorage.setItem(themeKey, isDark ? 'dark' : 'light');
-        } catch (e) {
-          // Ignore localStorage errors in restricted environments
-        }
-      }
-
-      function initLoginThemeSwitch() {
-        if (!actions || actions.querySelector('.login-theme-switch')) return;
-
-        var wrapper = document.createElement('div');
-        wrapper.className = 'login-theme-switch';
-        wrapper.innerHTML =
-          '<button type="button" id="login-theme-light-btn" aria-label="Ativar tema claro">Claro</button>' +
-          '<button type="button" id="login-theme-dark-btn" aria-label="Ativar tema escuro">Escuro</button>';
-
-        actions.insertBefore(wrapper, actions.firstChild);
-
-        var lightBtn = document.getElementById('login-theme-light-btn');
-        var darkBtn = document.getElementById('login-theme-dark-btn');
-
-        if (lightBtn) {
-          lightBtn.addEventListener('click', function() {
-            applyLoginTheme('light');
-          });
-        }
-
-        if (darkBtn) {
-          darkBtn.addEventListener('click', function() {
-            applyLoginTheme('dark');
-          });
-        }
-
-        var initialTheme = 'light';
-        try {
-          var stored = localStorage.getItem(themeKey);
-          if (stored === 'dark' || stored === 'light') {
-            initialTheme = stored;
-          }
-        } catch (e) {
-          initialTheme = 'light';
-        }
-
-        applyLoginTheme(initialTheme);
-      }
-
-      initLoginThemeSwitch();
-
       var items = [
         { src: "{{ url_for('static', filename='img/previews/dashboard.png') }}", cap: 'Painel de controle' },
         { src: "{{ url_for('static', filename='img/previews/vendas.png') }}", cap: 'Vendas' },
