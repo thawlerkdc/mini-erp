@@ -396,9 +396,9 @@ header .brand-subtitle {
 
 header .topbar .actions {
   position: static;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
   margin-left: 0;
 }
 header .topbar {
@@ -977,6 +977,7 @@ footer {
     width: auto;
     margin-left: auto;
     align-items: flex-end;
+    flex-direction: column;
   }
 
   .account-badge {

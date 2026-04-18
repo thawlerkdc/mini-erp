@@ -62,7 +62,7 @@
           {% endfor %}
         </ul>
       </div>
-      <div style="margin-top: 12px; font-size: 0.9rem; color: #475569;">
+      <div class="report-kpi-breakdown">
         Receitas: R$ {{ "%.2f"|format(relatorio_gerencial['dre']['receitas'])|replace('.', ',') }} |
         CMV: R$ {{ "%.2f"|format(relatorio_gerencial['dre']['cmv'])|replace('.', ',') }} |
         Lucro bruto: R$ {{ "%.2f"|format(relatorio_gerencial['dre']['lucro_bruto'])|replace('.', ',') }} |
@@ -502,6 +502,15 @@ function exportReport(type) {
     .pscard-total-geral .pscard-qty,
     .pscard-total-geral .pscard-total {
       color: #ffffff;
+    }
+    .report-kpi-breakdown {
+      margin-top: 12px;
+      font-size: 0.92rem;
+      color: #475569;
+      font-weight: 600;
+    }
+    body.theme-dark .report-kpi-breakdown {
+      color: #d5e0f0;
     }
     .report-drill-link {
       color: #0b4a82;
