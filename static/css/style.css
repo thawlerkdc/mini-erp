@@ -395,13 +395,20 @@ header .brand-subtitle {
 }
 
 header .topbar .actions {
-  position: absolute;
-  top: 12px;
-  right: 18px;
+  position: static;
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
   margin-left: 0;
+}
+header .topbar {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  min-height: 0;
+  margin-top: 0;
+  justify-content: flex-end;
+  z-index: 2;
 }
 
 .public-theme-switch {
@@ -420,9 +427,6 @@ header .topbar .actions {
   font-size: 0.82rem;
 }
 
-header .topbar {
-  min-height: 74px;
-}
 .account-badge {
   display: inline-flex;
   align-items: center;
@@ -962,6 +966,12 @@ footer {
     flex-wrap: wrap;
   }
 
+  header .topbar {
+    position: static;
+    width: 100%;
+    margin-top: 10px;
+  }
+
   header .topbar .actions {
     position: static;
     width: auto;
@@ -1293,6 +1303,7 @@ body.theme-dark .flash.info {
   opacity: 1;
   min-height: 36px;
   margin-bottom: 3px;
+  font-size: 0.95rem;
 }
 
 .menu-fav-toggle {
