@@ -2,9 +2,9 @@
 
 {% block content %}
 <div class="form-card" style="max-width:600px;margin:2rem auto;">
-  <h2>Importar/Integrar Dados</h2>
+  <h2>Importar Dados</h2>
   <p>Faça upload do arquivo Excel preenchido conforme o template. Cada aba representa um módulo (clientes, produtos, fornecedores, etc).</p>
-  <a href="{{ url_for('import_excel.download_template') }}" class="outline-button" style="margin-bottom:18px;">Baixar template Excel</a>
+  <a href="{{ url_for('import_excel.download_template') }}" class="btn-download-template">&#11015;&#65039; Baixar template Excel</a>
   <form method="post" enctype="multipart/form-data">
     <label>Arquivo Excel (.xlsx):</label>
     <input type="file" name="excel_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>

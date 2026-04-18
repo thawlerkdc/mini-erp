@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kdc Systems - {{ title if title else 'ERP' }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260418dropdownfix2') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260418darkfix1') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260416a') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260418') }}"></script>
   </head>
@@ -61,7 +61,7 @@
           <header class="app-topbar">
             <div class="topbar-left">
               <h1>{{ title }}</h1>
-              <span class="account-badge">{{ session.get('account_name') }}{% if session.get('role') == 'owner' %} · principal{% else %} · dependente{% endif %}</span>
+              <span class="account-badge">{% if session.get('role') == 'owner' %}<span class="badge-role-icon" title="Conta principal">&#128081;</span>{% else %}<span class="badge-role-icon" title="Conta dependente">&#128100;</span>{% endif %} {{ session.get('account_name') }}</span>
             </div>
             <div class="user-menu-dropdown">
               <button type="button" class="user-menu-trigger">
