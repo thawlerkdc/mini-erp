@@ -122,36 +122,6 @@
       position: relative;
       z-index: 1;
     }
-    .login-theme-switch {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.28);
-      border-radius: 999px;
-      padding: 4px;
-      background: rgba(7, 42, 78, 0.55);
-      backdrop-filter: blur(8px);
-      box-shadow: 0 8px 20px rgba(7, 42, 78, 0.24);
-    }
-    .login-theme-switch button {
-      border: none;
-      border-radius: 999px;
-      padding: 7px 12px;
-      font-size: 0.82rem;
-      font-weight: 700;
-      color: #e2e8f0;
-      background: transparent;
-      cursor: pointer;
-      transition: background 0.28s ease, color 0.28s ease, transform 0.22s ease;
-    }
-    .login-theme-switch button:hover {
-      transform: translateY(-1px);
-    }
-    .login-theme-switch button.is-active {
-      background: rgba(255, 255, 255, 0.22);
-      color: #ffffff;
-      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
-    }
     body,
     header,
     header::before,
@@ -522,89 +492,6 @@
     
     .forgot-password-link:hover {
       text-decoration: underline;
-    }
-    body.login-theme-dark {
-      background: #111827;
-      color: #e5e7eb;
-    }
-    body.login-theme-dark header {
-      background: #0b1324;
-      border-bottom-color: #1e3a5f;
-    }
-    body.login-theme-dark header::before {
-      background: radial-gradient(circle, rgba(30, 64, 175, 0.46), rgba(30, 64, 175, 0) 70%);
-    }
-    body.login-theme-dark header .brand-name.brand-animated {
-      background: linear-gradient(135deg, rgba(30, 41, 59, 0.75), rgba(51, 65, 85, 0.62));
-      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.22) inset, 0 0 20px rgba(59, 130, 246, 0.24), 0 12px 34px rgba(2, 6, 23, 0.72);
-      text-shadow: 0 0 16px rgba(191, 219, 254, 0.42);
-    }
-    body.login-theme-dark .login-theme-switch {
-      border-color: rgba(148, 163, 184, 0.35);
-      background: rgba(15, 23, 42, 0.72);
-    }
-    body.login-theme-dark .login-theme-switch button {
-      color: #cbd5e1;
-    }
-    body.login-theme-dark .login-theme-switch button.is-active {
-      background: rgba(56, 189, 248, 0.28);
-      color: #f8fafc;
-    }
-    body.login-theme-dark .language-dropdown button {
-      background: #1e3a5f;
-      border-color: #1e3a5f;
-    }
-    body.login-theme-dark .language-dropdown:hover button,
-    body.login-theme-dark .language-dropdown:focus-within button {
-      background: #25507f;
-    }
-    body.login-theme-dark .login-hero-panel {
-      background: radial-gradient(circle at 10% 10%, rgba(14, 116, 144, 0.26), transparent 45%), linear-gradient(145deg, #0f172a 0%, #0f2747 48%, #1e3a8a 100%);
-      box-shadow: 0 24px 46px rgba(2, 6, 23, 0.6);
-    }
-    body.login-theme-dark .hero-badges span {
-      border-color: rgba(148, 163, 184, 0.5);
-      background: rgba(15, 23, 42, 0.42);
-      color: #dbeafe;
-    }
-    body.login-theme-dark .modern-auth-card {
-      background: #1f2937;
-      border-color: #334155;
-      box-shadow: 0 16px 34px rgba(2, 6, 23, 0.48);
-    }
-    body.login-theme-dark .modern-auth-card h3,
-    body.login-theme-dark .modern-auth-card label {
-      color: #e5e7eb;
-    }
-    body.login-theme-dark .modern-auth-card input {
-      background: #0f172a;
-      border-color: #334155;
-      color: #f8fafc;
-      caret-color: #f8fafc;
-    }
-    body.login-theme-dark .modern-auth-card input:focus {
-      background: #0f172a;
-      color: #f8fafc;
-      border-color: #475569;
-    }
-    body.login-theme-dark .modern-auth-card input::placeholder {
-      color: #94a3b8;
-    }
-    body.login-theme-dark .modern-auth-card input:-webkit-autofill,
-    body.login-theme-dark .modern-auth-card input:-webkit-autofill:hover,
-    body.login-theme-dark .modern-auth-card input:-webkit-autofill:focus,
-    body.login-theme-dark .modern-auth-card input:-webkit-autofill:active {
-      -webkit-text-fill-color: #f8fafc;
-      transition: background-color 9999s ease-in-out 0s;
-      box-shadow: 0 0 0px 1000px #0f172a inset;
-      border: 1px solid #334155;
-      caret-color: #f8fafc;
-    }
-    body.login-theme-dark .login-signup-panel {
-      border-top-color: #334155;
-    }
-    body.login-theme-dark .forgot-password-link {
-      color: #7dd3fc;
     }
     
     @keyframes brandCosmicShift {

@@ -1040,9 +1040,132 @@ footer {
   --card-shadow: 0 12px 24px rgba(16, 42, 89, 0.08);
 }
 
+/* Dark theme mode */
+body.theme-dark {
+  /* Background & Surfaces */
+  --bg-app: #0f172a;
+  --surface: #1e293b;
+  --text-main: #f1f5f9;
+  --text-soft: #cbd5e1;
+  --border-soft: #334155;
+  
+  /* Branding (adjusted for dark) */
+  --brand-700: #3b82f6;
+  --brand-800: #1e40af;
+  --sidebar-a: #0f172a;
+  --sidebar-b: #1e293b;
+  --hero-a: #60a5fa;
+  --hero-b: #818cf8;
+  --card-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+}
+
 body {
   background: radial-gradient(circle at 20% 0%, #f7f9ff 0%, var(--bg-app) 48%, #e9eef7 100%);
   color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body.theme-dark {
+  background: #0f172a;
+}
+
+/* Inputs and form controls in dark mode */
+body.theme-dark input[type="text"],
+body.theme-dark input[type="email"],
+body.theme-dark input[type="password"],
+body.theme-dark input[type="number"],
+body.theme-dark input[type="date"],
+body.theme-dark input[type="time"],
+body.theme-dark input[type="search"],
+body.theme-dark select,
+body.theme-dark textarea {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+
+body.theme-dark input:focus,
+body.theme-dark select:focus,
+body.theme-dark textarea:focus {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+}
+
+/* Webkit autofill styling for dark mode */
+body.theme-dark input:-webkit-autofill {
+  -webkit-text-fill-color: #f1f5f9;
+  -webkit-box-shadow: 0 0 0 1000px #1e293b inset;
+  box-shadow: 0 0 0 1000px #1e293b inset;
+}
+
+body.theme-dark input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f1f5f9;
+  -webkit-box-shadow: 0 0 0 1000px #1e293b inset;
+  box-shadow: 0 0 0 1000px #1e293b inset;
+}
+
+/* Placeholders */
+body.theme-dark ::placeholder {
+  color: #94a3b8;
+}
+
+/* Buttons */
+body.theme-dark button {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Tables and dividers */
+body.theme-dark table {
+  border-color: var(--border-soft);
+}
+
+body.theme-dark thead {
+  background-color: #1e293b;
+  border-bottom: 2px solid var(--border-soft);
+}
+
+body.theme-dark tbody tr {
+  border-color: var(--border-soft);
+}
+
+body.theme-dark tbody tr:hover {
+  background-color: #334155;
+}
+
+body.theme-dark hr {
+  border-color: var(--border-soft);
+}
+
+/* Cards and panels */
+body.theme-dark .card,
+body.theme-dark .panel,
+body.theme-dark [class*="card"],
+body.theme-dark [class*="panel"] {
+  background-color: var(--surface);
+  border-color: var(--border-soft);
+  color: var(--text-main);
+  transition: background-color 0.2s ease;
+}
+
+/* Flash messages in dark mode */
+body.theme-dark .flash.error {
+  background: #7f1d1d;
+  border-color: #991b1b;
+  color: #fecaca;
+}
+
+body.theme-dark .flash.success {
+  background: #064e3b;
+  border-color: #047857;
+  color: #86efac;
+}
+
+body.theme-dark .flash.info {
+  background: #0c2d48;
+  border-color: #075985;
+  color: #7dd3fc;
 }
 
 .app-layout {
@@ -1400,6 +1523,71 @@ body {
   background: #0b4a82;
   color: #fff !important;
   font-weight: 600;
+}
+
+/* Theme selector in user menu */
+.user-menu-themes {
+  display: flex;
+  gap: 0;
+  padding: 4px 16px 8px;
+  background: #f9fafb;
+}
+
+.user-menu-theme {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  color: #1f2937;
+  background: #e5e7eb;
+  border: 2px solid transparent;
+  text-decoration: none;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+}
+
+.user-menu-theme:hover {
+  background: #d1d5db;
+}
+
+.user-menu-theme.active {
+  background: #0b4a82;
+  color: #fff;
+  font-weight: 600;
+  border-color: #0b4a82;
+}
+
+/* Dark mode adjustments for theme menu */
+body.theme-dark .user-menu-languages,
+body.theme-dark .user-menu-themes {
+  background: #1e293b;
+}
+
+body.theme-dark .user-menu-lang {
+  color: #e2e8f0 !important;
+}
+
+body.theme-dark .user-menu-lang:hover {
+  background: #334155;
+}
+
+body.theme-dark .user-menu-theme {
+  color: #e2e8f0;
+  background: #334155;
+}
+
+body.theme-dark .user-menu-theme:hover {
+  background: #475569;
+}
+
+body.theme-dark .user-menu-theme.active {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
 }
 
 .user-menu-logout {

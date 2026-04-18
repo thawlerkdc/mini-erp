@@ -6,6 +6,7 @@
     <title>Kdc Systems - {{ title if title else 'ERP' }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260417fix') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260416a') }}"></script>
+    <script src="{{ url_for('static', filename='js/themeManager.js', v='20260418') }}"></script>
   </head>
   <body>
     {% if session.get('user') %}
@@ -85,6 +86,21 @@
                   {% for code, label in languages.items() %}
                     <a class="user-menu-lang {% if current_language == code %}active{% endif %}" href="{{ url_for('set_language', lang_code=code) }}">{{ label }}</a>
                   {% endfor %}
+                </div>
+                <hr class="user-menu-divider">
+                <div class="user-menu-item user-theme-section">
+                  <span class="menu-icon" aria-hidden="true">&#127761;</span>
+                  <span>Tema</span>
+                </div>
+                <div class="user-menu-themes">
+                  <button type="button" class="user-menu-theme active" id="theme-light-btn" onclick="switchTheme('light')">
+                    <span class="menu-icon" aria-hidden="true">☀️</span>
+                    <span>Claro</span>
+                  </button>
+                  <button type="button" class="user-menu-theme" id="theme-dark-btn" onclick="switchTheme('dark')">
+                    <span class="menu-icon" aria-hidden="true">🌙</span>
+                    <span>Escuro</span>
+                  </button>
                 </div>
                 <hr class="user-menu-divider">
                 <button type="button" class="user-menu-item user-menu-sort-btn" id="user-menu-sort-toggle">
