@@ -580,9 +580,25 @@
       background: #0f172a;
       border-color: #334155;
       color: #f8fafc;
+      caret-color: #f8fafc;
+    }
+    body.login-theme-dark .modern-auth-card input:focus {
+      background: #0f172a;
+      color: #f8fafc;
+      border-color: #475569;
     }
     body.login-theme-dark .modern-auth-card input::placeholder {
       color: #94a3b8;
+    }
+    body.login-theme-dark .modern-auth-card input:-webkit-autofill,
+    body.login-theme-dark .modern-auth-card input:-webkit-autofill:hover,
+    body.login-theme-dark .modern-auth-card input:-webkit-autofill:focus,
+    body.login-theme-dark .modern-auth-card input:-webkit-autofill:active {
+      -webkit-text-fill-color: #f8fafc;
+      transition: background-color 9999s ease-in-out 0s;
+      box-shadow: 0 0 0px 1000px #0f172a inset;
+      border: 1px solid #334155;
+      caret-color: #f8fafc;
     }
     body.login-theme-dark .login-signup-panel {
       border-top-color: #334155;

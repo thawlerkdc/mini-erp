@@ -372,30 +372,25 @@ class _Conn:
 
     def __init__(self, conn):
         self._conn = conn
-        # Detectar tipo de conexão
-        self._is_sqlite = hasattr(conn, 'isolation_level')  # sqlite3 tem isolation_level
-        self._is_psycopg = hasattr(conn, 'autocommit')      # psycopg tem autocommit
+
+        # Detectar driver de forma explícita para evitar falso positivo em psycopg.
+        module_name = type(conn).__module__
+        self._is_sqlite = module_name.startswith("sqlite3")
+        self._is_psycopg = module_name.startswith("psycopg")
 
     def _convert_sql_for_sqlite(self, sql):
         """Converte SQL PostgreSQL para SQLite: %s -> ?, SERIAL -> INTEGER, etc."""
         if not self._is_sqlite:
             return sql
-        
-        # Converter %s para ?
-        import re
-        
-        # Contar %s para saber quantos ? adicionar
-        count = sql.count('%s')
-        if count > 0:
-            # Substituir %s por ?
-            parts = sql.split('%s')
-            sql = '?'.join(parts)
-        
-        # Converter tipos PostgreSQL para SQLite
-        sql = sql.replace('SERIAL PRIMARY KEY', 'INTEGER PRIMARY KEY AUTOINCREMENT')
-        sql = sql.replace('SERIAL', 'INTEGER')
-        sql = sql.replace('REFERENCES', 'REFERENCES')  # SQLite suporta, mas nenhuma ação em delete
-        
+
+        # Converter placeholders de parâmetros.
+        if "%s" in sql:
+            sql = sql.replace("%s", "?")
+
+        # Converter tipos PostgreSQL para SQLite.
+        sql = sql.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+        sql = sql.replace("SERIAL", "INTEGER")
+
         return sql
 
     def execute(self, sql, params=()):
