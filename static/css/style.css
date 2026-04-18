@@ -395,9 +395,13 @@ header .brand-subtitle {
 }
 
 header .topbar .actions {
+  position: absolute;
+  top: 12px;
+  right: 18px;
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+  margin-left: 0;
 }
 
 .public-theme-switch {
@@ -414,6 +418,10 @@ header .topbar .actions {
   padding: 7px 12px;
   border-radius: 999px;
   font-size: 0.82rem;
+}
+
+header .topbar {
+  min-height: 74px;
 }
 .account-badge {
   display: inline-flex;
@@ -952,6 +960,13 @@ footer {
     width: 100%;
     justify-content: flex-end;
     flex-wrap: wrap;
+  }
+
+  header .topbar .actions {
+    position: static;
+    width: auto;
+    margin-left: auto;
+    align-items: flex-end;
   }
 
   .account-badge {
@@ -3172,6 +3187,7 @@ body.theme-dark .login-signup-panel {
 }
 
 /* Fixes for remaining light blocks seen in production screens */
+body.theme-dark .xml-import-callout,
 body.theme-dark .param-section,
 body.theme-dark .param-section-email,
 body.theme-dark .multi-payment-block,
@@ -3199,6 +3215,18 @@ body.theme-dark .performance-table thead {
   color: #eaf1fb !important;
 }
 
+body.theme-dark .compact-status-table tr,
+body.theme-dark .performance-table tr,
+body.theme-dark .report-table tr {
+  background: transparent !important;
+}
+
+body.theme-dark .compact-status-table tr:nth-child(even),
+body.theme-dark .performance-table tr:nth-child(even),
+body.theme-dark .report-table tbody tr:nth-child(even) {
+  background: #223047 !important;
+}
+
 body.theme-dark .report-table th,
 body.theme-dark .report-table td,
 body.theme-dark .table-card th,
@@ -3212,8 +3240,24 @@ body.theme-dark .performance-table td {
 body.theme-dark .field-group label,
 body.theme-dark .param-subtitle,
 body.theme-dark .rate-field label,
-body.theme-dark .param-check-row label {
+body.theme-dark .param-check-row label,
+body.theme-dark .report-card p,
+body.theme-dark .option-card p,
+body.theme-dark .report-card-button,
+body.theme-dark .xml-import-callout p,
+body.theme-dark .xml-import-callout .form-helper,
+body.theme-dark .finance-summary-card p,
+body.theme-dark .compact-status-table .status-pill,
+body.theme-dark .performance-table .status-pill {
   color: #c9d8ea !important;
+}
+
+body.theme-dark .report-card h3,
+body.theme-dark .option-card h4,
+body.theme-dark .finance-summary-card h4,
+body.theme-dark .xml-import-callout h4,
+body.theme-dark .xml-preview-box h4 {
+  color: #f4f8ff !important;
 }
 
 body.theme-dark .rate-input-wrap,
@@ -3225,6 +3269,58 @@ body.theme-dark .rate-pct {
 
 body.theme-dark .form-card fieldset[disabled] {
   opacity: 1 !important;
+}
+
+body.theme-dark input[type="file"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #334155 !important;
+  background: #1e293b !important;
+  color: #eaf1fb !important;
+}
+
+body.theme-dark input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  border: 1px solid #475569;
+  background: #334155;
+  color: #f8fbff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+body.theme-dark input[type="file"]::-webkit-file-upload-button {
+  margin-right: 12px;
+  border: 1px solid #475569;
+  background: #334155;
+  color: #f8fbff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+body.theme-dark .xml-import-callout {
+  border-color: #5b4a1f !important;
+  background: linear-gradient(135deg, #2d2412 0%, #3b2f17 100%) !important;
+}
+
+body.theme-dark .report-card-button {
+  background: rgba(15, 23, 42, 0.45) !important;
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+body.theme-dark .report-card:hover .report-card-button,
+body.theme-dark .option-card:hover .report-card-button {
+  background: rgba(15, 23, 42, 0.7) !important;
+}
+
+body.theme-dark .option-card,
+body.theme-dark .report-card.option-card,
+body.theme-dark .payment-summary-card {
+  box-shadow: 0 16px 32px rgba(2, 6, 23, 0.28) !important;
 }
 
 /* Safety net for legacy inline white backgrounds */
