@@ -3071,10 +3071,16 @@ def financeiro():
     start_date = request.args.get("start_date") or datetime.now().replace(day=1).strftime("%Y-%m-%d")
     end_date = request.args.get("end_date") or today
 
-    # Server-side date validation
-    if start_date and end_date and end_date < start_date:
+    try:
+        dt_start = datetime.strptime(start_date, "%Y-%m-%d")
+        dt_end = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        flash("Período inválido. Aplicando período padrão do mês atual.", "error")
+        return redirect(url_for("financeiro") + "#cashflow-diario")
+
+    if dt_end < dt_start:
         flash("A data final não pode ser menor que a data inicial.", "error")
-        end_date = today
+        return redirect(url_for("financeiro", start_date=start_date, end_date=start_date) + "#cashflow-diario")
 
     # Fallback seguro: garante que o template sempre tenha contexto válido.
     categories = []
@@ -3099,18 +3105,6 @@ def financeiro():
         "tax_total": 0.0,
         "net_profit": 0.0,
     }
-
-    try:
-        dt_start = datetime.strptime(start_date, "%Y-%m-%d")
-        dt_end = datetime.strptime(end_date, "%Y-%m-%d")
-        if dt_end < dt_start:
-            flash("A data final não pode ser menor que a data inicial.", "error")
-            start_date = datetime.now().replace(day=1).strftime("%Y-%m-%d")
-            end_date = today
-    except ValueError:
-        flash("Período inválido. Aplicando período padrão do mês atual.", "error")
-        start_date = datetime.now().replace(day=1).strftime("%Y-%m-%d")
-        end_date = today
 
     try:
         categories = conn.execute(

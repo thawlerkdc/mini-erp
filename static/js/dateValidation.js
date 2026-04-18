@@ -1,36 +1,97 @@
-// Centralized date filter validation helper
-// Usage: validateDateRange(startDate, endDate, { highlightFields: [input1, input2], onError })
+// Shared date range validator with inline feedback (no browser alerts)
+
+function parseIsoDate(value) {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return null;
+    }
+    const parts = value.split('-');
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    return new Date(year, month, day);
+}
+
+function setFieldsInvalid(fields, isInvalid) {
+    if (!fields || !fields.length) {
+        return;
+    }
+    fields.forEach((field) => {
+        if (!field) {
+            return;
+        }
+        field.classList.toggle('invalid-date-field', Boolean(isInvalid));
+    });
+}
+
+function setErrorMessage(errorElement, message) {
+    if (!errorElement) {
+        return;
+    }
+    errorElement.textContent = message || '';
+    errorElement.classList.toggle('visible', Boolean(message));
+}
 
 function validateDateRange(startDate, endDate, options = {}) {
-    // Accepts dates as strings (YYYY-MM-DD) or Date objects
-    let start = typeof startDate === 'string' ? new Date(startDate) : startDate;
-    let end = typeof endDate === 'string' ? new Date(endDate) : endDate;
+    const start = startDate instanceof Date ? startDate : parseIsoDate(String(startDate || ''));
+    const end = endDate instanceof Date ? endDate : parseIsoDate(String(endDate || ''));
+    const message = 'A data final não pode ser menor que a data inicial.';
 
-    // Remove time for pure date comparison
-    start.setHours(0,0,0,0);
-    end.setHours(0,0,0,0);
-
-    if (end < start) {
-        if (options.highlightFields) {
-            options.highlightFields.forEach(field => {
-                field.classList.add('invalid-date-field');
-            });
-        }
+    // If one side is empty, keep form submittable and remove previous error state.
+    if (!start || !end) {
+        setFieldsInvalid(options.highlightFields || [], false);
         if (typeof options.onError === 'function') {
-            options.onError('A data final não pode ser menor que a data inicial.');
-        } else {
-            alert('A data final não pode ser menor que a data inicial.');
-        }
-        return false;
-    } else {
-        if (options.highlightFields) {
-            options.highlightFields.forEach(field => {
-                field.classList.remove('invalid-date-field');
-            });
+            options.onError('');
         }
         return true;
     }
+
+    const isValid = end >= start;
+    setFieldsInvalid(options.highlightFields || [], !isValid);
+    if (typeof options.onError === 'function') {
+        options.onError(isValid ? '' : message);
+    }
+    return isValid;
 }
 
-// Export for use in HTML via <script src="/static/js/dateValidation.js"></script>
+function bindDateRangeForm(form) {
+    if (!form) {
+        return;
+    }
+
+    const startInput = document.getElementById(form.dataset.dateStart || '');
+    const endInput = document.getElementById(form.dataset.dateEnd || '');
+    const errorElement = document.getElementById(form.dataset.dateError || '');
+
+    if (!startInput || !endInput) {
+        return;
+    }
+
+    const runValidation = () => validateDateRange(startInput.value, endInput.value, {
+        highlightFields: [startInput, endInput],
+        onError: (msg) => setErrorMessage(errorElement, msg),
+    });
+
+    startInput.addEventListener('input', runValidation);
+    endInput.addEventListener('input', runValidation);
+    startInput.addEventListener('change', runValidation);
+    endInput.addEventListener('change', runValidation);
+
+    form.addEventListener('submit', (event) => {
+        if (!runValidation()) {
+            event.preventDefault();
+            endInput.focus();
+        }
+    });
+
+    runValidation();
+}
+
+function initDateRangeForms() {
+    const forms = document.querySelectorAll('form[data-date-range-form="true"]');
+    forms.forEach((form) => bindDateRangeForm(form));
+}
+
+document.addEventListener('DOMContentLoaded', initDateRangeForms);
+
 window.validateDateRange = validateDateRange;
+window.bindDateRangeForm = bindDateRangeForm;

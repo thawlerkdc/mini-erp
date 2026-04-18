@@ -194,7 +194,7 @@
         </div>
       </section>
 
-      <button type="submit" class="btn-add" {% if read_only %}disabled title="Somente consulta"{% endif %}>Salvar parametros</button>
+      <button type="submit" class="btn-add param-action-btn" {% if read_only %}disabled title="Somente consulta"{% endif %}>Salvar parametros</button>
       </fieldset>
     </form>
 
@@ -203,7 +203,7 @@
       <input type="hidden" name="action" value="test_smtp">
       <label>E-mail para teste (opcional)</label>
       <input type="email" name="test_email" placeholder="Se vazio, usa e-mail de destino principal" {% if read_only %}disabled{% endif %}>
-      <button type="submit" class="btn-add" {% if read_only %}disabled title="Somente consulta"{% endif %}>Enviar e-mail de teste</button>
+      <button type="submit" class="btn-add param-action-btn" {% if read_only %}disabled title="Somente consulta"{% endif %}>Enviar e-mail de teste</button>
     </form>
   </div>
 

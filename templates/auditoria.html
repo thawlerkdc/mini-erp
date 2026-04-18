@@ -5,7 +5,7 @@
   <h2>Logs e Auditoria</h2>
   <p>Rastreabilidade de operações do sistema. Apenas administradores podem acessar.</p>
 
-  <form method="get" class="toolbar-group" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px;align-items:end;" onsubmit="return validateAuditDates(this)">
+  <form method="get" class="toolbar-group" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px;align-items:end;" data-date-range-form="true" data-date-start="audit-start" data-date-end="audit-end" data-date-error="audit-date-error">
     <div>
       <label>Data inicial</label>
       <input type="date" name="start_date" id="audit-start" value="{{ filters.start_date if filters else '' }}">
@@ -51,18 +51,8 @@
       <button type="submit" class="btn-confirm">Filtrar</button>
       <a href="{{ url_for('auditoria.auditoria') }}" class="outline-button">Limpar</a>
     </div>
+    <p id="audit-date-error" class="date-range-error" style="grid-column:1/-1; margin-top:2px;" aria-live="polite"></p>
   </form>
-  <script>
-  function validateAuditDates(form) {
-    var s = form.querySelector('#audit-start').value;
-    var e = form.querySelector('#audit-end').value;
-    if (s && e && e < s) {
-      alert('A data final não pode ser menor que a data inicial.');
-      return false;
-    }
-    return true;
-  }
-  </script>
 
   <div class="report-table-wrap">
     <table class="report-table">

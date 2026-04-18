@@ -273,6 +273,23 @@
   transition: border 0.3s, background 0.3s;
 }
 
+.date-range-error {
+  display: none;
+  width: 100%;
+  margin-top: 6px;
+  color: #dc2626;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.date-range-error.visible {
+  display: block;
+}
+
+.param-action-btn {
+  width: 100%;
+}
+
 .readonly-access-note {
   margin-bottom: 16px;
   padding: 12px 14px;
@@ -3389,6 +3406,10 @@ body.theme-dark .compact-status-table tr:nth-child(even),
 body.theme-dark .performance-table tr:nth-child(even),
 body.theme-dark .report-table tbody tr:nth-child(even) {
   background: #223047 !important;
+}
+
+body.theme-dark .date-range-error {
+  color: #fca5a5;
 }
 
 body.theme-dark .report-table th,
