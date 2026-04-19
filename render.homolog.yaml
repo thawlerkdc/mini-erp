@@ -1,10 +1,10 @@
 databases:
-  - name: mini-erp-db
+  - name: mini-erp-homolog-db
     plan: free
 
 services:
   - type: web
-    name: mini-erp
+    name: mini-erp-homolog
     plan: free
     runtime: python
     buildCommand: pip install -r requirements.txt
@@ -12,10 +12,10 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: mini-erp-db
+          name: mini-erp-homolog-db
           property: connectionString
       - key: APP_ENV
-        value: production
+        value: homolog
       - key: FLASK_ENV
         value: production
       - key: PYTHON_VERSION

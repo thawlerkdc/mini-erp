@@ -10,3 +10,5 @@ data/
 backups/*.db
 instance/
 .env
+.env.homolog
+.env.production

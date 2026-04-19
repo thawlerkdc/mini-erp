@@ -2,8 +2,20 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from dotenv import load_dotenv
 import os
 
-# Carregar variáveis de ambiente do arquivo .env
-load_dotenv()
+# Carregar variáveis de ambiente conforme ambiente alvo.
+APP_ENV = (os.environ.get("APP_ENV") or os.environ.get("ERP_ENV") or "development").strip().lower()
+ENV_FILE_BY_APP_ENV = {
+    "development": ".env",
+    "homolog": ".env.homolog",
+    "staging": ".env.homolog",
+    "production": ".env.production",
+}
+
+selected_env_file = ENV_FILE_BY_APP_ENV.get(APP_ENV, ".env")
+load_dotenv(selected_env_file)
+if selected_env_file != ".env":
+    # Permite fallback de variáveis locais compartilhadas sem sobrescrever as específicas.
+    load_dotenv(".env")
 
 from models import (
     authenticate_user,
@@ -58,7 +70,7 @@ logger = logging.getLogger(__name__)
 
 
 app = Flask(__name__)
-app.secret_key = "kdc_systems_secret_key"
+app.secret_key = os.environ.get("SECRET_KEY", "kdc_systems_secret_key")
 
 # Registrar blueprints disponíveis
 if export_bp:
@@ -821,11 +833,13 @@ DB_STATUS = {
     "environment": "development"
 }
 
-# Verificar se estamos em produção (Render)
-if os.environ.get("DATABASE_URL"):
-    DB_STATUS["environment"] = "production (Render)"
+# Verificar ambiente configurado para operação.
+if APP_ENV == "production":
+    DB_STATUS["environment"] = "production"
+elif APP_ENV in {"homolog", "staging"}:
+    DB_STATUS["environment"] = "homolog"
 else:
-    DB_STATUS["environment"] = "development (Local)"
+    DB_STATUS["environment"] = "development"
 
 logger.info(f"🌍 Ambiente: {DB_STATUS['environment']}")
 

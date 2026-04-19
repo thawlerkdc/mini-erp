@@ -58,6 +58,31 @@ Mini ERP para gerenciar vendas, estoque, compras de fornecedores e relatórios.
 - Suporte a múltiplos idiomas (Português, Inglês, Espanhol, Francês, Alemão e Chinês).
 - Manual de uso interno disponível no menu.
 
+## Homologação e Produção
+
+O projeto agora possui estrutura para trabalhar com dois ambientes separados com segurança:
+
+- Produção: ambiente oficial (branch `main`).
+- Homologação: ambiente de validação (branch `homolog`).
+
+Arquivos adicionados para esse fluxo:
+
+- `render.homolog.yaml`: blueprint Render para serviço de homologação isolado.
+- `.env.homolog.example` e `.env.production.example`: exemplos de variáveis por ambiente.
+- `scripts/start_env.ps1`: inicia localmente por ambiente.
+- `scripts/promote_homolog_to_production.ps1`: promoção rápida de homologação para produção.
+- `HOMOLOG_PRODUCAO_WORKFLOW.md`: passo a passo completo.
+
+Comandos rápidos:
+
+```powershell
+# Rodar homologação local
+.\scripts\start_env.ps1 -Environment homolog
+
+# Promover homologação para produção
+.\scripts\promote_homolog_to_production.ps1
+```
+
 ## Estoque Integrado e Fator de Conversão
 
 ### Como o fator funciona
