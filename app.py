@@ -2602,6 +2602,48 @@ def vendas():
                 (account_id, item["product_id"], item["quantity"], "sale", sale_date, f"Venda #{sale_id}", get_current_user_id(), session.get("user_name") or session.get("user")),
             )
 
+        # Phase 2: cada venda gera um contas a receber rastreável no financeiro.
+        existing_sale_receivable = conn.execute(
+            "SELECT id FROM financial_entries WHERE account_id = %s AND source = 'sale' AND source_ref = %s LIMIT 1",
+            (account_id, str(sale_id)),
+        ).fetchone()
+        if not existing_sale_receivable:
+            sale_client = conn.execute(
+                "SELECT name FROM clients WHERE id = %s AND account_id = %s LIMIT 1",
+                (client_id, account_id),
+            ).fetchone() if client_id else None
+            sale_client_name = (sale_client["name"] if sale_client else None) or "Sem cliente"
+            sale_due_date = sale_date[:10]
+            conn.execute(
+                "INSERT INTO financial_entries (account_id, entry_type, description, client_id, amount, due_date, status, source, source_ref, created_at, paid_at) "
+                "VALUES (%s, 'receivable', %s, %s, %s, %s, 'pago', 'sale', %s, %s, %s)",
+                (
+                    account_id,
+                    f"Venda #{sale_id} - {sale_client_name}",
+                    client_id,
+                    total,
+                    sale_due_date,
+                    str(sale_id),
+                    sale_date,
+                    sale_date,
+                ),
+            )
+            receivable_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('financial_entries', 'id'))").fetchone()[0]
+            conn.execute(
+                "INSERT INTO financial_payment_history (account_id, entry_id, event_type, payment_date, payment_amount, payment_method, notes, created_by_user_name, created_at) "
+                "VALUES (%s, %s, 'payment_registered_auto_sale', %s, %s, %s, %s, %s, %s)",
+                (
+                    account_id,
+                    receivable_id,
+                    sale_due_date,
+                    total,
+                    payment_method,
+                    f"Registro automático da venda #{sale_id}",
+                    session.get("user_name") or session.get("user"),
+                    sale_date,
+                ),
+            )
+
         conn.commit()
         flash(translate("sale_success"), "success")
 
@@ -3251,10 +3293,17 @@ def financeiro():
             summary[etype]["vencido"] = float(row["total_vencido"] or 0)
             summary[etype]["pendente"] = float(row["total_pendente"] or 0)
 
-        sales_cashflow = conn.execute(
-            "SELECT SUBSTRING(date, 1, 10) AS day, COALESCE(SUM(total), 0) AS inflow "
-            "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s "
-            "GROUP BY SUBSTRING(date, 1, 10)",
+        # Entrada financeira oficial: contas a receber pagas.
+        # Fallback legado: vendas sem vínculo financeiro ainda são consideradas para não perder histórico.
+        legacy_sales_cashflow = conn.execute(
+            "SELECT SUBSTRING(s.date, 1, 10) AS day, COALESCE(SUM(s.total), 0) AS inflow "
+            "FROM sales s "
+            "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s "
+            "AND NOT EXISTS ("
+            "  SELECT 1 FROM financial_entries e "
+            "  WHERE e.account_id = s.account_id AND e.source = 'sale' AND e.source_ref = CAST(s.id AS TEXT)"
+            ") "
+            "GROUP BY SUBSTRING(s.date, 1, 10)",
             (account_id, start_date, end_date),
         ).fetchall()
         receivable_cashflow = conn.execute(
@@ -3271,7 +3320,7 @@ def financeiro():
         ).fetchall()
 
         flow_map = {}
-        for row in sales_cashflow:
+        for row in legacy_sales_cashflow:
             day = row["day"]
             flow_map.setdefault(day, {"inflow": 0.0, "outflow": 0.0})
             flow_map[day]["inflow"] += float(row["inflow"] or 0)
@@ -4088,8 +4137,14 @@ def relatorios():
             report_description = "Entradas e saídas do período com saldo final."
             report_headers = ["Métrica", "Valor"]
 
-            inflow_sales = conn.execute(
-                "SELECT COALESCE(SUM(total), 0) AS total FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
+            inflow_legacy_sales = conn.execute(
+                "SELECT COALESCE(SUM(s.total), 0) AS total "
+                "FROM sales s "
+                "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s "
+                "AND NOT EXISTS ("
+                "  SELECT 1 FROM financial_entries e "
+                "  WHERE e.account_id = s.account_id AND e.source = 'sale' AND e.source_ref = CAST(s.id AS TEXT)"
+                ")",
                 (account_id, start_date, end_date),
             ).fetchone()["total"]
             inflow_receivable = conn.execute(
@@ -4101,12 +4156,12 @@ def relatorios():
                 (account_id, start_date, end_date),
             ).fetchone()["total"]
 
-            total_inflow = float(inflow_sales or 0) + float(inflow_receivable or 0)
+            total_inflow = float(inflow_legacy_sales or 0) + float(inflow_receivable or 0)
             total_outflow = float(outflow or 0)
             balance = total_inflow - total_outflow
 
             report_rows = [
-                ("Entradas (vendas)", f"R$ {total_inflow:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
+                ("Entradas", f"R$ {total_inflow:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
                 ("Saídas", f"R$ {total_outflow:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
                 ("Saldo", f"R$ {balance:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")),
             ]

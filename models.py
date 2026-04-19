@@ -303,6 +303,7 @@ _TENANT_MIGRATIONS = [
     "UPDATE financial_entries SET source = 'manual' WHERE source IS NULL OR BTRIM(source) = ''",
     "CREATE TABLE IF NOT EXISTS financial_payment_history (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), entry_id INTEGER NOT NULL REFERENCES financial_entries(id), event_type TEXT NOT NULL, payment_date TEXT, payment_amount DOUBLE PRECISION, payment_method TEXT, notes TEXT, created_by_user_name TEXT, created_at TEXT NOT NULL)",
     "CREATE INDEX IF NOT EXISTS idx_financial_payment_history_entry ON financial_payment_history (entry_id)",
+    "CREATE INDEX IF NOT EXISTS idx_financial_entries_source_ref ON financial_entries (account_id, source, source_ref)",
     "ALTER TABLE nfe_imports ADD COLUMN IF NOT EXISTS invoice_key TEXT",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone TEXT",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp TEXT",
