@@ -3282,6 +3282,9 @@ def financeiro():
     now_dt = datetime.now()
     today = now_dt.strftime("%Y-%m-%d")
     selected_period = (request.args.get("period") or "").strip().lower()
+    selected_source_filter = _normalize_financial_source((request.args.get("source") or "").strip().lower()) if request.args.get("source") else ""
+    if selected_source_filter and selected_source_filter not in FINANCIAL_SOURCE_LABELS:
+        selected_source_filter = ""
     req_start_date = (request.args.get("start_date") or "").strip()
     req_end_date = (request.args.get("end_date") or "").strip()
 
@@ -3353,17 +3356,25 @@ def financeiro():
         suppliers = conn.execute("SELECT id, name FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
         clients = conn.execute("SELECT id, name FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
 
-        entries = conn.execute(
+        entries_query = (
             "SELECT e.*, fc.name AS category_name, s.name AS supplier_name, c.name AS client_name "
             "FROM financial_entries e "
             "LEFT JOIN financial_categories fc ON e.category_id = fc.id "
             "LEFT JOIN suppliers s ON e.supplier_id = s.id "
             "LEFT JOIN clients c ON e.client_id = c.id "
             "WHERE e.account_id = %s "
+        )
+        entries_params = [account_id]
+        if selected_source_filter:
+            entries_query += "AND e.source = %s "
+            entries_params.append(selected_source_filter)
+        entries_query += (
             "ORDER BY CASE WHEN e.status = 'pago' THEN 2 WHEN e.due_date < %s THEN 0 ELSE 1 END, e.due_date ASC, e.id DESC "
-            "LIMIT 200",
-            (account_id, today),
-        ).fetchall()
+            "LIMIT 200"
+        )
+        entries_params.append(today)
+
+        entries = conn.execute(entries_query, tuple(entries_params)).fetchall()
         normalized_entries = []
         for r in entries:
             row = dict(r)
@@ -3371,6 +3382,7 @@ def financeiro():
             row["due_date_display"] = _format_date_br(row.get("due_date"))
             row["source"] = _normalize_financial_source(row.get("source"))
             row["source_label"] = FINANCIAL_SOURCE_LABELS.get(row["source"], "Lançamento manual")
+            row["source_ref_display"] = (str(row.get("source_ref") or "").strip())[:60]
             row["is_auto_source"] = _is_auto_financial_source(row["source"])
             normalized_entries.append(row)
         entries = normalized_entries
@@ -3528,6 +3540,8 @@ def financeiro():
         "dre": dre,
         "finance_period_label": finance_period_label,
         "finance_selected_period": selected_period,
+        "finance_selected_source": selected_source_filter,
+        "finance_source_options": [(key, value) for key, value in FINANCIAL_SOURCE_LABELS.items()],
     }
     try:
         return render_template("financeiro.html", **finance_context)

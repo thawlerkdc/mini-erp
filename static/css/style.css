@@ -3152,6 +3152,40 @@ body.theme-dark .btn-close-cash:hover {
   white-space: nowrap;
 }
 
+.finance-origin-ref {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.74rem;
+  color: #64748b;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finance-origin-filter-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.finance-origin-filter-form label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.finance-origin-filter-form select {
+  min-width: 220px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 8px 10px;
+}
+
 .finance-origin-badge.source-sale { background: #dbeafe; color: #1d4ed8; }
 .finance-origin-badge.source-purchase { background: #ffedd5; color: #9a3412; }
 .finance-origin-badge.source-purchase_order { background: #ffedd5; color: #9a3412; }
@@ -3833,6 +3867,20 @@ body.theme-dark .finance-origin-badge {
   background: #334155;
   color: #e2e8f0;
   border: 1px solid #475569;
+}
+
+body.theme-dark .finance-origin-ref {
+  color: #a8bdd8;
+}
+
+body.theme-dark .finance-origin-filter-form label {
+  color: #dbeafe;
+}
+
+body.theme-dark .finance-origin-filter-form select {
+  border-color: #385175;
+  background: #15213a;
+  color: #eaf2ff;
 }
 
 body.theme-dark .finance-origin-badge.source-sale { background: rgba(37, 99, 235, 0.28); color: #bfdbfe; border-color: rgba(147, 197, 253, 0.45); }

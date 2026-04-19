@@ -411,6 +411,18 @@
   <!-- Tabela de Lançamentos Financeiros -->
   <div class="table-card" id="lancamentos-financeiros">
     <h3>Detalhes de Lançamentos Financeiros</h3>
+    <form method="get" action="{{ url_for('financeiro') }}#lancamentos-financeiros" class="finance-origin-filter-form">
+      <input type="hidden" name="period" value="{{ finance_selected_period }}">
+      <input type="hidden" name="start_date" value="{{ start_date }}">
+      <input type="hidden" name="end_date" value="{{ end_date }}">
+      <label for="finance-origin-filter">Origem do lançamento</label>
+      <select id="finance-origin-filter" name="source" onchange="this.form.submit()">
+        <option value="" {% if not finance_selected_source %}selected{% endif %}>Todas as origens</option>
+        {% for source_key, source_label in finance_source_options %}
+          <option value="{{ source_key }}" {% if finance_selected_source == source_key %}selected{% endif %}>{{ source_label }}</option>
+        {% endfor %}
+      </select>
+    </form>
     <div class="report-table-wrap">
       <table class="report-table">
         <thead>
@@ -431,7 +443,12 @@
             <tr>
               <td>{{ 'Pagar' if row['entry_type'] == 'payable' else 'Receber' }}</td>
               <td>{{ row['description'] }}</td>
-              <td><span class="finance-origin-badge source-{{ row['source'] }}">{{ row['source_label'] }}</span></td>
+              <td>
+                <span class="finance-origin-badge source-{{ row['source'] }}">{{ row['source_label'] }}</span>
+                {% if row['source_ref_display'] %}
+                  <span class="finance-origin-ref">Ref: {{ row['source_ref_display'] }}</span>
+                {% endif %}
+              </td>
               <td>{{ row['category_name'] or '—' }}</td>
               <td>{{ row['supplier_name'] or row['client_name'] or '—' }}</td>
               <td>{{ row['due_date_display'] }}</td>
