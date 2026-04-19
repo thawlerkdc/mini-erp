@@ -132,9 +132,16 @@ def auditoria():
         tuple(params),
     ).fetchall()
     conn.close()
+
+    logs_formatted = []
+    for row in logs:
+        item = dict(row)
+        item['created_at_display'] = _format_datetime_br(item.get('created_at'))
+        logs_formatted.append(item)
+
     return render_template(
         'auditoria.html',
-        logs=logs,
+        logs=logs_formatted,
         users=users,
         filters={
             'start_date': start_date,
@@ -169,3 +176,26 @@ def _purge_old_logs(account_id):
         conn.close()
     except Exception as exc:
         logging.exception("Falha ao limpar logs antigos: %s", exc)
+
+
+def _format_datetime_br(value):
+    """Converte data/hora para DD/MM/YYYY HH:MM:SS quando possível."""
+    if value is None:
+        return '-'
+
+    if isinstance(value, datetime):
+        return value.strftime('%d/%m/%Y %H:%M:%S')
+
+    text = str(value).strip()
+    if not text:
+        return '-'
+
+    sample = text[:19].replace('T', ' ')
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+        try:
+            parsed = datetime.strptime(sample if fmt.endswith('%S') else sample[:10], fmt)
+            return parsed.strftime('%d/%m/%Y %H:%M:%S' if fmt.endswith('%S') else '%d/%m/%Y')
+        except ValueError:
+            continue
+
+    return text

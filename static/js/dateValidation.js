@@ -31,6 +31,24 @@ function setErrorMessage(errorElement, message) {
     errorElement.classList.toggle('visible', Boolean(message));
 }
 
+function animateDateValidationFeedback(fields, errorElement) {
+    if (errorElement) {
+        errorElement.classList.remove('date-error-pop');
+        // Force reflow to replay animation on repeated invalid attempts.
+        void errorElement.offsetWidth;
+        errorElement.classList.add('date-error-pop');
+    }
+
+    (fields || []).forEach((field) => {
+        if (!field) {
+            return;
+        }
+        field.classList.remove('invalid-date-pulse');
+        void field.offsetWidth;
+        field.classList.add('invalid-date-pulse');
+    });
+}
+
 function validateDateRange(startDate, endDate, options = {}) {
     const start = startDate instanceof Date ? startDate : parseIsoDate(String(startDate || ''));
     const end = endDate instanceof Date ? endDate : parseIsoDate(String(endDate || ''));
@@ -66,10 +84,19 @@ function bindDateRangeForm(form) {
         return;
     }
 
-    const runValidation = () => validateDateRange(startInput.value, endInput.value, {
+    let lastValidationState = true;
+    const runValidation = () => {
+        const isValid = validateDateRange(startInput.value, endInput.value, {
         highlightFields: [startInput, endInput],
         onError: (msg) => setErrorMessage(errorElement, msg),
     });
+
+        if (!isValid && lastValidationState) {
+            animateDateValidationFeedback([startInput, endInput], errorElement);
+        }
+        lastValidationState = isValid;
+        return isValid;
+    };
 
     startInput.addEventListener('input', runValidation);
     endInput.addEventListener('input', runValidation);

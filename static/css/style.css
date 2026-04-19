@@ -286,14 +286,54 @@ body.theme-dark input[type="date"].invalid-date-field::-webkit-calendar-picker-i
 .date-range-error {
   display: none;
   width: 100%;
-  margin-top: 6px;
+  margin-top: 8px;
   color: #dc2626;
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: 1px solid rgba(220, 38, 38, 0.22);
+  background: linear-gradient(180deg, rgba(254, 242, 242, 0.98), rgba(254, 226, 226, 0.92));
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.12);
 }
 
 .date-range-error.visible {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-range-error.visible::before {
+  content: "!";
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  background: #dc2626;
+}
+
+.date-error-pop {
+  animation: dateErrorPop 220ms ease-out;
+}
+
+.invalid-date-pulse {
+  animation: invalidDatePulse 320ms ease-out;
+}
+
+@keyframes dateErrorPop {
+  0% { transform: translateY(-3px); opacity: 0.75; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes invalidDatePulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.38); }
+  100% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
 }
 
 .param-action-btn {
@@ -3419,7 +3459,15 @@ body.theme-dark .report-table tbody tr:nth-child(even) {
 }
 
 body.theme-dark .date-range-error {
-  color: #fca5a5;
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.42), rgba(69, 10, 10, 0.48));
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.16);
+}
+
+body.theme-dark .date-range-error.visible::before {
+  background: #f87171;
+  color: #1f2937;
 }
 
 body.theme-dark .report-table th,
