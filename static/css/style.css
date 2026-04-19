@@ -2811,6 +2811,16 @@ body.theme-dark .btn-close-cash:hover {
   opacity: 0.7;
 }
 
+.finance-chart-canvas-wrap {
+  padding: 14px 16px;
+  min-height: 270px;
+}
+
+.finance-chart-canvas-wrap canvas {
+  width: 100% !important;
+  height: 240px !important;
+}
+
 .finance-bottom-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

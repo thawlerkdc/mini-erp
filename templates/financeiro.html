@@ -5,6 +5,7 @@
     <h2 style="margin: 0; flex-shrink: 0;">Financeiro</h2>
     <button class="finance-period-selector">📅 Abril 2024 <span>▼</span></button>
     <div style="flex: 1;"></div>
+    <a href="{{ url_for('relatorios', section='financeiro', start_date=start_date, end_date=end_date) }}" class="outline-button small">Ir para Relatórios Financeiros</a>
     <select class="finance-filter-select">
       <option>Todos</option>
       <option>Este mês</option>
@@ -52,11 +53,11 @@
         <span>Mês</span>
         <span>Ano</span>
       </div>
-      <div class="chart-period">📅 {{ start_date[8:10] }} Abr - {{ end_date[8:10] }} Abr 2024 <span>→</span></div>
+      <div class="chart-period">📅 {{ start_date[8:10] }}/{{ start_date[5:7] }}/{{ start_date[0:4] }} - {{ end_date[8:10] }}/{{ end_date[5:7] }}/{{ end_date[0:4] }} <span>→</span></div>
     </div>
-    <div class="chart-placeholder">
-      <p>Gráfico de fluxo de caixa (visualização parcial)</p>
-      <small>Detalhes completos na seção Fluxo de caixa diário abaixo</small>
+    <div class="chart-placeholder finance-chart-canvas-wrap">
+      <canvas id="finance-cashflow-chart" aria-label="Gráfico de fluxo de caixa" role="img"></canvas>
+      <p id="finance-chart-empty" style="display:none; margin-top: 8px;">Sem dados pagos no período selecionado para montar o gráfico.</p>
     </div>
   </div>
 
@@ -170,13 +171,13 @@
     </div>
     
     <div class="management-tabs">
-      <button class="tab-btn active" onclick="switchFinanceTab('novo-lancamento')">
+      <button class="tab-btn active" onclick="switchFinanceTab('novo-lancamento', this)">
         <span class="tab-icon">➕</span> Novo Lançamento
       </button>
-      <button class="tab-btn" onclick="switchFinanceTab('categoria')">
+      <button class="tab-btn" onclick="switchFinanceTab('categoria', this)">
         <span class="tab-icon">🏷️</span> Categoria Financeira
       </button>
-      <button class="tab-btn" onclick="switchFinanceTab('xml')">
+      <button class="tab-btn" onclick="switchFinanceTab('xml', this)">
         <span class="tab-icon">📄</span> Importar XML
       </button>
     </div>
@@ -552,6 +553,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     function syncFinancialCategoriesByType() {
       var typeSelect = document.getElementById('entry-type-select');
@@ -577,7 +579,7 @@
       }
     }
 
-    function switchFinanceTab(tabId) {
+    function switchFinanceTab(tabId, buttonEl) {
       // Hide all tab contents
       var contents = document.querySelectorAll('.management-tab-content');
       contents.forEach(function (content) {
@@ -597,7 +599,110 @@
       }
 
       // Mark clicked button as active
-      event.target.closest('.tab-btn').classList.add('active');
+      if (buttonEl) {
+        buttonEl.classList.add('active');
+      }
+    }
+
+    function renderFinanceCashflowChart() {
+      var canvas = document.getElementById('finance-cashflow-chart');
+      if (!canvas || typeof Chart === 'undefined') return;
+
+      var emptyEl = document.getElementById('finance-chart-empty');
+      var rows = {{ cashflow_rows|tojson }};
+      if (!Array.isArray(rows) || !rows.length) {
+        canvas.style.display = 'none';
+        if (emptyEl) emptyEl.style.display = 'block';
+        return;
+      }
+
+      function brDate(isoDate) {
+        if (!isoDate || isoDate.length < 10) return isoDate || '';
+        return isoDate.slice(8, 10) + '/' + isoDate.slice(5, 7);
+      }
+
+      var labels = rows.map(function (row) { return brDate(row.day); });
+      var inflow = rows.map(function (row) { return Number(row.inflow || 0); });
+      var outflow = rows.map(function (row) { return Number(row.outflow || 0); });
+      var balance = rows.map(function (row) { return Number(row.balance || 0); });
+
+      var darkTheme = document.body.classList.contains('theme-dark');
+      var gridColor = darkTheme ? 'rgba(148, 163, 184, 0.2)' : 'rgba(15, 23, 42, 0.1)';
+      var labelColor = darkTheme ? '#cbd5e1' : '#334155';
+
+      new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Entradas',
+              data: inflow,
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.14)',
+              tension: 0.28,
+              fill: true,
+              pointRadius: 2,
+            },
+            {
+              label: 'Saidas',
+              data: outflow,
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              tension: 0.28,
+              fill: true,
+              pointRadius: 2,
+            },
+            {
+              label: 'Saldo',
+              data: balance,
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.08)',
+              tension: 0.28,
+              fill: false,
+              borderWidth: 2,
+              pointRadius: 2,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            intersect: false,
+            mode: 'index'
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: labelColor,
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': R$ ' + Number(context.parsed.y || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: labelColor },
+              grid: { color: gridColor }
+            },
+            y: {
+              ticks: {
+                color: labelColor,
+                callback: function(value) {
+                  return 'R$ ' + Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                }
+              },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
     }
 
     function handleCategoryFocus() {
@@ -664,6 +769,7 @@
         });
       }
       syncFinancialCategoriesByType();
+      renderFinanceCashflowChart();
     });
 
     function openCancelXmlModal() {

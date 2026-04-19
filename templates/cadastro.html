@@ -62,6 +62,9 @@
   {% elif entity == 'produtos' %}
     <div class="form-card">
       <h3>{% if edit_id %}Editar Produto{% else %}{{ t('add_product') }}{% endif %}</h3>
+      <div style="margin: 8px 0 14px;">
+        <a href="{{ url_for('relatorios', section='produtos') }}" class="outline-button small">Ir para Relatórios de Produtos</a>
+      </div>
       <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" id="product-main-form">
         {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
         <label>{{ t('product_name') }}</label>
@@ -224,6 +227,9 @@
   {% elif entity == 'clientes' %}
     <div class="form-card">
       <h3>{% if edit_id %}Editar Cliente{% else %}{{ t('add_client') }}{% endif %}</h3>
+      <div style="margin: 8px 0 14px;">
+        <a href="{{ url_for('relatorios', section='clientes') }}" class="outline-button small">Ir para Relatórios de Clientes</a>
+      </div>
       <form method="post" action="{{ url_for('cadastro', entity='clientes') }}">
         {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
         <label>{{ t('client_name') }}</label>
@@ -319,6 +325,9 @@
   {% elif entity == 'fornecedores' %}
     <div class="form-card">
       <h3>{% if edit_id %}Editar Fornecedor{% else %}{{ t('add_supplier') }}{% endif %}</h3>
+      <div style="margin: 8px 0 14px;">
+        <a href="{{ url_for('relatorios', section='fornecedores') }}" class="outline-button small">Ir para Relatórios de Fornecedores</a>
+      </div>
       <form method="post" action="{{ url_for('cadastro', entity='fornecedores') }}" id="supplier-main-form">
         {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
         <label>{{ t('supplier_name') }}</label>
@@ -432,6 +441,9 @@
   {% elif entity == 'categorias' %}
     <div class="form-card">
       <h3>{% if edit_id %}Editar Categoria{% else %}{{ t('add_category') }}{% endif %}</h3>
+      <div style="margin: 8px 0 14px;">
+        <a href="{{ url_for('relatorios', section='categorias') }}" class="outline-button small">Ir para Relatórios de Categorias</a>
+      </div>
       <form method="post" action="{{ url_for('cadastro', entity='categorias') }}">
         {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
         <label>{{ t('category_label') }}</label>

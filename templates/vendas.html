@@ -5,6 +5,7 @@
     <div class="sale-header">
       <h2 class="sale-title">Nova Venda</h2>
       <div class="sale-header-actions">
+        <a href="{{ url_for('relatorios', section='vendas_periodo') }}" class="outline-button sale-clear-btn">Ir para Relatório de Vendas</a>
         <button type="button" class="btn-add sale-add-btn" onclick="addSaleRow()">+ {{ t('add_item') }}</button>
         <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()">Limpar venda</button>
       </div>
