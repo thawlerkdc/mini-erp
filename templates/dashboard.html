@@ -33,7 +33,7 @@
   <div class="dashboard-grid dashboard-grid-restyled">
     <div>
       <h3 style="margin: 0 0 12px;">Menus favoritos</h3>
-      <div class="dashboard-actions" id="dashboard-favorite-cards"></div>
+      <div class="dashboard-actions dashboard-favorite-grid" id="dashboard-favorite-cards"></div>
       <p id="dashboard-favorite-empty" class="menu-empty-hint" style="display:none; margin-top: 10px;">
         Nenhum favorito marcado. Clique na estrela do menu lateral para montar seus cards favoritos aqui.
       </p>
@@ -88,7 +88,7 @@
           var item = map[key];
           if (!item) return;
           var card = document.createElement('a');
-          card.className = 'dashboard-card neutral';
+          card.className = 'dashboard-card dashboard-favorite-card neutral';
           card.href = item.href;
           card.innerHTML =
             '<div class="card-head"><div class="card-icon">' + item.icon + '</div><h3>' + item.text + '</h3></div>' +

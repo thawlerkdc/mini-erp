@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kdc Systems - {{ title if title else 'ERP' }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260418darkfix6') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260419favgrid1') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260418') }}"></script>
   </head>
@@ -102,11 +102,6 @@
                     <span>Escuro</span>
                   </button>
                 </div>
-                <hr class="user-menu-divider">
-                <button type="button" class="user-menu-item user-menu-sort-btn" id="user-menu-sort-toggle">
-                  <span class="menu-icon" aria-hidden="true">&#9733;</span>
-                  <span id="user-menu-sort-label">{{ t('menu_favorites') }}: desligado</span>
-                </button>
                 <hr class="user-menu-divider">
                 <a href="{{ url_for('logout') }}" class="user-menu-item user-menu-logout">
                   <span class="menu-icon" aria-hidden="true">&#128681;</span>
@@ -299,9 +294,6 @@
           var account = '{{ session.get("account_id") or "global" }}';
           var user = '{{ session.get("user") or "anon" }}';
           var storageKey = 'menu_favorites_' + account + '_' + user;
-          var sortKey = storageKey + '_sort';
-          var sortToggle = document.getElementById('user-menu-sort-toggle');
-          var sortLabel = document.getElementById('user-menu-sort-label');
 
           function loadFavorites() {
             try {
@@ -314,14 +306,6 @@
 
           function saveFavorites(list) {
             localStorage.setItem(storageKey, JSON.stringify(list));
-          }
-
-          function isSortOn() {
-            return localStorage.getItem(sortKey) === '1';
-          }
-
-          function saveSort(on) {
-            localStorage.setItem(sortKey, on ? '1' : '0');
           }
 
           function applyFavoriteStyles() {
@@ -365,29 +349,6 @@
             }
           }
 
-          function sortMenuByFavorites() {
-            if (!isSortOn()) return;
-            var favorites = loadFavorites();
-            var links = Array.prototype.slice.call(nav.querySelectorAll('.nav-link[data-menu-key]'));
-            links.sort(function (a, b) {
-              var aKey = a.getAttribute('data-menu-key');
-              var bKey = b.getAttribute('data-menu-key');
-              var aFav = favorites.indexOf(aKey) >= 0 ? 0 : 1;
-              var bFav = favorites.indexOf(bKey) >= 0 ? 0 : 1;
-              if (aFav !== bFav) return aFav - bFav;
-              return 0;
-            });
-            links.forEach(function (link) {
-              nav.appendChild(link);
-            });
-          }
-
-          function updateSortLabel() {
-            if (!sortLabel) return;
-            var isOn = isSortOn();
-            sortLabel.textContent = 'Favoritos: ' + (isOn ? 'ligado' : 'desligado');
-          }
-
           nav.addEventListener('click', function (event) {
             var star = event.target.closest('.menu-fav-toggle');
             if (!star) return;
@@ -405,26 +366,10 @@
             }
             saveFavorites(favorites);
             applyFavoriteStyles();
-            sortMenuByFavorites();
             document.dispatchEvent(new CustomEvent('menu-favorites-changed', { detail: { favorites: favorites } }));
           });
 
-          if (sortToggle) {
-            sortToggle.addEventListener('click', function () {
-              var next = !isSortOn();
-              saveSort(next);
-              updateSortLabel();
-              if (next) {
-                sortMenuByFavorites();
-              } else {
-                window.location.reload();
-              }
-            });
-          }
-
           applyFavoriteStyles();
-          sortMenuByFavorites();
-          updateSortLabel();
         }
 
         function bindUserMenuDropdown() {
