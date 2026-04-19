@@ -3208,9 +3208,29 @@ def financeiro():
             return redirect(url_for("estoque_entrada") + "#xml-import-compras")
         return redirect(url_for("financeiro"))
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    start_date = request.args.get("start_date") or datetime.now().replace(day=1).strftime("%Y-%m-%d")
-    end_date = request.args.get("end_date") or today
+    now_dt = datetime.now()
+    today = now_dt.strftime("%Y-%m-%d")
+    selected_period = (request.args.get("period") or "").strip().lower()
+    req_start_date = (request.args.get("start_date") or "").strip()
+    req_end_date = (request.args.get("end_date") or "").strip()
+
+    if selected_period == "last_7_days":
+        start_date = (now_dt - timedelta(days=6)).strftime("%Y-%m-%d")
+        end_date = today
+    elif selected_period == "this_year":
+        start_date = datetime(now_dt.year, 1, 1).strftime("%Y-%m-%d")
+        end_date = today
+    elif selected_period == "this_month":
+        start_date = now_dt.replace(day=1).strftime("%Y-%m-%d")
+        end_date = today
+    elif req_start_date or req_end_date:
+        selected_period = "custom"
+        start_date = req_start_date or now_dt.replace(day=1).strftime("%Y-%m-%d")
+        end_date = req_end_date or today
+    else:
+        selected_period = "this_month"
+        start_date = now_dt.replace(day=1).strftime("%Y-%m-%d")
+        end_date = today
 
     try:
         dt_start = datetime.strptime(start_date, "%Y-%m-%d")
@@ -3222,6 +3242,12 @@ def financeiro():
     if dt_end < dt_start:
         flash("A data final não pode ser menor que a data inicial.", "error")
         return redirect(url_for("financeiro", start_date=start_date, end_date=start_date) + "#cashflow-diario")
+
+    month_names_pt = [
+        "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+    ]
+    finance_period_label = f"{month_names_pt[dt_start.month - 1]} {dt_start.year}"
 
     # Fallback seguro: garante que o template sempre tenha contexto válido.
     categories = []
@@ -3429,6 +3455,8 @@ def financeiro():
         "xml_preview": xml_preview,
         "imports_history": imports_history,
         "dre": dre,
+        "finance_period_label": finance_period_label,
+        "finance_selected_period": selected_period,
     }
     try:
         return render_template("financeiro.html", **finance_context)

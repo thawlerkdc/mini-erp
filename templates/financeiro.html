@@ -3,14 +3,26 @@
 {% block content %}
   <div class="finance-page-header">
     <h2 style="margin: 0; flex-shrink: 0;">Financeiro</h2>
-    <button class="finance-period-selector">📅 Abril 2024 <span>▼</span></button>
+    <form id="finance-header-filter-form" method="get" action="{{ url_for('financeiro') }}" class="finance-header-filter-form" data-date-range-form="true" data-date-start="finance-start-date" data-date-end="finance-end-date" data-date-error="finance-header-date-error">
+      <button type="button" class="finance-period-selector" id="finance-period-chip" onclick="focusFinancePeriodSelect()">📅 {{ finance_period_label }} <span>▼</span></button>
+      <select name="period" id="finance-period-select" class="finance-filter-select" onchange="handleFinancePeriodChange()">
+        <option value="this_month" {% if finance_selected_period == 'this_month' %}selected{% endif %}>Este mês</option>
+        <option value="last_7_days" {% if finance_selected_period == 'last_7_days' %}selected{% endif %}>Últimos 7 dias</option>
+        <option value="this_year" {% if finance_selected_period == 'this_year' %}selected{% endif %}>Este ano</option>
+        <option value="custom" {% if finance_selected_period == 'custom' %}selected{% endif %}>Período personalizado</option>
+      </select>
+      <div id="finance-custom-range" class="finance-custom-range {% if finance_selected_period == 'custom' %}active{% endif %}">
+        <label for="finance-start-date">De</label>
+        <input type="date" id="finance-start-date" name="start_date" value="{{ start_date }}">
+        <label for="finance-end-date">Até</label>
+        <input type="date" id="finance-end-date" name="end_date" value="{{ end_date }}">
+        <button type="submit" class="outline-button small">Aplicar período</button>
+      </div>
+    </form>
     <div style="flex: 1;"></div>
     <a href="{{ url_for('relatorios', section='financeiro', start_date=start_date, end_date=end_date) }}" class="outline-button small">Ir para Relatórios Financeiros</a>
-    <select class="finance-filter-select">
-      <option>Todos</option>
-      <option>Este mês</option>
-    </select>
   </div>
+  <p id="finance-header-date-error" class="date-range-error" aria-live="polite"></p>
 
   <!-- Cards KPI -->
   <div class="finance-kpi-grid">
@@ -172,13 +184,13 @@
     </div>
     
     <div class="management-tabs">
-      <button class="tab-btn active" onclick="switchFinanceTab('novo-lancamento', this)">
+      <button type="button" class="tab-btn active" data-finance-tab="novo-lancamento" onclick="switchFinanceTab('novo-lancamento', this)">
         <span class="tab-icon">➕</span> Lançamento Manual
       </button>
-      <button class="tab-btn" onclick="switchFinanceTab('categoria', this)">
+      <button type="button" class="tab-btn" data-finance-tab="categoria" onclick="switchFinanceTab('categoria', this)">
         <span class="tab-icon">🏷️</span> Categoria Financeira
       </button>
-      <button class="tab-btn" onclick="switchFinanceTab('xml', this)">
+      <button type="button" class="tab-btn" data-finance-tab="xml" onclick="switchFinanceTab('xml', this)">
         <span class="tab-icon">📄</span> Importar XML
       </button>
     </div>
@@ -272,7 +284,10 @@
     </div>
 
     <!-- Aba: Categoria Financeira -->
-    <div id="categoria" class="management-tab-content" style="display:none">
+    <div id="categoria" class="management-tab-content">
+      <div class="finance-tab-helper">
+        <strong>Como usar a categoria:</strong> este cadastro cria grupos para organizar e filtrar os lançamentos (ex.: aluguel, energia, impostos). Após adicionar, ela aparece no formulário de Lançamento Manual e também nos relatórios.
+      </div>
       <form method="post" action="{{ url_for('financeiro') }}">
         <input type="hidden" name="action" value="add_category">
         <div class="finance-form-grid">
@@ -295,7 +310,8 @@
     </div>
 
     <!-- Aba: Importação XML -->
-    <div id="xml" class="management-tab-content" style="display:none">
+    <div id="xml" class="management-tab-content">
+      <div id="xml-import"></div>
       <form method="post" action="{{ url_for('financeiro') }}" enctype="multipart/form-data">
         <input type="hidden" name="action" value="preview_xml">
         <div class="finance-form-grid">
@@ -648,6 +664,7 @@
       var contents = document.querySelectorAll('.management-tab-content');
       contents.forEach(function (content) {
         content.classList.remove('active');
+        content.style.display = 'none';
       });
 
       // Remove active class from all buttons
@@ -660,6 +677,7 @@
       var selectedContent = document.getElementById(tabId);
       if (selectedContent) {
         selectedContent.classList.add('active');
+        selectedContent.style.display = 'block';
       }
 
       // Mark clicked button as active
@@ -675,7 +693,69 @@
             firstField.focus();
           }, 150);
         }
+
+        var hashMap = {
+          'novo-lancamento': '#novo-lancamento',
+          'categoria': '#categoria-financeira',
+          'xml': '#xml-import'
+        };
+        if (hashMap[tabId]) {
+          history.replaceState(null, '', hashMap[tabId]);
+        }
       }
+    }
+
+    function activateFinanceTabByHash() {
+      var hash = (window.location.hash || '').toLowerCase();
+      var hashToTab = {
+        '#novo-lancamento': 'novo-lancamento',
+        '#categoria': 'categoria',
+        '#categoria-financeira': 'categoria',
+        '#xml': 'xml',
+        '#xml-import': 'xml'
+      };
+      var tabId = hashToTab[hash];
+      if (!tabId) return;
+
+      var btn = document.querySelector('.tab-btn[data-finance-tab="' + tabId + '"]');
+      switchFinanceTab(tabId, btn);
+    }
+
+    function focusFinancePeriodSelect() {
+      var select = document.getElementById('finance-period-select');
+      if (!select) return;
+      select.focus();
+      try {
+        if (typeof select.showPicker === 'function') {
+          select.showPicker();
+        } else {
+          select.click();
+        }
+      } catch (err) {
+        select.click();
+      }
+    }
+
+    function updateFinanceCustomRangeVisibility() {
+      var select = document.getElementById('finance-period-select');
+      var customWrap = document.getElementById('finance-custom-range');
+      if (!select || !customWrap) return;
+      var showCustom = select.value === 'custom';
+      customWrap.classList.toggle('active', showCustom);
+    }
+
+    function handleFinancePeriodChange() {
+      var form = document.getElementById('finance-header-filter-form');
+      var select = document.getElementById('finance-period-select');
+      var customStart = document.getElementById('finance-start-date');
+      if (!form || !select) return;
+
+      updateFinanceCustomRangeVisibility();
+      if (select.value === 'custom') {
+        if (customStart) customStart.focus();
+        return;
+      }
+      form.submit();
     }
 
     function renderFinanceCashflowChart() {
@@ -844,7 +924,18 @@
       }
       syncFinancialCategoriesByType();
       renderFinanceCashflowChart();
+      updateFinanceCustomRangeVisibility();
+      activateFinanceTabByHash();
+
+      {% if xml_preview %}
+      if (!window.location.hash) {
+        var xmlBtn = document.querySelector('.tab-btn[data-finance-tab="xml"]');
+        switchFinanceTab('xml', xmlBtn);
+      }
+      {% endif %}
     });
+
+    window.addEventListener('hashchange', activateFinanceTabByHash);
 
     function openCancelXmlModal() {
       var modal = document.getElementById('cancel-xml-modal');

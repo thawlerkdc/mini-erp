@@ -2647,6 +2647,42 @@ body.theme-dark .btn-close-cash:hover {
   flex-wrap: wrap;
 }
 
+.finance-header-filter-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.finance-custom-range {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #dbe4f5;
+  background: linear-gradient(180deg, #f8fbff, #eef4ff);
+}
+
+.finance-custom-range.active {
+  display: inline-flex;
+}
+
+.finance-custom-range label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.finance-custom-range input[type="date"] {
+  min-width: 148px;
+}
+
+#finance-header-date-error {
+  margin-top: -12px;
+  margin-bottom: 16px;
+}
+
 .finance-page-header h2 {
   color: #1f2c47;
   font-size: 1.8rem;
@@ -2675,10 +2711,10 @@ body.theme-dark .btn-close-cash:hover {
 }
 
 .finance-filter-select {
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border: 1px solid #c9d5eb;
+  border-radius: 10px;
   padding: 8px 12px;
-  background: #fff;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
   cursor: pointer;
   font-size: 0.9rem;
 }
@@ -3101,7 +3137,50 @@ body.theme-dark .btn-close-cash:hover {
 
 .finance-payment-form {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+}
+
+.finance-payment-form label {
+  font-weight: 700;
+  color: #e7edf8;
+  letter-spacing: 0.01em;
+}
+
+.finance-payment-form input,
+.finance-payment-form select,
+.finance-payment-form textarea {
+  border: 1px solid #4f79c7;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #16233c, #1d2d4c);
+  color: #f8fbff;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.finance-payment-form input:focus,
+.finance-payment-form select:focus,
+.finance-payment-form textarea:focus {
+  outline: none;
+  border-color: #7fb4ff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+  transform: translateY(-1px);
+}
+
+.finance-payment-form input::placeholder,
+.finance-payment-form textarea::placeholder {
+  color: #b9c9e7;
+}
+
+.finance-tab-helper {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(180deg, #eff6ff, #e0ecff);
+  color: #1e3a8a;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .form-hint {
@@ -3404,6 +3483,32 @@ body.theme-dark .payment-status-card {
 body.theme-dark .tab-btn {
   background: #334155 !important;
   color: #e5edf8 !important;
+}
+
+body.theme-dark .finance-header-filter-form,
+body.theme-dark .finance-custom-range {
+  color: #d6e4f8;
+}
+
+body.theme-dark .finance-custom-range {
+  background: linear-gradient(180deg, #15213a, #1a2944);
+  border-color: #385175;
+}
+
+body.theme-dark .finance-custom-range label {
+  color: #d7e6fb;
+}
+
+body.theme-dark .finance-filter-select {
+  border-color: #385175;
+  background: linear-gradient(180deg, #15213a, #1a2944);
+  color: #eaf2ff;
+}
+
+body.theme-dark .finance-tab-helper {
+  border-color: #3b5b8c;
+  background: linear-gradient(180deg, #162746, #1f3460);
+  color: #dbeafe;
 }
 
 body.theme-dark .tab-btn:hover {
