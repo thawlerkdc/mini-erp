@@ -216,7 +216,7 @@ TRANSLATIONS = {
         "error_insufficient_stock": "Estoque insuficiente para o produto selecionado.",
         "error_no_items": "Adicione pelo menos um item na venda.",
         "error_invalid_date": "Data inválida.",
-        "dashboard_welcome_text": "Use o menu para acessar cadastros, vendas, relatórios e manual.",
+        "dashboard_welcome_text": "Gerencie seu negócio com eficiência: controle operações, acompanhe resultados e tome decisões com segurança.",
         "manual_access": "Acesse o manual pelo menu.",
         "select_language": "Idioma",
         "record_saved": "Registro salvo com sucesso.",
