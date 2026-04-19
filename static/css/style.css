@@ -3027,6 +3027,67 @@ body.theme-dark .btn-close-cash:hover {
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
 }
 
+.finance-recurring-row {
+  margin-top: 8px;
+  min-height: 40px;
+}
+
+.finance-recurrence-label {
+  margin-top: 2px;
+}
+
+.finance-status-actions-cell {
+  min-width: 220px;
+}
+
+.finance-status-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.status-action-btn {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.status-action-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.status-action-btn:active {
+  transform: translateY(0);
+}
+
+.status-action-pago {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.status-action-pendente {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.status-action-vencido {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.status-action-btn.active {
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2);
+}
+
 .form-hint {
   font-size: 0.85rem;
   color: #6b7280;
@@ -3584,6 +3645,28 @@ body.theme-dark .finance-summary-card h4,
 body.theme-dark .xml-import-callout h4,
 body.theme-dark .xml-preview-box h4 {
   color: #f4f8ff !important;
+}
+
+body.theme-dark .status-action-pago {
+  background: rgba(22, 101, 52, 0.35);
+  color: #bbf7d0;
+  border-color: rgba(74, 222, 128, 0.45);
+}
+
+body.theme-dark .status-action-pendente {
+  background: rgba(146, 64, 14, 0.35);
+  color: #fde68a;
+  border-color: rgba(250, 204, 21, 0.45);
+}
+
+body.theme-dark .status-action-vencido {
+  background: rgba(153, 27, 27, 0.35);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+body.theme-dark .status-action-btn.active {
+  box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.45);
 }
 
 body.theme-dark .rate-input-wrap,

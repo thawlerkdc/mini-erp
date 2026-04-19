@@ -168,11 +168,12 @@
   <div class="finance-management-section">
     <div class="management-header">
       <h3>⚙️ Gerenciar lançamentos e categorias</h3>
+      <p class="form-helper" style="margin-top: 6px;">A aba de lançamento manual já vem aberta. Clicar nela reposiciona e destaca o formulário.</p>
     </div>
     
     <div class="management-tabs">
       <button class="tab-btn active" onclick="switchFinanceTab('novo-lancamento', this)">
-        <span class="tab-icon">➕</span> Novo Lançamento
+        <span class="tab-icon">➕</span> Lançamento Manual
       </button>
       <button class="tab-btn" onclick="switchFinanceTab('categoria', this)">
         <span class="tab-icon">🏷️</span> Categoria Financeira
@@ -257,12 +258,12 @@
               <option value="pago">Pago</option>
             </select>
 
-            <div class="param-check-row" style="margin-top: 8px;">
+            <div class="param-check-row finance-recurring-row">
               <input id="is-recurring" type="checkbox" name="is_recurring" value="1">
-              <label for="is-recurring" style="margin: 0;">Recorrente</label>
+              <label for="is-recurring">Recorrente</label>
             </div>
 
-            <label style="margin-top: 8px;">Recorrência (dias)</label>
+            <label class="finance-recurrence-label">Recorrência (dias)</label>
             <input type="number" name="recurrence_days" min="1" value="30">
           </div>
         </div>
@@ -418,18 +419,13 @@
               <td>{{ row['due_date_display'] }}</td>
               <td><span class="status-pill status-{{ row['status'] }}">{{ row['status']|capitalize }}</span></td>
               <td>R$ {{ "%.2f"|format(row['amount']|float)|replace('.', ',') }}</td>
-              <td>
-                <form method="post" action="{{ url_for('financeiro') }}" style="display:inline">
+              <td class="finance-status-actions-cell">
+                <form method="post" action="{{ url_for('financeiro') }}" class="finance-status-form">
                   <input type="hidden" name="action" value="mark_status">
                   <input type="hidden" name="entry_id" value="{{ row['id'] }}">
-                  <input type="hidden" name="status" value="pago">
-                  <button type="submit" class="outline-button small">Marcar pago</button>
-                </form>
-                <form method="post" action="{{ url_for('financeiro') }}" style="display:inline">
-                  <input type="hidden" name="action" value="mark_status">
-                  <input type="hidden" name="entry_id" value="{{ row['id'] }}">
-                  <input type="hidden" name="status" value="pendente">
-                  <button type="submit" class="outline-button small">Pendente</button>
+                  <button type="submit" name="status" value="pago" class="status-action-btn status-action-pago {% if row['status'] == 'pago' %}active{% endif %}">Pago</button>
+                  <button type="submit" name="status" value="pendente" class="status-action-btn status-action-pendente {% if row['status'] == 'pendente' %}active{% endif %}">Pendente</button>
+                  <button type="submit" name="status" value="vencido" class="status-action-btn status-action-vencido {% if row['status'] == 'vencido' %}active{% endif %}">Vencido</button>
                 </form>
               </td>
             </tr>
@@ -601,6 +597,16 @@
       // Mark clicked button as active
       if (buttonEl) {
         buttonEl.classList.add('active');
+      }
+
+      if (selectedContent) {
+        selectedContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        var firstField = selectedContent.querySelector('input:not([type="hidden"]), select, textarea');
+        if (firstField) {
+          window.setTimeout(function () {
+            firstField.focus();
+          }, 150);
+        }
       }
     }
 
