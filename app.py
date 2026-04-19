@@ -1297,6 +1297,52 @@ def _parse_iso_date(text):
         return None
 
 
+FINANCIAL_SOURCE_LABELS = {
+    "sale": "Venda",
+    "purchase": "Compra",
+    "purchase_order": "Compra",
+    "recurring_expense": "Despesa recorrente",
+    "recurrence": "Despesa recorrente",
+    "manual": "Lançamento manual",
+    "xml_import": "Importação XML",
+    "internal_adjustment": "Ajuste interno",
+}
+
+
+def _normalize_financial_source(raw_source):
+    source = (raw_source or "manual").strip().lower()
+    aliases = {
+        "venda": "sale",
+        "compra": "purchase",
+        "despesa_recorrente": "recurring_expense",
+        "recorrente": "recurring_expense",
+        "lancamento_manual": "manual",
+        "manual": "manual",
+        "importacao_xml": "xml_import",
+        "xml": "xml_import",
+        "ajuste_interno": "internal_adjustment",
+    }
+    source = aliases.get(source, source)
+    if source not in FINANCIAL_SOURCE_LABELS:
+        return "manual"
+    return source
+
+
+def _is_auto_financial_source(source):
+    return _normalize_financial_source(source) in {"sale", "purchase", "purchase_order", "xml_import", "recurring_expense", "recurrence"}
+
+
+def _effective_financial_status(status, due_date):
+    normalized = (status or "pendente").strip().lower()
+    if normalized == "pago":
+        return "pago"
+    due = _parse_iso_date(due_date)
+    today = datetime.now().date()
+    if due and due < today:
+        return "vencido"
+    return "pendente"
+
+
 def _run_financial_recurring_generation(conn, account_id):
     recurring_rows = conn.execute(
         "SELECT id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, recurrence_days, source_ref "
@@ -1323,7 +1369,7 @@ def _run_financial_recurring_generation(conn, account_id):
         next_due_text = next_due.strftime("%Y-%m-%d")
         conn.execute(
             "INSERT INTO financial_entries (account_id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, status, is_recurring, recurrence_days, source, source_ref, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pendente', 1, %s, 'recurrence', %s, %s)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pendente', 1, %s, 'recurring_expense', %s, %s)",
             (
                 account_id,
                 row["entry_type"],
@@ -1347,20 +1393,14 @@ def _financial_due_alert_snapshot(conn, account_id):
     today_text = datetime.now().strftime("%Y-%m-%d")
     soon_text = (datetime.now().date() + timedelta(days=3)).strftime("%Y-%m-%d")
 
-    conn.execute(
-        "UPDATE financial_entries SET status = 'vencido' "
-        "WHERE account_id = %s AND status = 'pendente' AND due_date < %s",
-        (account_id, today_text),
-    )
-
     overdue = conn.execute(
         "SELECT COUNT(*) AS qty, COALESCE(SUM(amount), 0) AS total "
-        "FROM financial_entries WHERE account_id = %s AND status = 'vencido'",
-        (account_id,),
+        "FROM financial_entries WHERE account_id = %s AND status <> 'pago' AND due_date < %s",
+        (account_id, today_text),
     ).fetchone()
     due_soon = conn.execute(
         "SELECT COUNT(*) AS qty, COALESCE(SUM(amount), 0) AS total "
-        "FROM financial_entries WHERE account_id = %s AND status = 'pendente' AND due_date BETWEEN %s AND %s",
+        "FROM financial_entries WHERE account_id = %s AND status <> 'pago' AND due_date BETWEEN %s AND %s",
         (account_id, today_text, soon_text),
     ).fetchone()
 
@@ -1408,12 +1448,12 @@ def _send_financial_due_alert_email(conn, account_id, snapshot):
 
     top_overdue = conn.execute(
         "SELECT description, due_date, amount FROM financial_entries "
-        "WHERE account_id = %s AND status = 'vencido' ORDER BY due_date ASC LIMIT 10",
-        (account_id,),
+        "WHERE account_id = %s AND status <> 'pago' AND due_date < %s ORDER BY due_date ASC LIMIT 10",
+        (account_id, today),
     ).fetchall()
     top_due_soon = conn.execute(
         "SELECT description, due_date, amount FROM financial_entries "
-        "WHERE account_id = %s AND status = 'pendente' AND due_date BETWEEN %s AND %s "
+        "WHERE account_id = %s AND status <> 'pago' AND due_date BETWEEN %s AND %s "
         "ORDER BY due_date ASC LIMIT 10",
         (account_id, today, (datetime.now().date() + timedelta(days=3)).strftime("%Y-%m-%d")),
     ).fetchall()
@@ -2810,15 +2850,13 @@ def financeiro():
                 client_id = request.form.get("client_id") or None
                 amount = _safe_money(request.form.get("amount"), 0)
                 due_date = (request.form.get("due_date") or "").strip()
-                status = (request.form.get("status") or "pendente").strip().lower()
+                source = _normalize_financial_source(request.form.get("source") or "manual")
                 is_recurring = 1 if request.form.get("is_recurring") else 0
                 recurrence_days = _safe_int(request.form.get("recurrence_days") or 30, 30)
 
                 category_mismatch = False
                 if entry_type not in {"payable", "receivable"}:
                     flash("Informe o tipo do lançamento antes de salvar.", "error")
-                if status not in {"pago", "pendente", "vencido"}:
-                    status = "pendente"
 
                 if category_id and entry_type in {"payable", "receivable"}:
                     cat_kind_row = conn.execute(
@@ -2840,10 +2878,11 @@ def financeiro():
                 elif not description or amount <= 0 or not due_date:
                     flash("Preencha descrição, valor e vencimento para lançar o título.", "error")
                 else:
-                    paid_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "pago" else None
+                    if is_recurring and source == "manual":
+                        source = "recurring_expense"
                     conn.execute(
                         "INSERT INTO financial_entries (account_id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, status, is_recurring, recurrence_days, source, created_at, paid_at) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'manual', %s, %s)",
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pendente', %s, %s, %s, %s, NULL)",
                         (
                             account_id,
                             entry_type,
@@ -2853,28 +2892,88 @@ def financeiro():
                             client_id,
                             amount,
                             due_date,
-                            status,
                             is_recurring,
                             max(1, recurrence_days),
+                            source,
                             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            paid_at,
                         ),
                     )
                     conn.commit()
                     flash("Lançamento financeiro salvo.", "success")
 
-            elif action == "mark_status":
+            elif action == "register_payment":
                 entry_id = request.form.get("entry_id")
-                status = (request.form.get("status") or "pendente").strip().lower()
-                if status not in {"pago", "pendente", "vencido"}:
-                    status = "pendente"
-                paid_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "pago" else None
-                conn.execute(
-                    "UPDATE financial_entries SET status = %s, paid_at = %s WHERE id = %s AND account_id = %s",
-                    (status, paid_at, entry_id, account_id),
-                )
-                conn.commit()
-                flash("Status financeiro atualizado.", "success")
+                payment_date = (request.form.get("payment_date") or "").strip()[:10]
+                payment_amount = _safe_money(request.form.get("payment_amount"), 0)
+                payment_method = (request.form.get("payment_method") or "").strip()
+                payment_notes = (request.form.get("payment_notes") or "").strip()
+
+                entry = conn.execute(
+                    "SELECT id, amount, due_date, status FROM financial_entries WHERE id = %s AND account_id = %s LIMIT 1",
+                    (entry_id, account_id),
+                ).fetchone()
+                if not entry:
+                    flash("Lançamento não encontrado para registrar pagamento.", "error")
+                else:
+                    current_status = _effective_financial_status(entry["status"], entry["due_date"])
+                    if current_status == "pago":
+                        flash("Este lançamento já está pago.", "info")
+                    elif not payment_date or payment_amount <= 0 or not payment_method:
+                        flash("Informe data, valor pago e forma de pagamento.", "error")
+                    else:
+                        conn.execute(
+                            "UPDATE financial_entries SET status = 'pago', paid_at = %s WHERE id = %s AND account_id = %s",
+                            (payment_date + " 00:00:00", entry_id, account_id),
+                        )
+                        conn.execute(
+                            "INSERT INTO financial_payment_history (account_id, entry_id, event_type, payment_date, payment_amount, payment_method, notes, created_by_user_name, created_at) "
+                            "VALUES (%s, %s, 'payment_registered', %s, %s, %s, %s, %s, %s)",
+                            (
+                                account_id,
+                                entry_id,
+                                payment_date,
+                                payment_amount,
+                                payment_method,
+                                payment_notes,
+                                session.get("user_name") or session.get("user"),
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            ),
+                        )
+                        conn.commit()
+                        flash("Pagamento registrado com sucesso.", "success")
+
+            elif action == "reverse_payment":
+                entry_id = request.form.get("entry_id")
+                reversal_notes = (request.form.get("reversal_notes") or "").strip()
+                entry = conn.execute(
+                    "SELECT id, amount, status FROM financial_entries WHERE id = %s AND account_id = %s LIMIT 1",
+                    (entry_id, account_id),
+                ).fetchone()
+                if not entry:
+                    flash("Lançamento não encontrado para estorno.", "error")
+                elif (entry["status"] or "").strip().lower() != "pago":
+                    flash("Somente lançamentos pagos podem ser estornados.", "error")
+                else:
+                    conn.execute(
+                        "UPDATE financial_entries SET status = 'pendente', paid_at = NULL WHERE id = %s AND account_id = %s",
+                        (entry_id, account_id),
+                    )
+                    conn.execute(
+                        "INSERT INTO financial_payment_history (account_id, entry_id, event_type, payment_date, payment_amount, payment_method, notes, created_by_user_name, created_at) "
+                        "VALUES (%s, %s, 'payment_reversed', %s, %s, %s, %s, %s, %s)",
+                        (
+                            account_id,
+                            entry_id,
+                            datetime.now().strftime("%Y-%m-%d"),
+                            float(entry["amount"] or 0),
+                            "estorno",
+                            reversal_notes,
+                            session.get("user_name") or session.get("user"),
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        ),
+                    )
+                    conn.commit()
+                    flash("Pagamento estornado. Lançamento retornou para pendente.", "success")
 
             elif action == "preview_xml":
                 xml_file = request.files.get("xml_file")
@@ -3122,22 +3221,35 @@ def financeiro():
             "LEFT JOIN suppliers s ON e.supplier_id = s.id "
             "LEFT JOIN clients c ON e.client_id = c.id "
             "WHERE e.account_id = %s "
-            "ORDER BY CASE e.status WHEN 'vencido' THEN 0 WHEN 'pendente' THEN 1 ELSE 2 END, e.due_date ASC, e.id DESC "
+            "ORDER BY CASE WHEN e.status = 'pago' THEN 2 WHEN e.due_date < %s THEN 0 ELSE 1 END, e.due_date ASC, e.id DESC "
             "LIMIT 200",
-            (account_id,),
+            (account_id, today),
         ).fetchall()
-        entries = [{**dict(r), "due_date_display": _format_date_br(r["due_date"])} for r in entries]
+        normalized_entries = []
+        for r in entries:
+            row = dict(r)
+            row["status_effective"] = _effective_financial_status(row.get("status"), row.get("due_date"))
+            row["due_date_display"] = _format_date_br(row.get("due_date"))
+            row["source"] = _normalize_financial_source(row.get("source"))
+            row["source_label"] = FINANCIAL_SOURCE_LABELS.get(row["source"], "Lançamento manual")
+            row["is_auto_source"] = _is_auto_financial_source(row["source"])
+            normalized_entries.append(row)
+        entries = normalized_entries
 
         summary_rows = conn.execute(
-            "SELECT entry_type, status, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS qty "
-            "FROM financial_entries WHERE account_id = %s GROUP BY entry_type, status",
-            (account_id,),
+            "SELECT entry_type, "
+            "COALESCE(SUM(CASE WHEN status = 'pago' THEN amount ELSE 0 END), 0) AS total_pago, "
+            "COALESCE(SUM(CASE WHEN status <> 'pago' AND due_date < %s THEN amount ELSE 0 END), 0) AS total_vencido, "
+            "COALESCE(SUM(CASE WHEN status <> 'pago' AND due_date >= %s THEN amount ELSE 0 END), 0) AS total_pendente "
+            "FROM financial_entries WHERE account_id = %s GROUP BY entry_type",
+            (today, today, account_id),
         ).fetchall()
 
         for row in summary_rows:
             etype = row["entry_type"] if row["entry_type"] in {"payable", "receivable"} else "payable"
-            st = row["status"] if row["status"] in {"pago", "pendente", "vencido"} else "pendente"
-            summary[etype][st] = float(row["total"] or 0)
+            summary[etype]["pago"] = float(row["total_pago"] or 0)
+            summary[etype]["vencido"] = float(row["total_vencido"] or 0)
+            summary[etype]["pendente"] = float(row["total_pendente"] or 0)
 
         sales_cashflow = conn.execute(
             "SELECT SUBSTRING(date, 1, 10) AS day, COALESCE(SUM(total), 0) AS inflow "
@@ -4402,7 +4514,7 @@ def estoque_entrada():
                         due_dt = base_due + timedelta(days=30 * idx)
                         conn.execute(
                             "INSERT INTO financial_entries (account_id, entry_type, description, supplier_id, amount, due_date, status, source, source_ref, created_at) "
-                            "VALUES (%s, 'payable', %s, %s, %s, %s, 'pendente', 'purchase_order', %s, %s)",
+                            "VALUES (%s, 'payable', %s, %s, %s, %s, 'pendente', 'purchase', %s, %s)",
                             (
                                 account_id,
                                 f"Pedido de compra #{po_id} - parcela {idx + 1}/{installments}",

@@ -215,6 +215,20 @@ _TENANT_STATEMENTS = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS financial_payment_history (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        entry_id INTEGER NOT NULL REFERENCES financial_entries(id),
+        event_type TEXT NOT NULL,
+        payment_date TEXT,
+        payment_amount DOUBLE PRECISION,
+        payment_method TEXT,
+        notes TEXT,
+        created_by_user_name TEXT,
+        created_at TEXT NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS nfe_imports (
         id SERIAL PRIMARY KEY,
         account_id INTEGER NOT NULL REFERENCES accounts(id),
@@ -286,6 +300,9 @@ _TENANT_MIGRATIONS = [
     "ALTER TABLE financial_entries ADD COLUMN IF NOT EXISTS source_ref TEXT",
     "ALTER TABLE financial_entries ADD COLUMN IF NOT EXISTS is_recurring INTEGER DEFAULT 0",
     "ALTER TABLE financial_entries ADD COLUMN IF NOT EXISTS recurrence_days INTEGER DEFAULT 30",
+    "UPDATE financial_entries SET source = 'manual' WHERE source IS NULL OR BTRIM(source) = ''",
+    "CREATE TABLE IF NOT EXISTS financial_payment_history (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), entry_id INTEGER NOT NULL REFERENCES financial_entries(id), event_type TEXT NOT NULL, payment_date TEXT, payment_amount DOUBLE PRECISION, payment_method TEXT, notes TEXT, created_by_user_name TEXT, created_at TEXT NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS idx_financial_payment_history_entry ON financial_payment_history (entry_id)",
     "ALTER TABLE nfe_imports ADD COLUMN IF NOT EXISTS invoice_key TEXT",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone TEXT",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp TEXT",

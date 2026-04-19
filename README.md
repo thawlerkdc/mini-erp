@@ -52,6 +52,7 @@ Mini ERP para gerenciar vendas, estoque, compras de fornecedores e relatórios.
 - Relatórios por período, estoque, clientes principais, lucro por produto e vendas por forma de pagamento.
 - Atalhos diretos para relatórios dentro das telas operacionais (Clientes, Produtos, Fornecedores, Categorias, Vendas e Financeiro).
 - Painel Financeiro com gráfico de fluxo de caixa por período (entradas, saídas e saldo).
+- Financeiro com rastreabilidade de origem dos lançamentos e fluxo de pagamento controlado (registrar pagamento/estorno com histórico).
 - Suporte a múltiplos idiomas (Português, Inglês, Espanhol, Francês, Alemão e Chinês).
 - Manual de uso interno disponível no menu.
 

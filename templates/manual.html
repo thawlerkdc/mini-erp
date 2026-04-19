@@ -104,6 +104,10 @@
     <h3>Financeiro</h3>
     <ul>
       <li>Contas a pagar e a receber com status: pago, pendente e vencido.</li>
+      <li>Vencido é calculado automaticamente pela data de vencimento (não é alterado manualmente).</li>
+      <li>Status Pago só é aplicado pela ação Registrar pagamento (com data, valor e forma de pagamento).</li>
+      <li>Pagamentos estornados retornam o lançamento para pendente e geram histórico de estorno.</li>
+      <li>Todo lançamento financeiro exige origem informada (manual, ajuste interno, recorrente, compra, XML etc.).</li>
       <li>Gráfico de fluxo de caixa no topo da tela com entradas, saídas e saldo para o período filtrado.</li>
       <li>Aba Novo Lançamento funcional para inclusão rápida de títulos manuais.</li>
       <li>Categorias financeiras e lançamentos recorrentes.</li>

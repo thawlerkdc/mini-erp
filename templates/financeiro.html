@@ -251,11 +251,11 @@
             <label>Vencimento *</label>
             <input type="date" name="due_date" required>
 
-            <label>Status *</label>
-            <select name="status" required>
-              <option value="pendente">Pendente</option>
-              <option value="vencido">Vencido</option>
-              <option value="pago">Pago</option>
+            <label>Origem do lançamento *</label>
+            <select name="source" required>
+              <option value="manual">Lançamento manual</option>
+              <option value="internal_adjustment">Ajuste interno</option>
+              <option value="recurring_expense">Despesa recorrente</option>
             </select>
 
             <div class="param-check-row finance-recurring-row">
@@ -401,6 +401,7 @@
           <tr>
             <th>Tipo</th>
             <th>Descrição</th>
+            <th>Origem</th>
             <th>Categoria</th>
             <th>Fornecedor/Cliente</th>
             <th>Vencimento</th>
@@ -414,26 +415,93 @@
             <tr>
               <td>{{ 'Pagar' if row['entry_type'] == 'payable' else 'Receber' }}</td>
               <td>{{ row['description'] }}</td>
+              <td><span class="finance-origin-badge source-{{ row['source'] }}">{{ row['source_label'] }}</span></td>
               <td>{{ row['category_name'] or '—' }}</td>
               <td>{{ row['supplier_name'] or row['client_name'] or '—' }}</td>
               <td>{{ row['due_date_display'] }}</td>
-              <td><span class="status-pill status-{{ row['status'] }}">{{ row['status']|capitalize }}</span></td>
+              <td><span class="status-pill status-{{ row['status_effective'] }}">{{ row['status_effective']|capitalize }}</span></td>
               <td>R$ {{ "%.2f"|format(row['amount']|float)|replace('.', ',') }}</td>
               <td class="finance-status-actions-cell">
-                <form method="post" action="{{ url_for('financeiro') }}" class="finance-status-form">
-                  <input type="hidden" name="action" value="mark_status">
-                  <input type="hidden" name="entry_id" value="{{ row['id'] }}">
-                  <button type="submit" name="status" value="pago" class="status-action-btn status-action-pago {% if row['status'] == 'pago' %}active{% endif %}">Pago</button>
-                  <button type="submit" name="status" value="pendente" class="status-action-btn status-action-pendente {% if row['status'] == 'pendente' %}active{% endif %}">Pendente</button>
-                  <button type="submit" name="status" value="vencido" class="status-action-btn status-action-vencido {% if row['status'] == 'vencido' %}active{% endif %}">Vencido</button>
-                </form>
+                {% if row['status_effective'] != 'pago' %}
+                  <button
+                    type="button"
+                    class="status-action-btn status-action-pay"
+                    onclick="openRegisterPaymentModal('{{ row['id'] }}', '{{ (row['description'] or 'Lançamento')|replace("'", "&#39;") }}', '{{ "%.2f"|format(row['amount']|float) }}')"
+                  >
+                    💰 Registrar pagamento
+                  </button>
+                {% else %}
+                  <button
+                    type="button"
+                    class="status-action-btn status-action-reverse"
+                    onclick="openReversePaymentModal('{{ row['id'] }}', '{{ (row['description'] or 'Lançamento')|replace("'", "&#39;") }}')"
+                  >
+                    ↩ Estornar pagamento
+                  </button>
+                {% endif %}
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="8">Nenhum lançamento financeiro encontrado.</td></tr>
+            <tr><td colspan="9">Nenhum lançamento financeiro encontrado.</td></tr>
           {% endfor %}
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <div id="register-payment-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content">
+      <h3>Registrar pagamento</h3>
+      <p id="register-payment-subtitle">Confirme os dados do pagamento.</p>
+      <form method="post" action="{{ url_for('financeiro') }}" class="finance-payment-form" id="register-payment-form">
+        <input type="hidden" name="action" value="register_payment">
+        <input type="hidden" name="entry_id" id="register-payment-entry-id">
+
+        <label>Data do pagamento *</label>
+        <input type="date" name="payment_date" id="register-payment-date" required>
+
+        <label>Valor pago (R$) *</label>
+        <input type="number" name="payment_amount" id="register-payment-amount" step="0.01" min="0.01" required>
+
+        <label>Forma de pagamento *</label>
+        <select name="payment_method" required>
+          <option value="">Selecione</option>
+          <option value="pix">Pix</option>
+          <option value="dinheiro">Dinheiro</option>
+          <option value="debito">Cartão de débito</option>
+          <option value="credito">Cartão de crédito</option>
+          <option value="transferencia">Transferência</option>
+          <option value="boleto">Boleto</option>
+          <option value="outro">Outro</option>
+        </select>
+
+        <label>Observação</label>
+        <textarea name="payment_notes" rows="2" placeholder="Opcional"></textarea>
+
+        <div class="pix-modal-actions">
+          <button type="submit" class="btn-confirm">Confirmar pagamento</button>
+          <button type="button" class="btn-cancel" onclick="closeRegisterPaymentModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="reverse-payment-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content">
+      <h3>Estornar pagamento</h3>
+      <p id="reverse-payment-subtitle">Confirme o estorno do pagamento.</p>
+      <form method="post" action="{{ url_for('financeiro') }}" class="finance-payment-form" id="reverse-payment-form">
+        <input type="hidden" name="action" value="reverse_payment">
+        <input type="hidden" name="entry_id" id="reverse-payment-entry-id">
+
+        <label>Motivo do estorno</label>
+        <textarea name="reversal_notes" rows="2" placeholder="Opcional"></textarea>
+
+        <div class="pix-modal-actions">
+          <button type="submit" class="btn-confirm">Confirmar estorno</button>
+          <button type="button" class="btn-cancel" onclick="closeReversePaymentModal()">Cancelar</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -797,6 +865,51 @@
       if (form) form.submit();
     }
 
+    function openRegisterPaymentModal(entryId, description, amount) {
+      var modal = document.getElementById('register-payment-modal');
+      var subtitle = document.getElementById('register-payment-subtitle');
+      var entryInput = document.getElementById('register-payment-entry-id');
+      var dateInput = document.getElementById('register-payment-date');
+      var amountInput = document.getElementById('register-payment-amount');
+      if (!modal || !entryInput || !dateInput || !amountInput) return;
+
+      entryInput.value = entryId || '';
+      subtitle.textContent = 'Lançamento: ' + (description || 'Financeiro');
+      dateInput.value = new Date().toISOString().slice(0, 10);
+      amountInput.value = amount || '';
+
+      modal.style.display = 'flex';
+      dateInput.focus();
+    }
+
+    function closeRegisterPaymentModal() {
+      var modal = document.getElementById('register-payment-modal');
+      if (!modal) return;
+      modal.style.display = 'none';
+    }
+
+    function openReversePaymentModal(entryId, description) {
+      var modal = document.getElementById('reverse-payment-modal');
+      var subtitle = document.getElementById('reverse-payment-subtitle');
+      var entryInput = document.getElementById('reverse-payment-entry-id');
+      if (!modal || !entryInput) return;
+
+      entryInput.value = entryId || '';
+      if (subtitle) {
+        subtitle.textContent = 'Lançamento: ' + (description || 'Financeiro');
+      }
+
+      modal.style.display = 'flex';
+      var notes = modal.querySelector('textarea[name="reversal_notes"]');
+      if (notes) notes.focus();
+    }
+
+    function closeReversePaymentModal() {
+      var modal = document.getElementById('reverse-payment-modal');
+      if (!modal) return;
+      modal.style.display = 'none';
+    }
+
     document.addEventListener('keydown', function (event) {
       var infoModal = document.getElementById('finance-info-modal');
       if (infoModal && infoModal.style.display === 'flex') {
@@ -808,13 +921,26 @@
       }
 
       var modal = document.getElementById('cancel-xml-modal');
-      if (!modal || modal.style.display !== 'flex') return;
-      if (event.key === 'Escape') {
+      if (modal && modal.style.display === 'flex') {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeCancelXmlModal();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          confirmCancelXmlPreview();
+        }
+      }
+
+      var registerModal = document.getElementById('register-payment-modal');
+      if (registerModal && registerModal.style.display === 'flex' && event.key === 'Escape') {
         event.preventDefault();
-        closeCancelXmlModal();
-      } else if (event.key === 'Enter') {
+        closeRegisterPaymentModal();
+      }
+
+      var reverseModal = document.getElementById('reverse-payment-modal');
+      if (reverseModal && reverseModal.style.display === 'flex' && event.key === 'Escape') {
         event.preventDefault();
-        confirmCancelXmlPreview();
+        closeReversePaymentModal();
       }
     });
   </script>

@@ -3049,10 +3049,10 @@ body.theme-dark .btn-close-cash:hover {
 .status-action-btn {
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   line-height: 1;
-  padding: 8px 10px;
+  padding: 9px 12px;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
@@ -3066,26 +3066,42 @@ body.theme-dark .btn-close-cash:hover {
   transform: translateY(0);
 }
 
-.status-action-pago {
-  background: #dcfce7;
-  color: #166534;
-  border-color: #86efac;
+.status-action-pay {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #ffffff;
+  border-color: #15803d;
 }
 
-.status-action-pendente {
-  background: #fef3c7;
-  color: #92400e;
-  border-color: #fcd34d;
+.status-action-reverse {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  color: #e5edf8;
+  border-color: #475569;
 }
 
-.status-action-vencido {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #fca5a5;
+.finance-origin-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #334155;
+  white-space: nowrap;
 }
 
-.status-action-btn.active {
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2);
+.finance-origin-badge.source-sale { background: #dbeafe; color: #1d4ed8; }
+.finance-origin-badge.source-purchase { background: #ffedd5; color: #9a3412; }
+.finance-origin-badge.source-purchase_order { background: #ffedd5; color: #9a3412; }
+.finance-origin-badge.source-recurring_expense,
+.finance-origin-badge.source-recurrence { background: #ede9fe; color: #5b21b6; }
+.finance-origin-badge.source-manual { background: #dcfce7; color: #166534; }
+.finance-origin-badge.source-xml_import { background: #cffafe; color: #0f766e; }
+.finance-origin-badge.source-internal_adjustment { background: #fee2e2; color: #991b1b; }
+
+.finance-payment-form {
+  display: grid;
+  gap: 8px;
 }
 
 .form-hint {
@@ -3647,26 +3663,22 @@ body.theme-dark .xml-preview-box h4 {
   color: #f4f8ff !important;
 }
 
-body.theme-dark .status-action-pago {
-  background: rgba(22, 101, 52, 0.35);
-  color: #bbf7d0;
-  border-color: rgba(74, 222, 128, 0.45);
+body.theme-dark .status-action-pay {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: #f0fdf4;
+  border-color: #22c55e;
 }
 
-body.theme-dark .status-action-pendente {
-  background: rgba(146, 64, 14, 0.35);
-  color: #fde68a;
-  border-color: rgba(250, 204, 21, 0.45);
+body.theme-dark .status-action-reverse {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  color: #e2e8f0;
+  border-color: #64748b;
 }
 
-body.theme-dark .status-action-vencido {
-  background: rgba(153, 27, 27, 0.35);
-  color: #fecaca;
-  border-color: rgba(248, 113, 113, 0.45);
-}
-
-body.theme-dark .status-action-btn.active {
-  box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.45);
+body.theme-dark .finance-origin-badge {
+  background: #334155;
+  color: #e2e8f0;
+  border: 1px solid #475569;
 }
 
 body.theme-dark .rate-input-wrap,
