@@ -2,18 +2,19 @@
 
 {% block content %}
   <div class="form-card report-filter-card">
-    <form method="get" action="{{ url_for('relatorios') }}">
+    <form method="get" action="{{ url_for('relatorios') }}" data-date-range-form="true" data-date-start="reports-start" data-date-end="reports-end" data-date-error="reports-date-error">
       <div class="filter-row">
         <label>
           {{ t('period_start') }}
-          <input type="date" name="start_date" value="{{ filters.start_date or '' }}">
+          <input type="date" id="reports-start" name="start_date" value="{{ filters.start_date or '' }}">
         </label>
         <label>
           {{ t('period_end') }}
-          <input type="date" name="end_date" value="{{ filters.end_date or '' }}">
+          <input type="date" id="reports-end" name="end_date" value="{{ filters.end_date or '' }}">
         </label>
         <button type="submit">{{ t('apply_filter') }}</button>
       </div>
+      <p id="reports-date-error" class="date-range-error" aria-live="polite"></p>
       {% if section %}
         <input type="hidden" name="section" value="{{ section }}">
       {% endif %}

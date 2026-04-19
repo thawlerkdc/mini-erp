@@ -273,6 +273,16 @@
   transition: border 0.3s, background 0.3s;
 }
 
+body.theme-dark .invalid-date-field {
+  border-color: #f87171 !important;
+  background: #1f2937 !important;
+  color: #e2e8f0 !important;
+}
+
+body.theme-dark input[type="date"].invalid-date-field::-webkit-calendar-picker-indicator {
+  filter: invert(0.9);
+}
+
 .date-range-error {
   display: none;
   width: 100%;
