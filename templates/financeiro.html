@@ -437,7 +437,7 @@
               <td>{{ row['due_date_display'] }}</td>
               <td><span class="status-pill status-{{ row['status_effective'] }}">{{ row['status_effective']|capitalize }}</span></td>
               <td>R$ {{ "%.2f"|format(row['amount']|float)|replace('.', ',') }}</td>
-              <td class="finance-status-actions-cell">
+              <td class="finance-status-actions-cell finance-action-source-{{ row['source'] }}">
                 {% if row['status_effective'] != 'pago' %}
                   <button
                     type="button"

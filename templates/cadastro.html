@@ -308,6 +308,8 @@
               <td class="action-buttons">
                 {% if client['whatsapp'] %}
                   <a href="https://wa.me/{% if client['whatsapp'] and client['whatsapp'].startswith('55') %}{{ client['whatsapp'] }}{% else %}55{{ client['whatsapp'] }}{% endif %}" target="_blank" rel="noopener" class="btn-manage action-icon-btn action-whatsapp" title="Conversar no WhatsApp" aria-label="Conversar no WhatsApp"><img src="/static/img/whatsapp-icon.svg" alt="WhatsApp" class="wa-icon"></a>
+                {% else %}
+                  <span class="action-icon-btn action-icon-placeholder" aria-hidden="true"></span>
                 {% endif %}
                 <a href="{{ url_for('cadastro', entity='clientes', edit_id=client['id']) }}" class="btn-edit action-icon-btn action-edit" title="Editar" aria-label="Editar">&#9998;</a>
                 <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='clientes') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
@@ -424,6 +426,8 @@
               <td class="action-buttons">
                 {% if supplier['whatsapp'] %}
                   <a href="https://wa.me/{% if supplier['whatsapp'] and supplier['whatsapp'].startswith('55') %}{{ supplier['whatsapp'] }}{% else %}55{{ supplier['whatsapp'] }}{% endif %}" target="_blank" rel="noopener" class="btn-manage action-icon-btn action-whatsapp" title="Conversar no WhatsApp" aria-label="Conversar no WhatsApp"><img src="/static/img/whatsapp-icon.svg" alt="WhatsApp" class="wa-icon"></a>
+                {% else %}
+                  <span class="action-icon-btn action-icon-placeholder" aria-hidden="true"></span>
                 {% endif %}
                 <a href="{{ url_for('cadastro', entity='fornecedores', edit_id=supplier['id']) }}" class="btn-edit action-icon-btn action-edit" title="Editar" aria-label="Editar">&#9998;</a>
                 <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='fornecedores') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
@@ -755,10 +759,13 @@
       gap: 6px;
       flex-wrap: nowrap;
       align-items: center;
+      justify-content: flex-start;
+      min-width: 124px;
     }
     
     .action-buttons form {
-      display: inline;
+      display: inline-flex;
+      margin: 0;
     }
     
     .btn-edit,
@@ -784,6 +791,15 @@
       border-radius: 8px;
       font-size: 0.95rem;
       line-height: 1;
+      flex: 0 0 34px;
+    }
+
+    .action-icon-placeholder {
+      background: transparent !important;
+      border: 1px solid transparent !important;
+      box-shadow: none !important;
+      visibility: hidden;
+      pointer-events: none;
     }
 
     .action-edit {

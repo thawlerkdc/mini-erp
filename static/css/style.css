@@ -3160,6 +3160,7 @@ body.theme-dark .btn-close-cash:hover {
 .finance-origin-badge.source-manual { background: #dcfce7; color: #166534; }
 .finance-origin-badge.source-xml_import { background: #cffafe; color: #0f766e; }
 .finance-origin-badge.source-internal_adjustment { background: #fee2e2; color: #991b1b; }
+.finance-origin-badge.source-partial_payment { background: #e0f2fe; color: #0c4a6e; }
 
 .finance-payment-form {
   display: grid;
@@ -3833,6 +3834,30 @@ body.theme-dark .finance-origin-badge {
   color: #e2e8f0;
   border: 1px solid #475569;
 }
+
+body.theme-dark .finance-origin-badge.source-sale { background: rgba(37, 99, 235, 0.28); color: #bfdbfe; border-color: rgba(147, 197, 253, 0.45); }
+body.theme-dark .finance-origin-badge.source-purchase { background: rgba(194, 65, 12, 0.28); color: #fdba74; border-color: rgba(251, 146, 60, 0.4); }
+body.theme-dark .finance-origin-badge.source-purchase_order { background: rgba(194, 65, 12, 0.28); color: #fdba74; border-color: rgba(251, 146, 60, 0.4); }
+body.theme-dark .finance-origin-badge.source-recurring_expense,
+body.theme-dark .finance-origin-badge.source-recurrence { background: rgba(109, 40, 217, 0.28); color: #ddd6fe; border-color: rgba(167, 139, 250, 0.45); }
+body.theme-dark .finance-origin-badge.source-manual { background: rgba(22, 163, 74, 0.24); color: #bbf7d0; border-color: rgba(134, 239, 172, 0.45); }
+body.theme-dark .finance-origin-badge.source-xml_import { background: rgba(13, 148, 136, 0.26); color: #99f6e4; border-color: rgba(94, 234, 212, 0.45); }
+body.theme-dark .finance-origin-badge.source-internal_adjustment { background: rgba(220, 38, 38, 0.26); color: #fecaca; border-color: rgba(252, 165, 165, 0.45); }
+body.theme-dark .finance-origin-badge.source-partial_payment { background: rgba(14, 116, 144, 0.3); color: #bae6fd; border-color: rgba(125, 211, 252, 0.45); }
+
+body.theme-dark .finance-status-actions-cell .status-action-btn {
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.25) inset;
+}
+
+body.theme-dark .finance-action-source-sale .status-action-btn { box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.42) inset, 0 8px 16px rgba(30, 64, 175, 0.18); }
+body.theme-dark .finance-action-source-purchase .status-action-btn,
+body.theme-dark .finance-action-source-purchase_order .status-action-btn { box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.42) inset, 0 8px 16px rgba(124, 45, 18, 0.2); }
+body.theme-dark .finance-action-source-recurring_expense .status-action-btn,
+body.theme-dark .finance-action-source-recurrence .status-action-btn { box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.42) inset, 0 8px 16px rgba(76, 29, 149, 0.2); }
+body.theme-dark .finance-action-source-manual .status-action-btn { box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.36) inset, 0 8px 16px rgba(21, 128, 61, 0.18); }
+body.theme-dark .finance-action-source-xml_import .status-action-btn { box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.38) inset, 0 8px 16px rgba(15, 118, 110, 0.2); }
+body.theme-dark .finance-action-source-internal_adjustment .status-action-btn { box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.36) inset, 0 8px 16px rgba(127, 29, 29, 0.2); }
+body.theme-dark .finance-action-source-partial_payment .status-action-btn { box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.42) inset, 0 8px 16px rgba(14, 116, 144, 0.22); }
 
 body.theme-dark .rate-input-wrap,
 body.theme-dark .rate-pct {
