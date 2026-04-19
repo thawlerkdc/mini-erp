@@ -2676,6 +2676,23 @@ body.theme-dark .btn-close-cash:hover {
 
 .finance-custom-range input[type="date"] {
   min-width: 148px;
+  border: 1px solid #b8cbed;
+  border-radius: 10px;
+  padding: 9px 11px;
+  background: linear-gradient(180deg, #ffffff, #f7fbff);
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.finance-custom-range input[type="date"]:focus {
+  outline: none;
+  border-color: #6ea0e8;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.finance-custom-range input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.85;
 }
 
 #finance-header-date-error {
@@ -2692,22 +2709,22 @@ body.theme-dark .btn-close-cash:hover {
 }
 
 .finance-period-selector {
-  background: #fcd34d;
-  border: 2px solid #f59e0b;
+  background: linear-gradient(180deg, #e6f0ff, #d9e9ff);
+  border: 1px solid #9bbef1;
   border-radius: 20px;
   padding: 8px 16px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.95rem;
-  color: #1f2937;
+  color: #173b72;
   transition: all 0.2s;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .finance-period-selector:hover {
-  background: #f59e0b;
-  border-color: #d97706;
+  background: linear-gradient(180deg, #dbeaff, #cfe2ff);
+  border-color: #7fa9e9;
 }
 
 .finance-filter-select {
@@ -3066,6 +3083,15 @@ body.theme-dark .btn-close-cash:hover {
 .finance-recurring-row {
   margin-top: 8px;
   min-height: 40px;
+}
+
+.finance-recurring-row-bottom {
+  margin-top: 4px;
+  justify-content: flex-start;
+}
+
+.finance-recurring-row-bottom label {
+  margin-bottom: 0;
 }
 
 .finance-recurrence-label {
@@ -3495,8 +3521,30 @@ body.theme-dark .finance-custom-range {
   border-color: #385175;
 }
 
+body.theme-dark .finance-period-selector {
+  background: linear-gradient(180deg, #1f365a, #1f3f71);
+  border-color: #4570a7;
+  color: #e5f0ff;
+}
+
+body.theme-dark .finance-period-selector:hover {
+  background: linear-gradient(180deg, #274675, #285083);
+  border-color: #5d8ccc;
+}
+
 body.theme-dark .finance-custom-range label {
   color: #d7e6fb;
+}
+
+body.theme-dark .finance-custom-range input[type="date"] {
+  border-color: #3f5f8f;
+  background: linear-gradient(180deg, #111f37, #162845);
+  color: #eaf2ff;
+}
+
+body.theme-dark .finance-custom-range input[type="date"]:focus {
+  border-color: #6fa4ef;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.24);
 }
 
 body.theme-dark .finance-filter-select {

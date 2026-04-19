@@ -270,13 +270,13 @@
               <option value="recurring_expense">Despesa recorrente</option>
             </select>
 
-            <div class="param-check-row finance-recurring-row">
+            <label class="finance-recurrence-label">Recorrência (dias)</label>
+            <input type="number" name="recurrence_days" min="1" value="30">
+
+            <div class="param-check-row finance-recurring-row finance-recurring-row-bottom">
               <input id="is-recurring" type="checkbox" name="is_recurring" value="1">
               <label for="is-recurring">Recorrente</label>
             </div>
-
-            <label class="finance-recurrence-label">Recorrência (dias)</label>
-            <input type="number" name="recurrence_days" min="1" value="30">
           </div>
         </div>
         <button type="submit" class="btn-confirm" style="margin-top: 20px;">Salvar lançamento</button>
@@ -478,6 +478,7 @@
 
         <label>Valor pago (R$) *</label>
         <input type="number" name="payment_amount" id="register-payment-amount" step="0.01" min="0.01" required>
+        <p class="form-hint" id="register-payment-hint" style="margin-top: -2px;">Você pode registrar pagamento total ou parcial.</p>
 
         <label>Forma de pagamento *</label>
         <select name="payment_method" required>
@@ -962,12 +963,18 @@
       var entryInput = document.getElementById('register-payment-entry-id');
       var dateInput = document.getElementById('register-payment-date');
       var amountInput = document.getElementById('register-payment-amount');
+      var hint = document.getElementById('register-payment-hint');
       if (!modal || !entryInput || !dateInput || !amountInput) return;
 
       entryInput.value = entryId || '';
       subtitle.textContent = 'Lançamento: ' + (description || 'Financeiro');
       dateInput.value = new Date().toISOString().slice(0, 10);
       amountInput.value = amount || '';
+      amountInput.max = amount || '';
+      if (hint && amount) {
+        var maxLabel = Number(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        hint.textContent = 'Você pode registrar pagamento total ou parcial. Valor máximo: R$ ' + maxLabel;
+      }
 
       modal.style.display = 'flex';
       dateInput.focus();

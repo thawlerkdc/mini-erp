@@ -1303,6 +1303,7 @@ FINANCIAL_SOURCE_LABELS = {
     "purchase_order": "Compra",
     "recurring_expense": "Despesa recorrente",
     "recurrence": "Despesa recorrente",
+    "partial_payment": "Pagamento parcial",
     "manual": "Lançamento manual",
     "xml_import": "Importação XML",
     "internal_adjustment": "Ajuste interno",
@@ -1316,6 +1317,8 @@ def _normalize_financial_source(raw_source):
         "compra": "purchase",
         "despesa_recorrente": "recurring_expense",
         "recorrente": "recurring_expense",
+        "pagamento_parcial": "partial_payment",
+        "partial_payment": "partial_payment",
         "lancamento_manual": "manual",
         "manual": "manual",
         "importacao_xml": "xml_import",
@@ -2951,7 +2954,8 @@ def financeiro():
                 payment_notes = (request.form.get("payment_notes") or "").strip()
 
                 entry = conn.execute(
-                    "SELECT id, amount, due_date, status FROM financial_entries WHERE id = %s AND account_id = %s LIMIT 1",
+                    "SELECT id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, status, is_recurring, recurrence_days, source, source_ref "
+                    "FROM financial_entries WHERE id = %s AND account_id = %s LIMIT 1",
                     (entry_id, account_id),
                 ).fetchone()
                 if not entry:
@@ -2962,27 +2966,94 @@ def financeiro():
                         flash("Este lançamento já está pago.", "info")
                     elif not payment_date or payment_amount <= 0 or not payment_method:
                         flash("Informe data, valor pago e forma de pagamento.", "error")
+                    elif payment_amount > float(entry["amount"] or 0):
+                        flash("Valor pago não pode ser maior que o valor do lançamento.", "error")
                     else:
-                        conn.execute(
-                            "UPDATE financial_entries SET status = 'pago', paid_at = %s WHERE id = %s AND account_id = %s",
-                            (payment_date + " 00:00:00", entry_id, account_id),
-                        )
-                        conn.execute(
-                            "INSERT INTO financial_payment_history (account_id, entry_id, event_type, payment_date, payment_amount, payment_method, notes, created_by_user_name, created_at) "
-                            "VALUES (%s, %s, 'payment_registered', %s, %s, %s, %s, %s, %s)",
-                            (
-                                account_id,
-                                entry_id,
-                                payment_date,
-                                payment_amount,
-                                payment_method,
-                                payment_notes,
-                                session.get("user_name") or session.get("user"),
-                                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            ),
-                        )
-                        conn.commit()
-                        flash("Pagamento registrado com sucesso.", "success")
+                        total_amount = float(entry["amount"] or 0)
+                        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        operator_name = session.get("user_name") or session.get("user")
+
+                        if payment_amount < total_amount:
+                            remaining_amount = round(total_amount - payment_amount, 2)
+
+                            # Mantém o título original em aberto com saldo remanescente.
+                            conn.execute(
+                                "UPDATE financial_entries SET amount = %s, status = 'pendente', paid_at = NULL WHERE id = %s AND account_id = %s",
+                                (remaining_amount, entry_id, account_id),
+                            )
+
+                            # Registra a parcela paga como título quitado para refletir no fluxo de caixa.
+                            conn.execute(
+                                "INSERT INTO financial_entries (account_id, entry_type, description, category_id, supplier_id, client_id, amount, due_date, status, is_recurring, recurrence_days, source, source_ref, created_at, paid_at) "
+                                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pago', 0, %s, 'partial_payment', %s, %s, %s)",
+                                (
+                                    account_id,
+                                    entry["entry_type"],
+                                    f"{entry['description']} (parcial)",
+                                    entry["category_id"],
+                                    entry["supplier_id"],
+                                    entry["client_id"],
+                                    payment_amount,
+                                    payment_date,
+                                    max(_safe_int(entry["recurrence_days"], 30), 1),
+                                    f"partial_of:{entry_id}",
+                                    created_at,
+                                    payment_date + " 00:00:00",
+                                ),
+                            )
+                            partial_entry_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('financial_entries', 'id'))").fetchone()[0]
+
+                            conn.execute(
+                                "INSERT INTO financial_payment_history (account_id, entry_id, event_type, payment_date, payment_amount, payment_method, notes, created_by_user_name, created_at) "
+                                "VALUES (%s, %s, 'payment_registered_partial', %s, %s, %s, %s, %s, %s)",
+                                (
+                                    account_id,
+                                    entry_id,
+                                    payment_date,
+                                    payment_amount,
+                                    payment_method,
+                                    (payment_notes + " | " if payment_notes else "") + f"Saldo remanescente: R$ {remaining_amount:.2f}",
+                                    operator_name,
+                                    created_at,
+                                ),
+                            )
+                            conn.execute(
+                                "INSERT INTO financial_payment_history (account_id, entry_id, event_type, payment_date, payment_amount, payment_method, notes, created_by_user_name, created_at) "
+                                "VALUES (%s, %s, 'payment_registered', %s, %s, %s, %s, %s, %s)",
+                                (
+                                    account_id,
+                                    partial_entry_id,
+                                    payment_date,
+                                    payment_amount,
+                                    payment_method,
+                                    (payment_notes + " | " if payment_notes else "") + f"Parcela do lançamento #{entry_id}",
+                                    operator_name,
+                                    created_at,
+                                ),
+                            )
+                            conn.commit()
+                            flash(f"Pagamento parcial registrado. Restante em aberto: R$ {remaining_amount:.2f}".replace('.', ','), "success")
+                        else:
+                            conn.execute(
+                                "UPDATE financial_entries SET status = 'pago', paid_at = %s WHERE id = %s AND account_id = %s",
+                                (payment_date + " 00:00:00", entry_id, account_id),
+                            )
+                            conn.execute(
+                                "INSERT INTO financial_payment_history (account_id, entry_id, event_type, payment_date, payment_amount, payment_method, notes, created_by_user_name, created_at) "
+                                "VALUES (%s, %s, 'payment_registered', %s, %s, %s, %s, %s, %s)",
+                                (
+                                    account_id,
+                                    entry_id,
+                                    payment_date,
+                                    payment_amount,
+                                    payment_method,
+                                    payment_notes,
+                                    operator_name,
+                                    created_at,
+                                ),
+                            )
+                            conn.commit()
+                            flash("Pagamento registrado com sucesso.", "success")
 
             elif action == "reverse_payment":
                 entry_id = request.form.get("entry_id")
