@@ -49,9 +49,6 @@ except ImportError:
 
 from access_control import access_bp
 from logs_auditoria import auditoria_bp, log_audit_event
-        total_clients = 0
-        total_products = 0
-        total_sales = 0
 from datetime import datetime, timedelta
 from calendar import monthrange
 import re
