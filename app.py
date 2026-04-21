@@ -49,6 +49,9 @@ except ImportError:
 
 from access_control import access_bp
 from logs_auditoria import auditoria_bp, log_audit_event
+        total_clients = 0
+        total_products = 0
+        total_sales = 0
 from datetime import datetime, timedelta
 from calendar import monthrange
 import re
@@ -1897,15 +1900,257 @@ def dashboard():
     total_clients = 0
     total_products = 0
     total_sales = 0
+    revenue_total = 0.0
+    expenses_total = 0.0
+    estimated_profit = 0.0
+    low_stock_count = 0
+    payable_open_total = 0.0
+    overdue_payables_count = 0
+    receivable_open_total = 0.0
+    pending_receivables_count = 0
+    period_key = "last_30_days"
+    period_label = "Ultimos 30 dias"
+    chart_points = []
+    dashboard_alerts = []
+    dashboard_kpis = []
     conn = None
 
     try:
         account_id = get_current_account_id()
         conn = get_tenant_connection()
 
+        now_dt = datetime.now()
+        today = now_dt.strftime("%Y-%m-%d")
+        period_key = (request.args.get("period") or "last_30_days").strip().lower()
+
+        if period_key == "today":
+            start_date = today
+            end_date = today
+            period_label = "Hoje"
+        elif period_key == "last_7_days":
+            start_date = (now_dt - timedelta(days=6)).strftime("%Y-%m-%d")
+            end_date = today
+            period_label = "Ultimos 7 dias"
+        elif period_key == "this_month":
+            start_date = now_dt.replace(day=1).strftime("%Y-%m-%d")
+            end_date = today
+            period_label = "Este mes"
+        else:
+            period_key = "last_30_days"
+            start_date = (now_dt - timedelta(days=29)).strftime("%Y-%m-%d")
+            end_date = today
+            period_label = "Ultimos 30 dias"
+
+        dt_start = datetime.strptime(start_date, "%Y-%m-%d")
+        dt_end = datetime.strptime(end_date, "%Y-%m-%d")
+        range_days = max(1, (dt_end - dt_start).days + 1)
+        prev_end_dt = dt_start - timedelta(days=1)
+        prev_start_dt = prev_end_dt - timedelta(days=range_days - 1)
+        prev_start_date = prev_start_dt.strftime("%Y-%m-%d")
+        prev_end_date = prev_end_dt.strftime("%Y-%m-%d")
+
+        def _percent_change(current_value, previous_value):
+            current_value = float(current_value or 0)
+            previous_value = float(previous_value or 0)
+            if previous_value:
+                return ((current_value - previous_value) / abs(previous_value)) * 100
+            if current_value:
+                return 100.0
+            return 0.0
+
+        def _currency_br(value):
+            return f"R$ {float(value or 0):,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
         total_clients = conn.execute("SELECT COUNT(*) FROM clients WHERE account_id = %s", (account_id,)).fetchone()[0]
         total_products = conn.execute("SELECT COUNT(*) FROM products WHERE account_id = %s", (account_id,)).fetchone()[0]
         total_sales = conn.execute("SELECT COUNT(*) FROM sales WHERE account_id = %s", (account_id,)).fetchone()[0]
+
+        sales_current = conn.execute(
+            "SELECT COALESCE(SUM(total), 0) AS total FROM sales "
+            "WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
+            (account_id, start_date, end_date),
+        ).fetchone()
+        sales_previous = conn.execute(
+            "SELECT COALESCE(SUM(total), 0) AS total FROM sales "
+            "WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
+            (account_id, prev_start_date, prev_end_date),
+        ).fetchone()
+
+        expenses_current = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) AS total FROM financial_entries "
+            "WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s",
+            (account_id, start_date, end_date),
+        ).fetchone()
+        expenses_previous = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) AS total FROM financial_entries "
+            "WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s",
+            (account_id, prev_start_date, prev_end_date),
+        ).fetchone()
+
+        revenue_total = float(sales_current["total"] or 0)
+        previous_revenue_total = float(sales_previous["total"] or 0)
+        expenses_total = float(expenses_current["total"] or 0)
+        previous_expenses_total = float(expenses_previous["total"] or 0)
+        estimated_profit = revenue_total - expenses_total
+        previous_estimated_profit = previous_revenue_total - previous_expenses_total
+
+        revenue_change_pct = _percent_change(revenue_total, previous_revenue_total)
+        expenses_change_pct = _percent_change(expenses_total, previous_expenses_total)
+        profit_change_pct = _percent_change(estimated_profit, previous_estimated_profit)
+
+        low_stock_row = conn.execute(
+            "SELECT COUNT(*) AS qty FROM products WHERE account_id = %s AND COALESCE(stock_min, 0) > 0 AND COALESCE(stock, 0) <= stock_min",
+            (account_id,),
+        ).fetchone()
+        low_stock_count = int(low_stock_row["qty"] or 0)
+
+        stock_alert_rows = conn.execute(
+            "SELECT name, stock, stock_min FROM products "
+            "WHERE account_id = %s AND COALESCE(stock_min, 0) > 0 AND COALESCE(stock, 0) <= stock_min "
+            "ORDER BY stock ASC, name ASC LIMIT 4",
+            (account_id,),
+        ).fetchall()
+
+        payable_snapshot = conn.execute(
+            "SELECT "
+            "COALESCE(SUM(CASE WHEN status <> 'pago' THEN amount ELSE 0 END), 0) AS open_total, "
+            "COALESCE(COUNT(CASE WHEN status <> 'pago' AND due_date < %s THEN 1 END), 0) AS overdue_count "
+            "FROM financial_entries WHERE account_id = %s AND entry_type = 'payable'",
+            (today, account_id),
+        ).fetchone()
+        receivable_snapshot = conn.execute(
+            "SELECT "
+            "COALESCE(SUM(CASE WHEN status <> 'pago' THEN amount ELSE 0 END), 0) AS open_total, "
+            "COALESCE(COUNT(CASE WHEN status <> 'pago' THEN 1 END), 0) AS pending_count "
+            "FROM financial_entries WHERE account_id = %s AND entry_type = 'receivable'",
+            (account_id,),
+        ).fetchone()
+
+        payable_open_total = float(payable_snapshot["open_total"] or 0)
+        overdue_payables_count = int(payable_snapshot["overdue_count"] or 0)
+        receivable_open_total = float(receivable_snapshot["open_total"] or 0)
+        pending_receivables_count = int(receivable_snapshot["pending_count"] or 0)
+
+        sales_rows = conn.execute(
+            "SELECT SUBSTRING(date, 1, 10) AS day, COALESCE(SUM(total), 0) AS total "
+            "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s "
+            "GROUP BY SUBSTRING(date, 1, 10)",
+            (account_id, start_date, end_date),
+        ).fetchall()
+        expense_rows = conn.execute(
+            "SELECT due_date AS day, COALESCE(SUM(amount), 0) AS total "
+            "FROM financial_entries WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s "
+            "GROUP BY due_date",
+            (account_id, start_date, end_date),
+        ).fetchall()
+
+        sales_map = {str(row["day"]): float(row["total"] or 0) for row in sales_rows}
+        expense_map = {str(row["day"]): float(row["total"] or 0) for row in expense_rows}
+
+        cursor_dt = dt_start
+        while cursor_dt <= dt_end:
+            day = cursor_dt.strftime("%Y-%m-%d")
+            revenue_value = sales_map.get(day, 0.0)
+            expense_value = expense_map.get(day, 0.0)
+            chart_points.append(
+                {
+                    "day": day,
+                    "label": _format_date_br(day),
+                    "revenue": revenue_value,
+                    "expenses": expense_value,
+                    "profit": revenue_value - expense_value,
+                }
+            )
+            cursor_dt += timedelta(days=1)
+
+        if overdue_payables_count > 0:
+            dashboard_alerts.append(
+                {
+                    "tone": "critical",
+                    "icon": "!",
+                    "title": f"{overdue_payables_count} contas vencidas",
+                    "message": "Regularize pagamentos para evitar juros e impacto no caixa.",
+                    "href": url_for("financeiro") + "#a-pagar",
+                }
+            )
+
+        if low_stock_count > 0:
+            highlighted_products = ", ".join([str(row["name"]) for row in stock_alert_rows[:3]])
+            dashboard_alerts.append(
+                {
+                    "tone": "warning",
+                    "icon": "[]",
+                    "title": f"{low_stock_count} produtos com estoque baixo",
+                    "message": (highlighted_products + ".") if highlighted_products else "Reabasteca os itens com estoque critico.",
+                    "href": url_for("controle_estoque"),
+                }
+            )
+
+        if revenue_total < previous_revenue_total:
+            drop_pct = abs(_percent_change(revenue_total, previous_revenue_total))
+            dashboard_alerts.append(
+                {
+                    "tone": "info",
+                    "icon": "↓",
+                    "title": "Queda nas vendas",
+                    "message": f"Faturamento caiu {drop_pct:.1f}% em relacao ao periodo anterior.",
+                    "href": url_for("vendas"),
+                }
+            )
+
+        if not dashboard_alerts:
+            dashboard_alerts.append(
+                {
+                    "tone": "positive",
+                    "icon": "+",
+                    "title": "Operacao sob controle",
+                    "message": "Sem alertas criticos no periodo selecionado.",
+                    "href": url_for("dashboard", period=period_key),
+                }
+            )
+
+        dashboard_kpis = [
+            {
+                "title": "Faturamento",
+                "value": _currency_br(revenue_total),
+                "delta": revenue_change_pct,
+                "delta_prefix": "vs periodo anterior",
+                "card_tone": "success",
+                "icon": "↗",
+                "static_badge": False,
+                "invert_delta": False,
+            },
+            {
+                "title": "Despesas",
+                "value": _currency_br(expenses_total),
+                "delta": expenses_change_pct,
+                "delta_prefix": "vs periodo anterior",
+                "card_tone": "danger",
+                "icon": "↘",
+                "static_badge": False,
+                "invert_delta": True,
+            },
+            {
+                "title": "Lucro estimado",
+                "value": _currency_br(estimated_profit),
+                "delta": profit_change_pct,
+                "delta_prefix": "vs periodo anterior",
+                "card_tone": "primary",
+                "icon": "≈",
+                "static_badge": False,
+                "invert_delta": False,
+            },
+            {
+                "title": "Estoque critico",
+                "value": f"{low_stock_count} itens",
+                "delta": 0,
+                "delta_prefix": "reposicao necessaria",
+                "card_tone": "warning",
+                "icon": "!",
+                "static_badge": True,
+                "invert_delta": False,
+            },
+        ]
     except Exception as exc:
         logger.exception("Falha ao carregar dashboard: %s", exc)
         flash("Houve um problema ao carregar o painel. Exibindo dados parciais.", "error")
@@ -1922,6 +2167,19 @@ def dashboard():
             total_clients=total_clients,
             total_products=total_products,
             total_sales=total_sales,
+            period_key=period_key,
+            period_label=period_label,
+            dashboard_kpis=dashboard_kpis,
+            chart_points=chart_points,
+            revenue_total=revenue_total,
+            expenses_total=expenses_total,
+            estimated_profit=estimated_profit,
+            low_stock_count=low_stock_count,
+            payable_open_total=payable_open_total,
+            overdue_payables_count=overdue_payables_count,
+            receivable_open_total=receivable_open_total,
+            pending_receivables_count=pending_receivables_count,
+            dashboard_alerts=dashboard_alerts,
         )
     except Exception as exc:
         logger.exception("Falha ao renderizar dashboard: %s", exc)

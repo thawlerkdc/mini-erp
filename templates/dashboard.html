@@ -1,47 +1,218 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <section class="hero-banner">
-    <h2>{{ t('dashboard_welcome') }}, {{ user }}</h2>
-    <p>{{ welcome_text }}</p>
-  </section>
+  <section class="dashboard-shell">
+    <div class="dashboard-hero-panel">
+      <div>
+        <p class="dashboard-eyebrow">Painel inteligente</p>
+        <h2>{{ t('dashboard_welcome') }}, {{ user }}</h2>
+        <p class="dashboard-hero-copy">{{ welcome_text }} Tenha uma leitura rapida de caixa, vendas, despesas e alertas do negocio.</p>
+      </div>
+      <div class="dashboard-hero-meta">
+        <span class="dashboard-meta-chip">{{ total_clients or 0 }} clientes</span>
+        <span class="dashboard-meta-chip">{{ total_products or 0 }} produtos</span>
+        <span class="dashboard-meta-chip">{{ total_sales or 0 }} vendas</span>
+      </div>
+    </div>
 
-  <section class="metrics-row">
-    <article class="metric-card">
-      <div>
-        <h3>{{ t('menu_clients') }}</h3>
-        <p>Clientes cadastrados</p>
-      </div>
-      <strong>{{ total_clients or 0 }}</strong>
-    </article>
-    <article class="metric-card">
-      <div>
-        <h3>{{ t('menu_products') }}</h3>
-        <p>Produtos ativos</p>
-      </div>
-      <strong>{{ total_products or 0 }}</strong>
-    </article>
-    <article class="metric-card">
-      <div>
-        <h3>{{ t('menu_sales') }}</h3>
-        <p>Vendas registradas</p>
-      </div>
-      <strong>{{ total_sales or 0 }}</strong>
-    </article>
-  </section>
+    <section class="dashboard-kpi-grid">
+      {% for kpi in dashboard_kpis %}
+        {% set delta_positive = ((kpi.delta >= 0) and not kpi.invert_delta) or ((kpi.delta <= 0) and kpi.invert_delta) %}
+        <article class="dashboard-kpi-card tone-{{ kpi.card_tone }}">
+          <div class="dashboard-kpi-head">
+            <span class="dashboard-kpi-title">{{ kpi.title }}</span>
+            <span class="dashboard-kpi-icon" aria-hidden="true">{{ kpi.icon }}</span>
+          </div>
+          <div class="dashboard-kpi-value">{{ kpi.value }}</div>
+          {% if kpi.static_badge %}
+            <div class="dashboard-kpi-trend trend-warning">{{ kpi.delta_prefix }}</div>
+          {% else %}
+            <div class="dashboard-kpi-trend {% if delta_positive %}trend-positive{% else %}trend-negative{% endif %}">
+              {% if delta_positive %}↑{% else %}↓{% endif %}
+              {{ '%.1f'|format(kpi.delta|abs) }}% {{ kpi.delta_prefix }}
+            </div>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </section>
 
-  <div class="dashboard-grid dashboard-grid-restyled">
-    <div>
-      <h3 style="margin: 0 0 12px;">Menus favoritos</h3>
+    <section class="dashboard-chart-card">
+      <div class="dashboard-section-head">
+        <div>
+          <h3>Visão financeira</h3>
+          <p>{{ period_label }}</p>
+        </div>
+        <div class="dashboard-period-switcher">
+          <a href="{{ url_for('dashboard', period='today') }}" class="period-chip {% if period_key == 'today' %}active{% endif %}">Hoje</a>
+          <a href="{{ url_for('dashboard', period='last_7_days') }}" class="period-chip {% if period_key == 'last_7_days' %}active{% endif %}">7 dias</a>
+          <a href="{{ url_for('dashboard', period='last_30_days') }}" class="period-chip {% if period_key == 'last_30_days' %}active{% endif %}">30 dias</a>
+          <a href="{{ url_for('dashboard', period='this_month') }}" class="period-chip {% if period_key == 'this_month' %}active{% endif %}">Mês</a>
+        </div>
+      </div>
+      <div class="dashboard-chart-wrap">
+        <canvas id="dashboard-main-chart" aria-label="Grafico principal do dashboard" role="img"></canvas>
+      </div>
+    </section>
+
+    <section class="dashboard-finance-grid">
+      <article class="dashboard-finance-card">
+        <div class="dashboard-finance-head">
+          <h3>Contas a pagar</h3>
+          <span class="dashboard-finance-icon" aria-hidden="true">↗</span>
+        </div>
+        <div class="dashboard-finance-value">R$ {{ '{:,.0f}'.format(payable_open_total or 0)|replace(',', '.') }}</div>
+        <div class="dashboard-finance-status status-critical">{{ overdue_payables_count or 0 }} vencidas</div>
+        <a class="dashboard-finance-link link-danger" href="{{ url_for('financeiro') }}#a-pagar">Ver contas</a>
+      </article>
+
+      <article class="dashboard-finance-card">
+        <div class="dashboard-finance-head">
+          <h3>Contas a receber</h3>
+          <span class="dashboard-finance-icon" aria-hidden="true">←</span>
+        </div>
+        <div class="dashboard-finance-value">R$ {{ '{:,.0f}'.format(receivable_open_total or 0)|replace(',', '.') }}</div>
+        <div class="dashboard-finance-status status-warning">{{ pending_receivables_count or 0 }} pendentes</div>
+        <a class="dashboard-finance-link link-primary" href="{{ url_for('financeiro') }}#a-receber">Ver recebimentos</a>
+      </article>
+    </section>
+
+    <section class="dashboard-alerts-card">
+      <div class="dashboard-section-head">
+        <div>
+          <h3>Alertas</h3>
+          <p>Prioridades que merecem atencao imediata</p>
+        </div>
+      </div>
+      <div class="dashboard-alert-grid">
+        {% for alert in dashboard_alerts %}
+          <a href="{{ alert.href }}" class="dashboard-alert-item tone-{{ alert.tone }}">
+            <span class="dashboard-alert-icon" aria-hidden="true">{{ alert.icon }}</span>
+            <div>
+              <strong>{{ alert.title }}</strong>
+              <p>{{ alert.message }}</p>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="dashboard-favorites-panel">
+      <div class="dashboard-section-head">
+        <div>
+          <h3>Menus favoritos</h3>
+          <p>Atalhos personalizados com base no que voce mais usa</p>
+        </div>
+      </div>
       <div class="dashboard-actions dashboard-favorite-grid" id="dashboard-favorite-cards"></div>
       <p id="dashboard-favorite-empty" class="menu-empty-hint" style="display:none; margin-top: 10px;">
         Nenhum favorito marcado. Clique na estrela do menu lateral para montar seus cards favoritos aqui.
       </p>
-    </div>
-  </div>
+    </section>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
     (function () {
+      function renderDashboardChart() {
+        var canvas = document.getElementById('dashboard-main-chart');
+        if (!canvas || typeof Chart === 'undefined') return;
+
+        var rows = {{ chart_points|tojson }};
+        var labels = rows.map(function (row) { return row.label; });
+        var revenue = rows.map(function (row) { return Number(row.revenue || 0); });
+        var expenses = rows.map(function (row) { return Number(row.expenses || 0); });
+        var profit = rows.map(function (row) { return Number(row.profit || 0); });
+
+        var darkTheme = document.body.classList.contains('theme-dark');
+        var gridColor = darkTheme ? 'rgba(148, 163, 184, 0.18)' : 'rgba(15, 23, 42, 0.08)';
+        var labelColor = darkTheme ? '#cbd5e1' : '#5b6785';
+
+        new Chart(canvas.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Faturamento',
+                data: revenue,
+                borderColor: '#38a169',
+                backgroundColor: 'rgba(56, 161, 105, 0.12)',
+                fill: true,
+                tension: 0.32,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+              },
+              {
+                label: 'Despesas',
+                data: expenses,
+                borderColor: '#e05353',
+                backgroundColor: 'rgba(224, 83, 83, 0.08)',
+                fill: false,
+                tension: 0.32,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+              },
+              {
+                label: 'Lucro',
+                data: profit,
+                borderColor: '#2f6fd6',
+                backgroundColor: 'rgba(47, 111, 214, 0.08)',
+                fill: false,
+                tension: 0.32,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              intersect: false,
+              mode: 'index'
+            },
+            plugins: {
+              legend: {
+                position: 'top',
+                align: 'start',
+                labels: {
+                  color: labelColor,
+                  boxWidth: 12,
+                  usePointStyle: true,
+                  pointStyle: 'circle'
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    return context.dataset.label + ': R$ ' + Number(context.parsed.y || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: labelColor },
+                grid: { color: 'transparent' }
+              },
+              y: {
+                ticks: {
+                  color: labelColor,
+                  callback: function (value) {
+                    if (Math.abs(value) >= 1000) {
+                      return (value / 1000) + 'k';
+                    }
+                    return value;
+                  }
+                },
+                grid: { color: gridColor }
+              }
+            }
+          }
+        });
+      }
+
       function getFavoritesKey() {
         var account = '{{ session.get("account_id") or "global" }}';
         var user = '{{ session.get("user") or "anon" }}';
@@ -60,7 +231,7 @@
       function renderFavoriteCards() {
         var container = document.getElementById('dashboard-favorite-cards');
         var empty = document.getElementById('dashboard-favorite-empty');
-        var menuLinks = document.querySelectorAll('#sidebar-nav .nav-link[data-menu-key]');
+        var menuLinks = document.querySelectorAll('#sidebar-sections .nav-link[data-menu-key]');
         if (!container || !menuLinks.length) return;
 
         var map = {};
@@ -104,8 +275,12 @@
       document.addEventListener('menu-favorites-changed', renderFavoriteCards);
       window.addEventListener('storage', renderFavoriteCards);
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', renderFavoriteCards);
+        document.addEventListener('DOMContentLoaded', function () {
+          renderDashboardChart();
+          renderFavoriteCards();
+        });
       } else {
+        renderDashboardChart();
         renderFavoriteCards();
       }
     })();
