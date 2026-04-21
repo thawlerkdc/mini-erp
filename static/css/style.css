@@ -2292,6 +2292,123 @@ body.theme-dark .user-menu-theme.active {
   height: 360px;
 }
 
+.dashboard-insights-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(300px, 0.95fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.dashboard-async-panel {
+  position: relative;
+}
+
+.dashboard-async-panel.is-loading::after {
+  content: "Atualizando...";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.7);
+  color: #294d8f;
+  font-weight: 700;
+  border-radius: inherit;
+  backdrop-filter: blur(2px);
+  z-index: 3;
+}
+
+.dashboard-ranking-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-ranking-card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
+  padding: 14px 16px;
+}
+
+.dashboard-ranking-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dashboard-ranking-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #223150;
+}
+
+.dashboard-ranking-head span {
+  color: #6b7b96;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.dashboard-ranking-list {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-ranking-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+
+.dashboard-ranking-item strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #223150;
+}
+
+.dashboard-ranking-item p {
+  margin: 0;
+  color: #6b7b96;
+  font-size: 0.82rem;
+}
+
+.dashboard-ranking-item span {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.dashboard-ranking-item.positive {
+  background: #f1faf4;
+  border-color: #d6efdd;
+}
+
+.dashboard-ranking-item.positive span {
+  color: #257844;
+}
+
+.dashboard-ranking-item.negative {
+  background: #fff4f4;
+  border-color: #f8d5d5;
+}
+
+.dashboard-ranking-item.negative span {
+  color: #c24141;
+}
+
+.dashboard-ranking-empty {
+  padding: 12px;
+  border-radius: 12px;
+  background: #f7f9fc;
+  color: #6b7b96;
+  font-size: 0.9rem;
+}
+
 .dashboard-finance-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2512,6 +2629,10 @@ body.theme-dark .user-menu-theme.active {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-insights-grid {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard-chart-wrap {
     height: 300px;
   }
@@ -2520,20 +2641,45 @@ body.theme-dark .user-menu-theme.active {
 body.theme-dark .dashboard-chart-card,
 body.theme-dark .dashboard-alerts-card,
 body.theme-dark .dashboard-favorites-panel,
-body.theme-dark .dashboard-finance-card {
+body.theme-dark .dashboard-finance-card,
+body.theme-dark .dashboard-ranking-card {
   background: rgba(15, 23, 42, 0.9);
   border-color: rgba(148, 163, 184, 0.16);
 }
 
 body.theme-dark .dashboard-section-head h3,
 body.theme-dark .dashboard-finance-head h3,
+body.theme-dark .dashboard-ranking-head h3,
+body.theme-dark .dashboard-ranking-item strong,
 body.theme-dark .dashboard-finance-value {
   color: #e5edf9;
 }
 
 body.theme-dark .dashboard-section-head p,
-body.theme-dark .dashboard-finance-icon {
+body.theme-dark .dashboard-finance-icon,
+body.theme-dark .dashboard-ranking-head span,
+body.theme-dark .dashboard-ranking-item p,
+body.theme-dark .dashboard-ranking-empty {
   color: #9fb0cd;
+}
+
+body.theme-dark .dashboard-ranking-empty {
+  background: rgba(30, 41, 59, 0.75);
+}
+
+body.theme-dark .dashboard-ranking-item.positive {
+  background: rgba(22, 101, 52, 0.2);
+  border-color: rgba(74, 222, 128, 0.18);
+}
+
+body.theme-dark .dashboard-ranking-item.negative {
+  background: rgba(127, 29, 29, 0.22);
+  border-color: rgba(248, 113, 113, 0.18);
+}
+
+body.theme-dark .dashboard-async-panel.is-loading::after {
+  background: rgba(15, 23, 42, 0.7);
+  color: #dbeafe;
 }
 
 body.theme-dark .period-chip {

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from dotenv import load_dotenv
 import os
 
@@ -1910,6 +1910,12 @@ def dashboard():
     chart_points = []
     dashboard_alerts = []
     dashboard_kpis = []
+    dashboard_rankings = {
+        "products_best": [],
+        "products_worst": [],
+        "categories_best": [],
+        "categories_worst": [],
+    }
     conn = None
 
     try:
@@ -1958,38 +1964,88 @@ def dashboard():
         def _currency_br(value):
             return f"R$ {float(value or 0):,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+        def _classify_expense_bucket(category_name):
+            normalized = unicodedata.normalize("NFKD", str(category_name or "").lower()).encode("ascii", "ignore").decode("ascii")
+            return "tax" if "impost" in normalized else "operational"
+
+        def _compute_dre_metrics(period_start, period_end):
+            sales_row = conn.execute(
+                "SELECT COALESCE(SUM(total), 0) AS gross_revenue, COALESCE(SUM(discount), 0) AS discounts "
+                "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
+                (account_id, period_start, period_end),
+            ).fetchone()
+            cogs_row = conn.execute(
+                "SELECT COALESCE(SUM(si.quantity * COALESCE(p.cost, 0)), 0) AS cogs "
+                "FROM sale_items si "
+                "JOIN sales s ON si.sale_id = s.id "
+                "JOIN products p ON si.product_id = p.id "
+                "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s",
+                (account_id, period_start, period_end),
+            ).fetchone()
+            expense_rows = conn.execute(
+                "SELECT COALESCE(fc.name, 'Sem categoria') AS category_name, COALESCE(SUM(e.amount), 0) AS total "
+                "FROM financial_entries e "
+                "LEFT JOIN financial_categories fc ON e.category_id = fc.id "
+                "WHERE e.account_id = %s AND e.entry_type = 'payable' AND e.status = 'pago' AND e.due_date BETWEEN %s AND %s "
+                "GROUP BY fc.name",
+                (account_id, period_start, period_end),
+            ).fetchall()
+
+            gross_revenue = float(sales_row["gross_revenue"] or 0)
+            discounts = float(sales_row["discounts"] or 0)
+            net_revenue = gross_revenue - discounts
+            cogs = float(cogs_row["cogs"] or 0)
+            operational_total = 0.0
+            tax_total = 0.0
+
+            for row in expense_rows:
+                total_amount = float(row["total"] or 0)
+                if _classify_expense_bucket(row["category_name"]) == "tax":
+                    tax_total += total_amount
+                else:
+                    operational_total += total_amount
+
+            total_expenses = cogs + operational_total + tax_total
+            net_profit = net_revenue - total_expenses
+            return {
+                "gross_revenue": gross_revenue,
+                "discounts": discounts,
+                "net_revenue": net_revenue,
+                "cogs": cogs,
+                "operational_total": operational_total,
+                "tax_total": tax_total,
+                "total_expenses": total_expenses,
+                "net_profit": net_profit,
+            }
+
+        def _serialize_ranking_rows(rows, meta_builder):
+            serialized = []
+            for row in rows:
+                row_dict = dict(row)
+                profit_value = float(row_dict.get("profit") or 0)
+                serialized.append(
+                    {
+                        "name": str(row_dict.get("name") or "Sem nome"),
+                        "value": profit_value,
+                        "value_label": _currency_br(profit_value),
+                        "meta": meta_builder(row_dict),
+                    }
+                )
+            return serialized
+
         total_clients = conn.execute("SELECT COUNT(*) FROM clients WHERE account_id = %s", (account_id,)).fetchone()[0]
         total_products = conn.execute("SELECT COUNT(*) FROM products WHERE account_id = %s", (account_id,)).fetchone()[0]
         total_sales = conn.execute("SELECT COUNT(*) FROM sales WHERE account_id = %s", (account_id,)).fetchone()[0]
 
-        sales_current = conn.execute(
-            "SELECT COALESCE(SUM(total), 0) AS total FROM sales "
-            "WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
-            (account_id, start_date, end_date),
-        ).fetchone()
-        sales_previous = conn.execute(
-            "SELECT COALESCE(SUM(total), 0) AS total FROM sales "
-            "WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s",
-            (account_id, prev_start_date, prev_end_date),
-        ).fetchone()
+        current_dre = _compute_dre_metrics(start_date, end_date)
+        previous_dre = _compute_dre_metrics(prev_start_date, prev_end_date)
 
-        expenses_current = conn.execute(
-            "SELECT COALESCE(SUM(amount), 0) AS total FROM financial_entries "
-            "WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s",
-            (account_id, start_date, end_date),
-        ).fetchone()
-        expenses_previous = conn.execute(
-            "SELECT COALESCE(SUM(amount), 0) AS total FROM financial_entries "
-            "WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s",
-            (account_id, prev_start_date, prev_end_date),
-        ).fetchone()
-
-        revenue_total = float(sales_current["total"] or 0)
-        previous_revenue_total = float(sales_previous["total"] or 0)
-        expenses_total = float(expenses_current["total"] or 0)
-        previous_expenses_total = float(expenses_previous["total"] or 0)
-        estimated_profit = revenue_total - expenses_total
-        previous_estimated_profit = previous_revenue_total - previous_expenses_total
+        revenue_total = float(current_dre["gross_revenue"] or 0)
+        previous_revenue_total = float(previous_dre["gross_revenue"] or 0)
+        expenses_total = float(current_dre["total_expenses"] or 0)
+        previous_expenses_total = float(previous_dre["total_expenses"] or 0)
+        estimated_profit = float(current_dre["net_profit"] or 0)
+        previous_estimated_profit = float(previous_dre["net_profit"] or 0)
 
         revenue_change_pct = _percent_change(revenue_total, previous_revenue_total)
         expenses_change_pct = _percent_change(expenses_total, previous_expenses_total)
@@ -2029,36 +2085,113 @@ def dashboard():
         pending_receivables_count = int(receivable_snapshot["pending_count"] or 0)
 
         sales_rows = conn.execute(
-            "SELECT SUBSTRING(date, 1, 10) AS day, COALESCE(SUM(total), 0) AS total "
+            "SELECT SUBSTRING(date, 1, 10) AS day, COALESCE(SUM(total), 0) AS gross_revenue, COALESCE(SUM(discount), 0) AS discounts "
             "FROM sales WHERE account_id = %s AND SUBSTRING(date, 1, 10) BETWEEN %s AND %s "
             "GROUP BY SUBSTRING(date, 1, 10)",
             (account_id, start_date, end_date),
         ).fetchall()
+        cogs_rows = conn.execute(
+            "SELECT SUBSTRING(s.date, 1, 10) AS day, COALESCE(SUM(si.quantity * COALESCE(p.cost, 0)), 0) AS cogs "
+            "FROM sale_items si "
+            "JOIN sales s ON si.sale_id = s.id "
+            "JOIN products p ON si.product_id = p.id "
+            "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s "
+            "GROUP BY SUBSTRING(s.date, 1, 10)",
+            (account_id, start_date, end_date),
+        ).fetchall()
         expense_rows = conn.execute(
-            "SELECT due_date AS day, COALESCE(SUM(amount), 0) AS total "
-            "FROM financial_entries WHERE account_id = %s AND entry_type = 'payable' AND status = 'pago' AND due_date BETWEEN %s AND %s "
-            "GROUP BY due_date",
+            "SELECT e.due_date AS day, COALESCE(fc.name, 'Sem categoria') AS category_name, COALESCE(SUM(e.amount), 0) AS total "
+            "FROM financial_entries e "
+            "LEFT JOIN financial_categories fc ON e.category_id = fc.id "
+            "WHERE e.account_id = %s AND e.entry_type = 'payable' AND e.status = 'pago' AND e.due_date BETWEEN %s AND %s "
+            "GROUP BY e.due_date, fc.name",
             (account_id, start_date, end_date),
         ).fetchall()
 
-        sales_map = {str(row["day"]): float(row["total"] or 0) for row in sales_rows}
-        expense_map = {str(row["day"]): float(row["total"] or 0) for row in expense_rows}
+        sales_map = {}
+        for row in sales_rows:
+            sales_map[str(row["day"])] = {
+                "gross_revenue": float(row["gross_revenue"] or 0),
+                "discounts": float(row["discounts"] or 0),
+            }
+
+        cogs_map = {str(row["day"]): float(row["cogs"] or 0) for row in cogs_rows}
+        expense_map = {}
+        for row in expense_rows:
+            day = str(row["day"])
+            expense_map.setdefault(day, {"operational": 0.0, "tax": 0.0})
+            expense_bucket = _classify_expense_bucket(row["category_name"])
+            expense_map[day][expense_bucket] += float(row["total"] or 0)
 
         cursor_dt = dt_start
         while cursor_dt <= dt_end:
             day = cursor_dt.strftime("%Y-%m-%d")
-            revenue_value = sales_map.get(day, 0.0)
-            expense_value = expense_map.get(day, 0.0)
+            sales_day = sales_map.get(day, {"gross_revenue": 0.0, "discounts": 0.0})
+            gross_revenue_day = float(sales_day["gross_revenue"] or 0)
+            net_revenue_day = gross_revenue_day - float(sales_day["discounts"] or 0)
+            cogs_day = cogs_map.get(day, 0.0)
+            expense_day = expense_map.get(day, {"operational": 0.0, "tax": 0.0})
+            total_expenses_day = cogs_day + float(expense_day["operational"] or 0) + float(expense_day["tax"] or 0)
             chart_points.append(
                 {
                     "day": day,
                     "label": _format_date_br(day),
-                    "revenue": revenue_value,
-                    "expenses": expense_value,
-                    "profit": revenue_value - expense_value,
+                    "revenue": gross_revenue_day,
+                    "expenses": total_expenses_day,
+                    "profit": net_revenue_day - total_expenses_day,
                 }
             )
             cursor_dt += timedelta(days=1)
+
+        product_best_rows = conn.execute(
+            "SELECT p.name AS name, COALESCE(SUM(si.total_price - si.quantity * COALESCE(p.cost, 0)), 0) AS profit, COALESCE(SUM(si.quantity), 0) AS quantity "
+            "FROM sale_items si "
+            "JOIN sales s ON si.sale_id = s.id "
+            "JOIN products p ON si.product_id = p.id "
+            "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s "
+            "GROUP BY p.id, p.name "
+            "ORDER BY profit DESC, p.name ASC LIMIT 5",
+            (account_id, start_date, end_date),
+        ).fetchall()
+        product_worst_rows = conn.execute(
+            "SELECT p.name AS name, COALESCE(SUM(si.total_price - si.quantity * COALESCE(p.cost, 0)), 0) AS profit, COALESCE(SUM(si.quantity), 0) AS quantity "
+            "FROM sale_items si "
+            "JOIN sales s ON si.sale_id = s.id "
+            "JOIN products p ON si.product_id = p.id "
+            "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s "
+            "GROUP BY p.id, p.name "
+            "ORDER BY profit ASC, p.name ASC LIMIT 5",
+            (account_id, start_date, end_date),
+        ).fetchall()
+        category_best_rows = conn.execute(
+            "SELECT COALESCE(c.name, 'Sem categoria') AS name, COALESCE(SUM(si.total_price - si.quantity * COALESCE(p.cost, 0)), 0) AS profit, COALESCE(SUM(si.quantity), 0) AS quantity "
+            "FROM sale_items si "
+            "JOIN sales s ON si.sale_id = s.id "
+            "JOIN products p ON si.product_id = p.id "
+            "LEFT JOIN categories c ON p.category_id = c.id "
+            "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s "
+            "GROUP BY c.name "
+            "ORDER BY profit DESC, name ASC LIMIT 5",
+            (account_id, start_date, end_date),
+        ).fetchall()
+        category_worst_rows = conn.execute(
+            "SELECT COALESCE(c.name, 'Sem categoria') AS name, COALESCE(SUM(si.total_price - si.quantity * COALESCE(p.cost, 0)), 0) AS profit, COALESCE(SUM(si.quantity), 0) AS quantity "
+            "FROM sale_items si "
+            "JOIN sales s ON si.sale_id = s.id "
+            "JOIN products p ON si.product_id = p.id "
+            "LEFT JOIN categories c ON p.category_id = c.id "
+            "WHERE s.account_id = %s AND SUBSTRING(s.date, 1, 10) BETWEEN %s AND %s "
+            "GROUP BY c.name "
+            "ORDER BY profit ASC, name ASC LIMIT 5",
+            (account_id, start_date, end_date),
+        ).fetchall()
+
+        dashboard_rankings = {
+            "products_best": _serialize_ranking_rows(product_best_rows, lambda row: f"{float(row.get('quantity') or 0):.0f} un. vendidas"),
+            "products_worst": _serialize_ranking_rows(product_worst_rows, lambda row: f"{float(row.get('quantity') or 0):.0f} un. vendidas"),
+            "categories_best": _serialize_ranking_rows(category_best_rows, lambda row: f"{float(row.get('quantity') or 0):.0f} itens vendidos"),
+            "categories_worst": _serialize_ranking_rows(category_worst_rows, lambda row: f"{float(row.get('quantity') or 0):.0f} itens vendidos"),
+        }
 
         if overdue_payables_count > 0:
             dashboard_alerts.append(
@@ -2128,7 +2261,7 @@ def dashboard():
                 "invert_delta": True,
             },
             {
-                "title": "Lucro estimado",
+                "title": "Lucro (DRE)",
                 "value": _currency_br(estimated_profit),
                 "delta": profit_change_pct,
                 "delta_prefix": "vs periodo anterior",
@@ -2154,6 +2287,29 @@ def dashboard():
     finally:
         if conn:
             conn.close()
+
+    dashboard_payload = {
+        "total_clients": total_clients,
+        "total_products": total_products,
+        "total_sales": total_sales,
+        "period_key": period_key,
+        "period_label": period_label,
+        "dashboard_kpis": dashboard_kpis,
+        "chart_points": chart_points,
+        "revenue_total": revenue_total,
+        "expenses_total": expenses_total,
+        "estimated_profit": estimated_profit,
+        "low_stock_count": low_stock_count,
+        "payable_open_total": payable_open_total,
+        "overdue_payables_count": overdue_payables_count,
+        "receivable_open_total": receivable_open_total,
+        "pending_receivables_count": pending_receivables_count,
+        "dashboard_alerts": dashboard_alerts,
+        "dashboard_rankings": dashboard_rankings,
+    }
+
+    if (request.args.get("format") or "").strip().lower() == "json":
+        return jsonify(dashboard_payload)
     
     try:
         return render_template(
@@ -2161,22 +2317,7 @@ def dashboard():
             title=translate("dashboard_title"),
             user=session.get("user_name") or session.get("user"),
             welcome_text=translate("dashboard_welcome_text"),
-            total_clients=total_clients,
-            total_products=total_products,
-            total_sales=total_sales,
-            period_key=period_key,
-            period_label=period_label,
-            dashboard_kpis=dashboard_kpis,
-            chart_points=chart_points,
-            revenue_total=revenue_total,
-            expenses_total=expenses_total,
-            estimated_profit=estimated_profit,
-            low_stock_count=low_stock_count,
-            payable_open_total=payable_open_total,
-            overdue_payables_count=overdue_payables_count,
-            receivable_open_total=receivable_open_total,
-            pending_receivables_count=pending_receivables_count,
-            dashboard_alerts=dashboard_alerts,
+            **dashboard_payload,
         )
     except Exception as exc:
         logger.exception("Falha ao renderizar dashboard: %s", exc)

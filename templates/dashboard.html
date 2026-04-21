@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <section class="dashboard-kpi-grid">
+    <section class="dashboard-kpi-grid" id="dashboard-kpi-grid">
       {% for kpi in dashboard_kpis %}
         {% set delta_positive = ((kpi.delta >= 0) and not kpi.invert_delta) or ((kpi.delta <= 0) and kpi.invert_delta) %}
         <article class="dashboard-kpi-card tone-{{ kpi.card_tone }}">
@@ -36,32 +36,116 @@
       {% endfor %}
     </section>
 
-    <section class="dashboard-chart-card">
-      <div class="dashboard-section-head">
-        <div>
-          <h3>Visão financeira</h3>
-          <p>{{ period_label }}</p>
+    <section class="dashboard-insights-grid">
+      <section class="dashboard-chart-card dashboard-async-panel" id="dashboard-chart-panel">
+        <div class="dashboard-section-head">
+          <div>
+            <h3>Visão financeira</h3>
+            <p id="dashboard-period-label">{{ period_label }}</p>
+          </div>
+          <div class="dashboard-period-switcher">
+            <a href="{{ url_for('dashboard', period='today') }}" data-period="today" class="period-chip {% if period_key == 'today' %}active{% endif %}">Hoje</a>
+            <a href="{{ url_for('dashboard', period='last_7_days') }}" data-period="last_7_days" class="period-chip {% if period_key == 'last_7_days' %}active{% endif %}">7 dias</a>
+            <a href="{{ url_for('dashboard', period='last_30_days') }}" data-period="last_30_days" class="period-chip {% if period_key == 'last_30_days' %}active{% endif %}">30 dias</a>
+            <a href="{{ url_for('dashboard', period='this_month') }}" data-period="this_month" class="period-chip {% if period_key == 'this_month' %}active{% endif %}">Mês</a>
+          </div>
         </div>
-        <div class="dashboard-period-switcher">
-          <a href="{{ url_for('dashboard', period='today') }}" class="period-chip {% if period_key == 'today' %}active{% endif %}">Hoje</a>
-          <a href="{{ url_for('dashboard', period='last_7_days') }}" class="period-chip {% if period_key == 'last_7_days' %}active{% endif %}">7 dias</a>
-          <a href="{{ url_for('dashboard', period='last_30_days') }}" class="period-chip {% if period_key == 'last_30_days' %}active{% endif %}">30 dias</a>
-          <a href="{{ url_for('dashboard', period='this_month') }}" class="period-chip {% if period_key == 'this_month' %}active{% endif %}">Mês</a>
+        <div class="dashboard-chart-wrap">
+          <canvas id="dashboard-main-chart" aria-label="Grafico principal do dashboard" role="img"></canvas>
         </div>
-      </div>
-      <div class="dashboard-chart-wrap">
-        <canvas id="dashboard-main-chart" aria-label="Grafico principal do dashboard" role="img"></canvas>
-      </div>
+      </section>
+
+      <aside class="dashboard-ranking-stack" id="dashboard-ranking-stack">
+        <article class="dashboard-ranking-card">
+          <div class="dashboard-ranking-head">
+            <h3>Produtos em alta</h3>
+            <span>Maior lucro</span>
+          </div>
+          <div class="dashboard-ranking-list" id="ranking-products-best">
+            {% for item in dashboard_rankings.products_best %}
+              <div class="dashboard-ranking-item positive">
+                <div>
+                  <strong>{{ item.name }}</strong>
+                  <p>{{ item.meta }}</p>
+                </div>
+                <span>{{ item.value_label }}</span>
+              </div>
+            {% else %}
+              <div class="dashboard-ranking-empty">Sem vendas suficientes no período.</div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="dashboard-ranking-card">
+          <div class="dashboard-ranking-head">
+            <h3>Produtos em baixa</h3>
+            <span>Menor lucro</span>
+          </div>
+          <div class="dashboard-ranking-list" id="ranking-products-worst">
+            {% for item in dashboard_rankings.products_worst %}
+              <div class="dashboard-ranking-item negative">
+                <div>
+                  <strong>{{ item.name }}</strong>
+                  <p>{{ item.meta }}</p>
+                </div>
+                <span>{{ item.value_label }}</span>
+              </div>
+            {% else %}
+              <div class="dashboard-ranking-empty">Sem vendas suficientes no período.</div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="dashboard-ranking-card">
+          <div class="dashboard-ranking-head">
+            <h3>Categorias em alta</h3>
+            <span>Melhor desempenho</span>
+          </div>
+          <div class="dashboard-ranking-list" id="ranking-categories-best">
+            {% for item in dashboard_rankings.categories_best %}
+              <div class="dashboard-ranking-item positive">
+                <div>
+                  <strong>{{ item.name }}</strong>
+                  <p>{{ item.meta }}</p>
+                </div>
+                <span>{{ item.value_label }}</span>
+              </div>
+            {% else %}
+              <div class="dashboard-ranking-empty">Sem dados por categoria no período.</div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="dashboard-ranking-card">
+          <div class="dashboard-ranking-head">
+            <h3>Categorias em baixa</h3>
+            <span>Pior desempenho</span>
+          </div>
+          <div class="dashboard-ranking-list" id="ranking-categories-worst">
+            {% for item in dashboard_rankings.categories_worst %}
+              <div class="dashboard-ranking-item negative">
+                <div>
+                  <strong>{{ item.name }}</strong>
+                  <p>{{ item.meta }}</p>
+                </div>
+                <span>{{ item.value_label }}</span>
+              </div>
+            {% else %}
+              <div class="dashboard-ranking-empty">Sem dados por categoria no período.</div>
+            {% endfor %}
+          </div>
+        </article>
+      </aside>
     </section>
 
-    <section class="dashboard-finance-grid">
+    <section class="dashboard-finance-grid" id="dashboard-finance-grid">
       <article class="dashboard-finance-card">
         <div class="dashboard-finance-head">
           <h3>Contas a pagar</h3>
           <span class="dashboard-finance-icon" aria-hidden="true">↗</span>
         </div>
-        <div class="dashboard-finance-value">R$ {{ '{:,.0f}'.format(payable_open_total or 0)|replace(',', '.') }}</div>
-        <div class="dashboard-finance-status status-critical">{{ overdue_payables_count or 0 }} vencidas</div>
+        <div class="dashboard-finance-value" id="dashboard-payable-total">R$ {{ '{:,.0f}'.format(payable_open_total or 0)|replace(',', '.') }}</div>
+        <div class="dashboard-finance-status status-critical" id="dashboard-payable-status">{{ overdue_payables_count or 0 }} vencidas</div>
         <a class="dashboard-finance-link link-danger" href="{{ url_for('financeiro') }}#a-pagar">Ver contas</a>
       </article>
 
@@ -70,8 +154,8 @@
           <h3>Contas a receber</h3>
           <span class="dashboard-finance-icon" aria-hidden="true">←</span>
         </div>
-        <div class="dashboard-finance-value">R$ {{ '{:,.0f}'.format(receivable_open_total or 0)|replace(',', '.') }}</div>
-        <div class="dashboard-finance-status status-warning">{{ pending_receivables_count or 0 }} pendentes</div>
+        <div class="dashboard-finance-value" id="dashboard-receivable-total">R$ {{ '{:,.0f}'.format(receivable_open_total or 0)|replace(',', '.') }}</div>
+        <div class="dashboard-finance-status status-warning" id="dashboard-receivable-status">{{ pending_receivables_count or 0 }} pendentes</div>
         <a class="dashboard-finance-link link-primary" href="{{ url_for('financeiro') }}#a-receber">Ver recebimentos</a>
       </article>
     </section>
@@ -83,7 +167,7 @@
           <p>Prioridades que merecem atencao imediata</p>
         </div>
       </div>
-      <div class="dashboard-alert-grid">
+      <div class="dashboard-alert-grid" id="dashboard-alert-grid">
         {% for alert in dashboard_alerts %}
           <a href="{{ alert.href }}" class="dashboard-alert-item tone-{{ alert.tone }}">
             <span class="dashboard-alert-icon" aria-hidden="true">{{ alert.icon }}</span>
@@ -114,11 +198,68 @@
 
   <script>
     (function () {
-      function renderDashboardChart() {
+      var dashboardState = {
+        period_key: {{ period_key|tojson }},
+        period_label: {{ period_label|tojson }},
+        dashboard_kpis: {{ dashboard_kpis|tojson }},
+        chart_points: {{ chart_points|tojson }},
+        payable_open_total: {{ payable_open_total|tojson }},
+        overdue_payables_count: {{ overdue_payables_count|tojson }},
+        receivable_open_total: {{ receivable_open_total|tojson }},
+        pending_receivables_count: {{ pending_receivables_count|tojson }},
+        dashboard_alerts: {{ dashboard_alerts|tojson }},
+        dashboard_rankings: {{ dashboard_rankings|tojson }}
+      };
+      var dashboardChart = null;
+      var dashboardRequestController = null;
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function formatCurrency(value) {
+        return 'R$ ' + Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      }
+
+      function renderKpis(kpis) {
+        var container = document.getElementById('dashboard-kpi-grid');
+        if (!container) return;
+
+        container.innerHTML = (kpis || []).map(function (kpi) {
+          var deltaPositive = ((Number(kpi.delta || 0) >= 0) && !kpi.invert_delta) || ((Number(kpi.delta || 0) <= 0) && kpi.invert_delta);
+          var trendClass = deltaPositive ? 'trend-positive' : 'trend-negative';
+          var trendArrow = deltaPositive ? '↑' : '↓';
+          var trendHtml = kpi.static_badge
+            ? '<div class="dashboard-kpi-trend trend-warning">' + escapeHtml(kpi.delta_prefix) + '</div>'
+            : '<div class="dashboard-kpi-trend ' + trendClass + '">' + trendArrow + ' ' + Math.abs(Number(kpi.delta || 0)).toFixed(1) + '% ' + escapeHtml(kpi.delta_prefix) + '</div>';
+
+          return '' +
+            '<article class="dashboard-kpi-card tone-' + escapeHtml(kpi.card_tone) + '">' +
+              '<div class="dashboard-kpi-head">' +
+                '<span class="dashboard-kpi-title">' + escapeHtml(kpi.title) + '</span>' +
+                '<span class="dashboard-kpi-icon" aria-hidden="true">' + escapeHtml(kpi.icon) + '</span>' +
+              '</div>' +
+              '<div class="dashboard-kpi-value">' + escapeHtml(kpi.value) + '</div>' +
+              trendHtml +
+            '</article>';
+        }).join('');
+      }
+
+      function renderDashboardChart(rows) {
         var canvas = document.getElementById('dashboard-main-chart');
         if (!canvas || typeof Chart === 'undefined') return;
 
-        var rows = {{ chart_points|tojson }};
+        if (dashboardChart) {
+          dashboardChart.destroy();
+          dashboardChart = null;
+        }
+
+        rows = rows || [];
         var labels = rows.map(function (row) { return row.label; });
         var revenue = rows.map(function (row) { return Number(row.revenue || 0); });
         var expenses = rows.map(function (row) { return Number(row.expenses || 0); });
@@ -128,7 +269,7 @@
         var gridColor = darkTheme ? 'rgba(148, 163, 184, 0.18)' : 'rgba(15, 23, 42, 0.08)';
         var labelColor = darkTheme ? '#cbd5e1' : '#5b6785';
 
-        new Chart(canvas.getContext('2d'), {
+        dashboardChart = new Chart(canvas.getContext('2d'), {
           type: 'line',
           data: {
             labels: labels,
@@ -154,7 +295,7 @@
                 pointHoverRadius: 5,
               },
               {
-                label: 'Lucro',
+                label: 'Lucro (DRE)',
                 data: profit,
                 borderColor: '#2f6fd6',
                 backgroundColor: 'rgba(47, 111, 214, 0.08)',
@@ -210,6 +351,143 @@
               }
             }
           }
+        });
+      }
+
+      function renderFinanceSummary(payload) {
+        var payableTotal = document.getElementById('dashboard-payable-total');
+        var payableStatus = document.getElementById('dashboard-payable-status');
+        var receivableTotal = document.getElementById('dashboard-receivable-total');
+        var receivableStatus = document.getElementById('dashboard-receivable-status');
+        if (payableTotal) payableTotal.textContent = formatCurrency(payload.payable_open_total);
+        if (payableStatus) payableStatus.textContent = String(payload.overdue_payables_count || 0) + ' vencidas';
+        if (receivableTotal) receivableTotal.textContent = formatCurrency(payload.receivable_open_total);
+        if (receivableStatus) receivableStatus.textContent = String(payload.pending_receivables_count || 0) + ' pendentes';
+      }
+
+      function renderAlerts(alerts) {
+        var container = document.getElementById('dashboard-alert-grid');
+        if (!container) return;
+
+        container.innerHTML = (alerts || []).map(function (alert) {
+          return '' +
+            '<a href="' + escapeHtml(alert.href) + '" class="dashboard-alert-item tone-' + escapeHtml(alert.tone) + '">' +
+              '<span class="dashboard-alert-icon" aria-hidden="true">' + escapeHtml(alert.icon) + '</span>' +
+              '<div>' +
+                '<strong>' + escapeHtml(alert.title) + '</strong>' +
+                '<p>' + escapeHtml(alert.message) + '</p>' +
+              '</div>' +
+            '</a>';
+        }).join('');
+      }
+
+      function renderRankingList(targetId, items, toneClass, emptyText) {
+        var container = document.getElementById(targetId);
+        if (!container) return;
+
+        if (!items || !items.length) {
+          container.innerHTML = '<div class="dashboard-ranking-empty">' + escapeHtml(emptyText) + '</div>';
+          return;
+        }
+
+        container.innerHTML = items.map(function (item) {
+          return '' +
+            '<div class="dashboard-ranking-item ' + toneClass + '">' +
+              '<div>' +
+                '<strong>' + escapeHtml(item.name) + '</strong>' +
+                '<p>' + escapeHtml(item.meta) + '</p>' +
+              '</div>' +
+              '<span>' + escapeHtml(item.value_label) + '</span>' +
+            '</div>';
+        }).join('');
+      }
+
+      function renderRankings(rankings) {
+        rankings = rankings || {};
+        renderRankingList('ranking-products-best', rankings.products_best, 'positive', 'Sem vendas suficientes no período.');
+        renderRankingList('ranking-products-worst', rankings.products_worst, 'negative', 'Sem vendas suficientes no período.');
+        renderRankingList('ranking-categories-best', rankings.categories_best, 'positive', 'Sem dados por categoria no período.');
+        renderRankingList('ranking-categories-worst', rankings.categories_worst, 'negative', 'Sem dados por categoria no período.');
+      }
+
+      function setActivePeriod(periodKey) {
+        document.querySelectorAll('.period-chip[data-period]').forEach(function (chip) {
+          chip.classList.toggle('active', chip.getAttribute('data-period') === periodKey);
+        });
+      }
+
+      function renderDashboard(payload) {
+        dashboardState = payload;
+        renderKpis(payload.dashboard_kpis || []);
+        renderDashboardChart(payload.chart_points || []);
+        renderFinanceSummary(payload);
+        renderAlerts(payload.dashboard_alerts || []);
+        renderRankings(payload.dashboard_rankings || {});
+
+        var periodLabel = document.getElementById('dashboard-period-label');
+        if (periodLabel) {
+          periodLabel.textContent = payload.period_label || '';
+        }
+
+        setActivePeriod(payload.period_key || 'last_30_days');
+      }
+
+      function fetchDashboardPeriod(url, periodKey, pushHistory) {
+        var chartPanel = document.getElementById('dashboard-chart-panel');
+        var targetUrl = new URL(url, window.location.origin);
+        targetUrl.searchParams.set('format', 'json');
+
+        if (dashboardRequestController) {
+          dashboardRequestController.abort();
+        }
+
+        dashboardRequestController = new AbortController();
+        if (chartPanel) {
+          chartPanel.classList.add('is-loading');
+        }
+
+        fetch(targetUrl.toString(), {
+          headers: {
+            'X-Requested-With': 'fetch'
+          },
+          signal: dashboardRequestController.signal
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error('Falha ao atualizar dashboard');
+            }
+            return response.json();
+          })
+          .then(function (payload) {
+            renderDashboard(payload);
+            if (pushHistory !== false) {
+              var cleanUrl = new URL(url, window.location.origin);
+              history.pushState({ period: periodKey }, '', cleanUrl.pathname + cleanUrl.search);
+            }
+          })
+          .catch(function (error) {
+            if (error && error.name === 'AbortError') {
+              return;
+            }
+            window.location.href = url;
+          })
+          .finally(function () {
+            if (chartPanel) {
+              chartPanel.classList.remove('is-loading');
+            }
+          });
+      }
+
+      function bindPeriodFilters() {
+        document.querySelectorAll('.period-chip[data-period]').forEach(function (chip) {
+          chip.addEventListener('click', function (event) {
+            event.preventDefault();
+            fetchDashboardPeriod(chip.href, chip.getAttribute('data-period') || 'last_30_days', true);
+          });
+        });
+
+        window.addEventListener('popstate', function () {
+          fetchDashboardPeriod(window.location.href, null, false);
         });
       }
 
@@ -276,11 +554,13 @@
       window.addEventListener('storage', renderFavoriteCards);
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
-          renderDashboardChart();
+          renderDashboard(dashboardState);
+          bindPeriodFilters();
           renderFavoriteCards();
         });
       } else {
-        renderDashboardChart();
+        renderDashboard(dashboardState);
+        bindPeriodFilters();
         renderFavoriteCards();
       }
     })();
