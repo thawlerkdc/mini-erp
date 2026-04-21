@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kdc Systems - {{ title if title else 'ERP' }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260421menusections1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260421flyout1') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260418') }}"></script>
   </head>
@@ -24,29 +24,27 @@
             <div class="menu-empty-hint" id="sidebar-fav-empty">Marque com &#9734; para fixar atalhos aqui.</div>
           </div>
 
-          <!-- SEÇÕES DO MENU -->
+          <!-- SEÇÕES DO MENU (flyout) -->
           <div id="sidebar-sections">
 
             <!-- VISÃO GERAL -->
             <div class="menu-section" data-section="visao-geral">
-              <button class="menu-section-header" type="button" aria-expanded="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true">
                 <span class="section-icon" aria-hidden="true">&#129517;</span>
                 <span class="section-title">Visão Geral</span>
-                <span class="section-chevron" aria-hidden="true">&#8250;</span>
               </button>
-              <nav class="sidebar-nav menu-section-body">
+              <nav class="sidebar-nav menu-section-body" hidden>
                 {% if can_access('dashboard') %}<a href="{{ url_for('dashboard') }}" data-menu-key="dashboard" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127968;</span><span>Início</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
               </nav>
             </div>
 
             <!-- VENDAS -->
             <div class="menu-section" data-section="vendas">
-              <button class="menu-section-header" type="button" aria-expanded="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true">
                 <span class="section-icon" aria-hidden="true">&#9889;</span>
                 <span class="section-title">Vendas</span>
-                <span class="section-chevron" aria-hidden="true">&#8250;</span>
               </button>
-              <nav class="sidebar-nav menu-section-body">
+              <nav class="sidebar-nav menu-section-body" hidden>
                 {% if can_access('vendas') %}<a href="{{ url_for('vendas') }}" data-menu-key="vendas" class="nav-link {% if request.endpoint == 'vendas' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128722;</span><span>Vendas</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='clientes') }}" data-menu-key="clientes" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'clientes' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128100;</span><span>Clientes</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
               </nav>
@@ -54,12 +52,11 @@
 
             <!-- ESTOQUE -->
             <div class="menu-section" data-section="estoque">
-              <button class="menu-section-header" type="button" aria-expanded="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true">
                 <span class="section-icon" aria-hidden="true">&#128230;</span>
                 <span class="section-title">Estoque</span>
-                <span class="section-chevron" aria-hidden="true">&#8250;</span>
               </button>
-              <nav class="sidebar-nav menu-section-body">
+              <nav class="sidebar-nav menu-section-body" hidden>
                 {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='produtos') }}" data-menu-key="produtos" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'produtos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128246;</span><span>Produtos</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('compras') %}<a href="{{ url_for('estoque_entrada') }}" data-menu-key="entrada_mercadoria" class="nav-link {% if request.endpoint == 'estoque_entrada' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128666;</span><span>Entradas</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('estoque') %}<a href="{{ url_for('controle_estoque') }}" data-menu-key="controle_estoque" class="nav-link {% if request.endpoint == 'controle_estoque' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128203;</span><span>Histórico</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
@@ -69,12 +66,11 @@
 
             <!-- FINANCEIRO -->
             <div class="menu-section" data-section="financeiro">
-              <button class="menu-section-header" type="button" aria-expanded="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true">
                 <span class="section-icon" aria-hidden="true">&#128176;</span>
                 <span class="section-title">Financeiro</span>
-                <span class="section-chevron" aria-hidden="true">&#8250;</span>
               </button>
-              <nav class="sidebar-nav menu-section-body">
+              <nav class="sidebar-nav menu-section-body" hidden>
                 {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}" data-menu-key="financeiro" class="nav-link {% if request.endpoint == 'financeiro' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128184;</span><span>Financeiro</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='categorias') }}" data-menu-key="categorias" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128193;</span><span>Categorias</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
               </nav>
@@ -82,24 +78,22 @@
 
             <!-- RELATÓRIOS -->
             <div class="menu-section" data-section="relatorios">
-              <button class="menu-section-header" type="button" aria-expanded="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true">
                 <span class="section-icon" aria-hidden="true">&#128202;</span>
                 <span class="section-title">Relatórios</span>
-                <span class="section-chevron" aria-hidden="true">&#8250;</span>
               </button>
-              <nav class="sidebar-nav menu-section-body">
+              <nav class="sidebar-nav menu-section-body" hidden>
                 {% if can_access('relatorios') %}<a href="{{ url_for('relatorios') }}" data-menu-key="relatorios" class="nav-link {% if request.endpoint == 'relatorios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128202;</span><span>Relatórios</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
               </nav>
             </div>
 
             <!-- CONFIGURAÇÕES -->
             <div class="menu-section" data-section="configuracoes">
-              <button class="menu-section-header" type="button" aria-expanded="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true">
                 <span class="section-icon" aria-hidden="true">&#9881;</span>
                 <span class="section-title">Configurações</span>
-                <span class="section-chevron" aria-hidden="true">&#8250;</span>
               </button>
-              <nav class="sidebar-nav menu-section-body">
+              <nav class="sidebar-nav menu-section-body" hidden>
                 {% if can_access('parametros') %}<a href="{{ url_for('parametros') }}" data-menu-key="parametros" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127981;</span><span>Empresa</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('usuarios') %}<a href="{{ url_for('cadastro', entity='usuarios') }}" data-menu-key="usuarios" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'usuarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>Usuários</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('usuarios') %}<a href="{{ url_for('access.controle_acesso') }}" data-menu-key="controle_acesso" class="nav-link {% if request.endpoint == 'access.controle_acesso' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128273;</span><span>Permissões</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
@@ -475,46 +469,126 @@
           });
         }
 
-        function bindMenuSections() {
+        function bindFlyoutMenu() {
+          var sidebar = document.querySelector('.sidebar');
           var sectionsWrap = document.getElementById('sidebar-sections');
-          if (!sectionsWrap) return;
+          if (!sidebar || !sectionsWrap) return;
 
-          var storageKey = 'menu_sections_collapsed';
+          var flyout = document.createElement('div');
+          flyout.id = 'sidebar-flyout';
+          flyout.setAttribute('aria-hidden', 'true');
+          flyout.setAttribute('role', 'navigation');
+          document.body.appendChild(flyout);
 
-          function loadCollapsed() {
-            try {
-              var parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
-              return Array.isArray(parsed) ? parsed : [];
-            } catch (e) { return []; }
+          var hideTimer = null;
+          var openSection = null;
+
+          function getSectionLinks(section) {
+            var body = section.querySelector('.menu-section-body');
+            return body ? Array.prototype.slice.call(body.querySelectorAll('.nav-link')) : [];
           }
 
-          function saveCollapsed(list) {
-            localStorage.setItem(storageKey, JSON.stringify(list));
+          function openFlyout(section) {
+            clearTimeout(hideTimer);
+            if (openSection === section) return;
+            closeFlyout();
+
+            var links = getSectionLinks(section);
+            if (!links.length) return;
+
+            var header = section.querySelector('.menu-section-header');
+            var titleEl = header ? header.querySelector('.section-title') : null;
+            var title = titleEl ? titleEl.textContent.trim() : '';
+
+            var html = '';
+            if (title) {
+              html += '<div class="flyout-title">' + title.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div>';
+            }
+            links.forEach(function (link) {
+              var clone = link.cloneNode(true);
+              var star = clone.querySelector('.menu-fav-toggle');
+              if (star) star.remove();
+              html += clone.outerHTML;
+            });
+            flyout.innerHTML = html;
+
+            var sidebarRect = sidebar.getBoundingClientRect();
+            var sectionRect = section.getBoundingClientRect();
+            flyout.style.left = (sidebarRect.right + 8) + 'px';
+            flyout.style.top = sectionRect.top + 'px';
+            flyout.style.maxHeight = (window.innerHeight - 16) + 'px';
+
+            flyout.classList.add('is-visible');
+            flyout.setAttribute('aria-hidden', 'false');
+            section.classList.add('is-flyout-open');
+            openSection = section;
+
+            requestAnimationFrame(function () {
+              var r = flyout.getBoundingClientRect();
+              if (r.bottom > window.innerHeight - 8) {
+                flyout.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+              }
+            });
+          }
+
+          function closeFlyout() {
+            clearTimeout(hideTimer);
+            if (openSection) {
+              openSection.classList.remove('is-flyout-open');
+              openSection = null;
+            }
+            flyout.classList.remove('is-visible');
+            flyout.setAttribute('aria-hidden', 'true');
+          }
+
+          function scheduleClose() {
+            hideTimer = setTimeout(closeFlyout, 150);
           }
 
           sectionsWrap.querySelectorAll('.menu-section').forEach(function (section) {
-            var key = section.getAttribute('data-section');
-            var btn = section.querySelector('.menu-section-header');
-            var body = section.querySelector('.menu-section-body');
-            if (!btn || !body) return;
+            var header = section.querySelector('.menu-section-header');
+            if (!header) return;
 
-            var collapsed = loadCollapsed();
-            if (collapsed.indexOf(key) >= 0) {
-              section.classList.add('is-collapsed');
-              btn.setAttribute('aria-expanded', 'false');
-            }
-
-            btn.addEventListener('click', function () {
-              var isCollapsed = section.classList.toggle('is-collapsed');
-              btn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
-              var list = loadCollapsed();
-              if (isCollapsed) {
-                if (list.indexOf(key) < 0) list.push(key);
-              } else {
-                list = list.filter(function (k) { return k !== key; });
-              }
-              saveCollapsed(list);
+            section.addEventListener('mouseenter', function () {
+              openFlyout(section);
             });
+            section.addEventListener('mouseleave', function () {
+              scheduleClose();
+            });
+
+            header.addEventListener('click', function () {
+              var links = getSectionLinks(section);
+              if (links.length === 1) {
+                window.location.href = links[0].href;
+                return;
+              }
+              if (flyout.classList.contains('is-visible') && openSection === section) {
+                closeFlyout();
+              } else {
+                openFlyout(section);
+              }
+            });
+
+            // Highlight section when it contains the active page
+            if (section.querySelector('.nav-link.active')) {
+              section.classList.add('has-active');
+            }
+          });
+
+          flyout.addEventListener('mouseenter', function () {
+            clearTimeout(hideTimer);
+          });
+          flyout.addEventListener('mouseleave', function () {
+            scheduleClose();
+          });
+
+          document.addEventListener('click', function (e) {
+            if (!flyout.contains(e.target) && !sectionsWrap.contains(e.target)) {
+              closeFlyout();
+            }
+          });
+          document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeFlyout();
           });
         }
 
@@ -522,13 +596,13 @@
           document.addEventListener('DOMContentLoaded', function () {
             bindLanguageDropdownAutoDirection();
             bindMenuFavorites();
-            bindMenuSections();
+            bindFlyoutMenu();
             bindUserMenuDropdown();
           });
         } else {
           bindLanguageDropdownAutoDirection();
           bindMenuFavorites();
-          bindMenuSections();
+          bindFlyoutMenu();
           bindUserMenuDropdown();
         }
       })();

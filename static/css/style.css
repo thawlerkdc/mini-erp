@@ -1463,48 +1463,52 @@ body.theme-dark .flash.info {
   color: #b7c7f2;
 }
 
-/* ---- MENU SECTIONS (colapsáveis) ---- */
+/* ---- MENU SECTIONS (flyout) ---- */
 
 #sidebar-sections {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .menu-section {
   border-radius: 10px;
-  overflow: hidden;
 }
 
 .menu-section-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 10px;
-  color: #c9d7ff;
-  padding: 7px 10px;
+  color: #e9efff;
+  padding: 8px 12px;
   cursor: pointer;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  font-size: 0.95rem;
+  font-weight: 600;
   text-align: left;
-  margin-bottom: 4px;
+  min-height: 36px;
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
 
-.menu-section-header:hover {
+.menu-section-header:hover,
+.menu-section.is-flyout-open .menu-section-header {
   background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.menu-section.has-active .menu-section-header {
+  background: rgba(49, 95, 184, 0.35);
   border-color: rgba(255, 255, 255, 0.18);
+  color: #fff;
 }
 
 .section-icon {
-  font-size: 0.9rem;
+  font-size: 1rem;
   flex-shrink: 0;
-  width: 16px;
+  width: 18px;
   display: inline-flex;
   justify-content: center;
 }
@@ -1513,31 +1517,71 @@ body.theme-dark .flash.info {
   flex: 1;
 }
 
-.section-chevron {
-  margin-left: auto;
-  font-size: 1rem;
-  transition: transform 0.22s ease;
-  transform: rotate(90deg);
-  line-height: 1;
-  opacity: 0.7;
-}
-
-.menu-section.is-collapsed .section-chevron {
-  transform: rotate(0deg);
-}
-
+/* The .menu-section-body stays in DOM but hidden — used as data source for flyout and favorites */
 .menu-section-body {
-  overflow: hidden;
-  max-height: 400px;
-  transition: max-height 0.28s ease, opacity 0.22s ease;
-  opacity: 1;
-  padding-bottom: 6px;
+  display: none;
 }
 
-.menu-section.is-collapsed .menu-section-body {
-  max-height: 0;
+/* ---- FLYOUT PANEL ---- */
+
+#sidebar-flyout {
+  position: fixed;
+  z-index: 9999;
+  background: linear-gradient(160deg, var(--sidebar-a), var(--sidebar-b));
+  border-radius: 12px;
+  box-shadow: 4px 8px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  padding: 8px;
+  min-width: 210px;
+  max-width: 280px;
+  overflow-y: auto;
+  pointer-events: none;
   opacity: 0;
-  padding-bottom: 0;
+  transform: translateX(-8px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+#sidebar-flyout.is-visible {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.flyout-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #c9d7ff;
+  font-weight: 700;
+  padding: 4px 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 4px;
+}
+
+#sidebar-flyout .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #e9efff;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  font-size: 0.93rem;
+  white-space: nowrap;
+  min-height: 34px;
+}
+
+#sidebar-flyout .nav-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+#sidebar-flyout .nav-link.active {
+  background: linear-gradient(135deg, #315fb8, #4f7fd6);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
 }
 
 /* ---- END MENU SECTIONS ---- */
