@@ -375,6 +375,20 @@
                 star.textContent = fav ? '★' : '☆';
               }
             });
+
+            var flyout = document.getElementById('sidebar-flyout');
+            if (flyout) {
+              flyout.querySelectorAll('.nav-link[data-menu-key]').forEach(function (link) {
+                var key = link.getAttribute('data-menu-key');
+                var star = link.querySelector('.menu-fav-toggle');
+                var fav = favorites.indexOf(key) >= 0;
+                link.classList.toggle('is-favorite', fav);
+                if (star) {
+                  star.textContent = fav ? '★' : '☆';
+                }
+              });
+            }
+
             rebuildFavoritesSection(favorites);
           }
 
@@ -405,13 +419,16 @@
             }
           }
 
-          nav.addEventListener('click', function (event) {
+          function handleFavoriteToggle(event) {
             var star = event.target.closest('.menu-fav-toggle');
             if (!star) return;
-            event.preventDefault();
-            event.stopPropagation();
+
             var link = star.closest('.nav-link[data-menu-key]');
             if (!link) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
             var key = link.getAttribute('data-menu-key');
             var favorites = loadFavorites();
             var index = favorites.indexOf(key);
@@ -423,7 +440,9 @@
             saveFavorites(favorites);
             applyFavoriteStyles();
             document.dispatchEvent(new CustomEvent('menu-favorites-changed', { detail: { favorites: favorites } }));
-          });
+          }
+
+          document.addEventListener('click', handleFavoriteToggle);
 
           applyFavoriteStyles();
         }
@@ -510,8 +529,6 @@
             }
             links.forEach(function (link) {
               var clone = link.cloneNode(true);
-              var star = clone.querySelector('.menu-fav-toggle');
-              if (star) star.remove();
               html += clone.outerHTML;
             });
             flyout.innerHTML = html;
