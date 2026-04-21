@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kdc Systems - {{ title if title else 'ERP' }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260419financecore1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260421menusections1') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260418') }}"></script>
   </head>
@@ -17,41 +17,99 @@
             <span class="brand-subtitle">ERP</span>
           </div>
 
+          <!-- FAVORITOS -->
           <div class="menu-group">
-            <div class="menu-group-title">Favoritos</div>
+            <div class="menu-group-title">&#11088; Favoritos</div>
             <nav class="sidebar-nav sidebar-nav-favorites" id="sidebar-nav-favorites"></nav>
-            <div class="menu-empty-hint" id="sidebar-fav-empty">Marque com estrela para fixar atalhos aqui.</div>
+            <div class="menu-empty-hint" id="sidebar-fav-empty">Marque com &#9734; para fixar atalhos aqui.</div>
           </div>
 
-          <div class="menu-group">
-            <div class="menu-group-title">Todos os menus</div>
-            <nav class="sidebar-nav" id="sidebar-nav">
-            {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='categorias') }}" data-menu-key="categorias" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128451;</span><span>Categorias</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='clientes') }}" data-menu-key="clientes" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'clientes' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128100;</span><span>{{ t('menu_clients') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('compras') %}<a href="{{ url_for('estoque_entrada') }}" data-menu-key="entrada_mercadoria" class="nav-link {% if request.endpoint == 'estoque_entrada' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128666;</span><span>Compras</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('usuarios') %}
-            <a href="{{ url_for('access.controle_acesso') }}" data-menu-key="controle_acesso" class="nav-link {% if request.endpoint == 'access.controle_acesso' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128273;</span><span>Controle de Acesso</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
-            {% endif %}
-            {% if can_access('estoque') %}<a href="{{ url_for('controle_estoque') }}" data-menu-key="controle_estoque" class="nav-link {% if request.endpoint == 'controle_estoque' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128202;</span><span>Controle de Estoque</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('dashboard') %}<a href="{{ url_for('dashboard') }}" data-menu-key="dashboard" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127968;</span><span>{{ t('menu_dashboard') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}" data-menu-key="financeiro" class="nav-link {% if request.endpoint == 'financeiro' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128184;</span><span>{{ t('menu_finance') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='fornecedores') }}" data-menu-key="fornecedores" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'fornecedores' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127970;</span><span>{{ t('menu_suppliers') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('cadastro') %}<a href="{{ url_for('import_excel.importar_dados') }}" data-menu-key="importar_dados" class="nav-link {% if request.endpoint == 'import_excel.importar_dados' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128190;</span><span>Importar Dados</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('auditoria') %}
-            <a href="{{ url_for('auditoria.auditoria') }}" data-menu-key="auditoria" class="nav-link {% if request.endpoint == 'auditoria.auditoria' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128221;</span><span>Logs e Auditoria</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
-            {% endif %}
-            {% if can_access('parametros') %}
-              <a href="{{ url_for('parametros') }}" data-menu-key="parametros" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9881;</span><span>Parâmetros</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
-            {% endif %}
-            {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='produtos') }}" data-menu-key="produtos" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'produtos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128230;</span><span>{{ t('menu_products') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('relatorios') %}<a href="{{ url_for('relatorios') }}" data-menu-key="relatorios" class="nav-link {% if request.endpoint == 'relatorios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128202;</span><span>{{ t('menu_reports') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='unidades') }}" data-menu-key="unidades" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'unidades' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9878;</span><span>Unidades de Medida</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            {% if can_access('usuarios') %}
-              <a href="{{ url_for('cadastro', entity='usuarios') }}" data-menu-key="usuarios" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'usuarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>{{ t('menu_users') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>
-            {% endif %}
-            {% if can_access('vendas') %}<a href="{{ url_for('vendas') }}" data-menu-key="vendas" class="nav-link {% if request.endpoint == 'vendas' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128722;</span><span>{{ t('menu_sales') }}</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">☆</span></a>{% endif %}
-            </nav>
-          </div>
+          <!-- SEÇÕES DO MENU -->
+          <div id="sidebar-sections">
+
+            <!-- VISÃO GERAL -->
+            <div class="menu-section" data-section="visao-geral">
+              <button class="menu-section-header" type="button" aria-expanded="true">
+                <span class="section-icon" aria-hidden="true">&#129517;</span>
+                <span class="section-title">Visão Geral</span>
+                <span class="section-chevron" aria-hidden="true">&#8250;</span>
+              </button>
+              <nav class="sidebar-nav menu-section-body">
+                {% if can_access('dashboard') %}<a href="{{ url_for('dashboard') }}" data-menu-key="dashboard" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127968;</span><span>Início</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+              </nav>
+            </div>
+
+            <!-- VENDAS -->
+            <div class="menu-section" data-section="vendas">
+              <button class="menu-section-header" type="button" aria-expanded="true">
+                <span class="section-icon" aria-hidden="true">&#9889;</span>
+                <span class="section-title">Vendas</span>
+                <span class="section-chevron" aria-hidden="true">&#8250;</span>
+              </button>
+              <nav class="sidebar-nav menu-section-body">
+                {% if can_access('vendas') %}<a href="{{ url_for('vendas') }}" data-menu-key="vendas" class="nav-link {% if request.endpoint == 'vendas' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128722;</span><span>Vendas</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='clientes') }}" data-menu-key="clientes" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'clientes' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128100;</span><span>Clientes</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+              </nav>
+            </div>
+
+            <!-- ESTOQUE -->
+            <div class="menu-section" data-section="estoque">
+              <button class="menu-section-header" type="button" aria-expanded="true">
+                <span class="section-icon" aria-hidden="true">&#128230;</span>
+                <span class="section-title">Estoque</span>
+                <span class="section-chevron" aria-hidden="true">&#8250;</span>
+              </button>
+              <nav class="sidebar-nav menu-section-body">
+                {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='produtos') }}" data-menu-key="produtos" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'produtos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128246;</span><span>Produtos</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('compras') %}<a href="{{ url_for('estoque_entrada') }}" data-menu-key="entrada_mercadoria" class="nav-link {% if request.endpoint == 'estoque_entrada' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128666;</span><span>Entradas</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('estoque') %}<a href="{{ url_for('controle_estoque') }}" data-menu-key="controle_estoque" class="nav-link {% if request.endpoint == 'controle_estoque' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128203;</span><span>Histórico</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='fornecedores') }}" data-menu-key="fornecedores" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'fornecedores' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127970;</span><span>Fornecedores</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+              </nav>
+            </div>
+
+            <!-- FINANCEIRO -->
+            <div class="menu-section" data-section="financeiro">
+              <button class="menu-section-header" type="button" aria-expanded="true">
+                <span class="section-icon" aria-hidden="true">&#128176;</span>
+                <span class="section-title">Financeiro</span>
+                <span class="section-chevron" aria-hidden="true">&#8250;</span>
+              </button>
+              <nav class="sidebar-nav menu-section-body">
+                {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}" data-menu-key="financeiro" class="nav-link {% if request.endpoint == 'financeiro' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128184;</span><span>Financeiro</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='categorias') }}" data-menu-key="categorias" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128193;</span><span>Categorias</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+              </nav>
+            </div>
+
+            <!-- RELATÓRIOS -->
+            <div class="menu-section" data-section="relatorios">
+              <button class="menu-section-header" type="button" aria-expanded="true">
+                <span class="section-icon" aria-hidden="true">&#128202;</span>
+                <span class="section-title">Relatórios</span>
+                <span class="section-chevron" aria-hidden="true">&#8250;</span>
+              </button>
+              <nav class="sidebar-nav menu-section-body">
+                {% if can_access('relatorios') %}<a href="{{ url_for('relatorios') }}" data-menu-key="relatorios" class="nav-link {% if request.endpoint == 'relatorios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128202;</span><span>Relatórios</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+              </nav>
+            </div>
+
+            <!-- CONFIGURAÇÕES -->
+            <div class="menu-section" data-section="configuracoes">
+              <button class="menu-section-header" type="button" aria-expanded="true">
+                <span class="section-icon" aria-hidden="true">&#9881;</span>
+                <span class="section-title">Configurações</span>
+                <span class="section-chevron" aria-hidden="true">&#8250;</span>
+              </button>
+              <nav class="sidebar-nav menu-section-body">
+                {% if can_access('parametros') %}<a href="{{ url_for('parametros') }}" data-menu-key="parametros" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127981;</span><span>Empresa</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('usuarios') %}<a href="{{ url_for('cadastro', entity='usuarios') }}" data-menu-key="usuarios" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'usuarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>Usuários</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('usuarios') %}<a href="{{ url_for('access.controle_acesso') }}" data-menu-key="controle_acesso" class="nav-link {% if request.endpoint == 'access.controle_acesso' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128273;</span><span>Permissões</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='unidades') }}" data-menu-key="unidades" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'unidades' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9878;</span><span>Unidades de Medida</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('cadastro') %}<a href="{{ url_for('import_excel.importar_dados') }}" data-menu-key="importar_dados" class="nav-link {% if request.endpoint == 'import_excel.importar_dados' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128190;</span><span>Importar Dados</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('auditoria') %}<a href="{{ url_for('auditoria.auditoria') }}" data-menu-key="auditoria" class="nav-link {% if request.endpoint == 'auditoria.auditoria' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128221;</span><span>Logs e Auditoria</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+              </nav>
+            </div>
+
+          </div><!-- /#sidebar-sections -->
 
           <div class="sidebar-footer">
           </div>
@@ -286,7 +344,7 @@
         }
 
         function bindMenuFavorites() {
-          var nav = document.getElementById('sidebar-nav');
+          var nav = document.getElementById('sidebar-sections');
           var favoritesNav = document.getElementById('sidebar-nav-favorites');
           var favoritesEmpty = document.getElementById('sidebar-fav-empty');
           if (!nav) return;
@@ -417,15 +475,60 @@
           });
         }
 
+        function bindMenuSections() {
+          var sectionsWrap = document.getElementById('sidebar-sections');
+          if (!sectionsWrap) return;
+
+          var storageKey = 'menu_sections_collapsed';
+
+          function loadCollapsed() {
+            try {
+              var parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+              return Array.isArray(parsed) ? parsed : [];
+            } catch (e) { return []; }
+          }
+
+          function saveCollapsed(list) {
+            localStorage.setItem(storageKey, JSON.stringify(list));
+          }
+
+          sectionsWrap.querySelectorAll('.menu-section').forEach(function (section) {
+            var key = section.getAttribute('data-section');
+            var btn = section.querySelector('.menu-section-header');
+            var body = section.querySelector('.menu-section-body');
+            if (!btn || !body) return;
+
+            var collapsed = loadCollapsed();
+            if (collapsed.indexOf(key) >= 0) {
+              section.classList.add('is-collapsed');
+              btn.setAttribute('aria-expanded', 'false');
+            }
+
+            btn.addEventListener('click', function () {
+              var isCollapsed = section.classList.toggle('is-collapsed');
+              btn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+              var list = loadCollapsed();
+              if (isCollapsed) {
+                if (list.indexOf(key) < 0) list.push(key);
+              } else {
+                list = list.filter(function (k) { return k !== key; });
+              }
+              saveCollapsed(list);
+            });
+          });
+        }
+
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', function () {
             bindLanguageDropdownAutoDirection();
             bindMenuFavorites();
+            bindMenuSections();
             bindUserMenuDropdown();
           });
         } else {
           bindLanguageDropdownAutoDirection();
           bindMenuFavorites();
+          bindMenuSections();
           bindUserMenuDropdown();
         }
       })();

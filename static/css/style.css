@@ -1463,6 +1463,85 @@ body.theme-dark .flash.info {
   color: #b7c7f2;
 }
 
+/* ---- MENU SECTIONS (colapsáveis) ---- */
+
+#sidebar-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu-section {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.menu-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #c9d7ff;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.menu-section-header:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.section-icon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  width: 16px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.section-title {
+  flex: 1;
+}
+
+.section-chevron {
+  margin-left: auto;
+  font-size: 1rem;
+  transition: transform 0.22s ease;
+  transform: rotate(90deg);
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.menu-section.is-collapsed .section-chevron {
+  transform: rotate(0deg);
+}
+
+.menu-section-body {
+  overflow: hidden;
+  max-height: 400px;
+  transition: max-height 0.28s ease, opacity 0.22s ease;
+  opacity: 1;
+  padding-bottom: 6px;
+}
+
+.menu-section.is-collapsed .menu-section-body {
+  max-height: 0;
+  opacity: 0;
+  padding-bottom: 0;
+}
+
+/* ---- END MENU SECTIONS ---- */
+
 .sidebar-nav .nav-link {
   display: inline-flex;
   align-items: center;
