@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="finance-page-header">
+  <div class="finance-page-header" id="resumo-financeiro">
     <h2 style="margin: 0; flex-shrink: 0;">Financeiro</h2>
     <form id="finance-header-filter-form" method="get" action="{{ url_for('financeiro') }}" class="finance-header-filter-form" data-date-range-form="true" data-date-start="finance-start-date" data-date-end="finance-end-date" data-date-error="finance-header-date-error">
       <button type="button" class="finance-period-selector" id="finance-period-chip" onclick="focusFinancePeriodSelect()">📅 {{ finance_period_label }} <span>▼</span></button>
@@ -144,7 +144,7 @@
 
   <!-- Seção de dois cards no rodapé -->
   <div class="finance-footer-grid">
-    <div class="payment-status-card">
+    <div class="payment-status-card" id="a-receber">
       <h3>A Receber</h3>
       <table class="compact-status-table">
         <tbody>
@@ -159,7 +159,7 @@
         </tbody>
       </table>
     </div>
-    <div class="payment-status-card">
+    <div class="payment-status-card" id="a-pagar">
       <h3>A Pagar</h3>
       <table class="compact-status-table">
         <tbody>
