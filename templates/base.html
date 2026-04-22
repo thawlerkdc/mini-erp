@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kdc Systems - {{ title if title else 'ERP' }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260421dashboard2') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260421menu-search1') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260418') }}"></script>
   </head>
@@ -15,6 +15,18 @@
           <div class="sidebar-brand">
             <span class="brand-name">Kdc Systems</span>
             <span class="brand-subtitle">ERP</span>
+          </div>
+
+          <div class="sidebar-search-block">
+            <label for="sidebar-feature-search" class="sidebar-search-label">Buscar funcionalidade</label>
+            <input
+              id="sidebar-feature-search"
+              type="search"
+              placeholder="Ex.: vendas, financeiro, clientes"
+              autocomplete="off"
+              aria-label="Buscar funcionalidades do sistema"
+            >
+            <div id="sidebar-search-results" class="sidebar-search-results" hidden></div>
           </div>
 
           <!-- FAVORITOS -->
@@ -648,18 +660,129 @@
           });
         }
 
+        function bindSidebarFeatureSearch() {
+          var input = document.getElementById('sidebar-feature-search');
+          var resultsBox = document.getElementById('sidebar-search-results');
+          var sectionsWrap = document.getElementById('sidebar-sections');
+          if (!input || !resultsBox || !sectionsWrap) return;
+
+          function normalizeText(text) {
+            return String(text || '')
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .trim();
+          }
+
+          function buildSearchIndex() {
+            var links = Array.prototype.slice.call(sectionsWrap.querySelectorAll('.menu-section-body .nav-link[data-menu-key]'));
+            var indexed = [];
+            links.forEach(function (link) {
+              var labelNode = link.querySelector('span:nth-child(2)');
+              var label = (labelNode ? labelNode.textContent : link.textContent || '').trim();
+              var section = link.closest('.menu-section');
+              var sectionTitleNode = section ? section.querySelector('.section-title') : null;
+              var sectionTitle = sectionTitleNode ? sectionTitleNode.textContent.trim() : '';
+              var href = link.getAttribute('href') || '';
+              var key = link.getAttribute('data-menu-key') || '';
+              indexed.push({
+                label: label,
+                sectionTitle: sectionTitle,
+                href: href,
+                key: key,
+                token: normalizeText([label, sectionTitle, key, href].join(' ')),
+              });
+            });
+            return indexed;
+          }
+
+          var searchIndex = buildSearchIndex();
+
+          function hideResults() {
+            resultsBox.innerHTML = '';
+            resultsBox.hidden = true;
+          }
+
+          function renderResults(found, query) {
+            if (!found.length) {
+              resultsBox.innerHTML = '<div class="sidebar-search-empty">Nenhuma funcionalidade encontrada para "' + query.replace(/"/g, '&quot;') + '".</div>';
+              resultsBox.hidden = false;
+              return;
+            }
+
+            var html = found.map(function (item) {
+              return (
+                '<a class="sidebar-search-result" href="' + item.href + '">' +
+                  '<span class="sidebar-search-result-title">' + item.label + '</span>' +
+                  '<span class="sidebar-search-result-meta">' + item.sectionTitle + '</span>' +
+                '</a>'
+              );
+            }).join('');
+
+            resultsBox.innerHTML = html;
+            resultsBox.hidden = false;
+          }
+
+          input.addEventListener('input', function () {
+            var raw = input.value || '';
+            var query = normalizeText(raw);
+            if (query.length < 2) {
+              hideResults();
+              return;
+            }
+
+            var seen = {};
+            var found = searchIndex.filter(function (item) {
+              if (!item.token.includes(query)) return false;
+              var unique = item.href + '|' + item.label;
+              if (seen[unique]) return false;
+              seen[unique] = true;
+              return true;
+            }).slice(0, 10);
+
+            renderResults(found, raw.trim());
+          });
+
+          input.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+              hideResults();
+              input.blur();
+              return;
+            }
+            if (event.key === 'Enter' && !resultsBox.hidden) {
+              var firstResult = resultsBox.querySelector('.sidebar-search-result');
+              if (firstResult) {
+                event.preventDefault();
+                window.location.href = firstResult.href;
+              }
+            }
+          });
+
+          document.addEventListener('click', function (event) {
+            if (!event.target.closest('.sidebar-search-block')) {
+              hideResults();
+            }
+          });
+
+          document.addEventListener('menu-favorites-changed', function () {
+            searchIndex = buildSearchIndex();
+          });
+        }
+
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', function () {
             bindLanguageDropdownAutoDirection();
             bindMenuFavorites();
             bindFlyoutMenu();
             bindUserMenuDropdown();
+            bindSidebarFeatureSearch();
           });
         } else {
           bindLanguageDropdownAutoDirection();
           bindMenuFavorites();
           bindFlyoutMenu();
           bindUserMenuDropdown();
+          bindSidebarFeatureSearch();
         }
       })();
     </script>

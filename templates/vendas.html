@@ -5,9 +5,9 @@
     <div class="sale-header">
       <h2 class="sale-title">Nova Venda</h2>
       <div class="sale-header-actions">
-        <a href="{{ url_for('relatorios', section='vendas_periodo') }}" class="outline-button sale-clear-btn">Ir para Relatório de Vendas</a>
+        <a href="{{ url_for('relatorios', section='vendas_periodo') }}" class="outline-button sale-report-btn">Ir para Relatório de Vendas</a>
         <button type="button" class="btn-add sale-add-btn" onclick="addSaleRow()">+ {{ t('add_item') }}</button>
-        <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()">Limpar venda</button>
+        <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()"><span class="sale-clear-icon" aria-hidden="true">&#128465;</span><span>Limpar venda</span></button>
       </div>
     </div>
 
@@ -137,8 +137,10 @@
     <div class="pix-modal-content">
       <h3>Pagamento Pix</h3>
       <p>Apresente o QR Code para leitura no celular do cliente.</p>
-      <div id="pix-qrcode" class="pix-qrcode"></div>
+      <p class="pix-copy-hint">Clique no QR Code para copiar o código Pix.</p>
+      <div id="pix-qrcode" class="pix-qrcode" role="button" tabindex="0" title="Clique para copiar o código Pix"></div>
       <p id="pix-copy-code" class="pix-copy-code"></p>
+      <button type="button" class="outline-button pix-copy-btn" onclick="copyPixCode()">Copiar código Pix</button>
       <div class="pix-modal-actions">
         <button type="button" class="btn-add pix-confirm-yes" onclick="confirmPixAndSubmit()">Sim, Pix recebido</button>
         <button type="button" class="btn-cancel" onclick="cancelPixModal()">Não recebido</button>
@@ -709,6 +711,7 @@
       let qrcodeEl = document.getElementById('pix-qrcode');
       let copyCodeEl = document.getElementById('pix-copy-code');
       qrcodeEl.innerHTML = '';
+      qrcodeEl.setAttribute('data-payload', payload);
       copyCodeEl.textContent = payload;
       PIX_QR_INSTANCE = new QRCode(qrcodeEl, {
         text: payload,
@@ -720,6 +723,65 @@
       // Focus para teclado
       var confirmBtn = modal.querySelector('.pix-confirm-yes');
       if (confirmBtn) confirmBtn.focus();
+    }
+
+    function copyTextToClipboard(text) {
+      if (!text) return Promise.reject(new Error('Texto vazio'));
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function (resolve, reject) {
+        try {
+          let tempArea = document.createElement('textarea');
+          tempArea.value = text;
+          tempArea.setAttribute('readonly', 'readonly');
+          tempArea.style.position = 'fixed';
+          tempArea.style.opacity = '0';
+          document.body.appendChild(tempArea);
+          tempArea.select();
+          let ok = document.execCommand('copy');
+          document.body.removeChild(tempArea);
+          if (!ok) {
+            reject(new Error('Falha ao copiar'));
+            return;
+          }
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+
+    function copyPixCode() {
+      let qrcodeEl = document.getElementById('pix-qrcode');
+      let copyCodeEl = document.getElementById('pix-copy-code');
+      let payload = (qrcodeEl && qrcodeEl.getAttribute('data-payload')) || (copyCodeEl ? copyCodeEl.textContent : '');
+      if (!payload) return;
+
+      copyTextToClipboard(payload).then(function () {
+        copyCodeEl.textContent = 'Código Pix copiado. Cole no app do banco para pagar.';
+        copyCodeEl.classList.add('copied');
+        window.setTimeout(function () {
+          copyCodeEl.textContent = payload;
+          copyCodeEl.classList.remove('copied');
+        }, 1800);
+      }).catch(function () {
+        alert('Não foi possível copiar automaticamente. Copie o código exibido abaixo do QR Code.');
+      });
+    }
+
+    function bindPixCopyActions() {
+      let qrcodeEl = document.getElementById('pix-qrcode');
+      if (!qrcodeEl) return;
+      qrcodeEl.addEventListener('click', function () {
+        copyPixCode();
+      });
+      qrcodeEl.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          copyPixCode();
+        }
+      });
     }
 
     function cancelPixModal() {
@@ -812,5 +874,6 @@
     }
     updateInstallmentOptions();
     onPaymentMethodChange(document.getElementById('payment-method-select').value);
+    bindPixCopyActions();
   </script>
 {% endblock %}
