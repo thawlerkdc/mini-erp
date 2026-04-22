@@ -2859,7 +2859,8 @@ body.theme-dark .sale-report-btn:hover {
   background: rgba(96, 165, 250, 0.18) !important;
 }
 
-.sale-clear-btn {
+.sale-clear-btn,
+.outline-button.sale-clear-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2872,9 +2873,11 @@ body.theme-dark .sale-report-btn:hover {
   box-shadow: 0 6px 16px rgba(185, 28, 28, 0.26);
 }
 
-.sale-clear-btn:hover {
+.sale-clear-btn:hover,
+.outline-button.sale-clear-btn:hover {
   background: linear-gradient(135deg, #dc2626, #b91c1c);
   border-color: #991b1b;
+  color: #ffffff;
 }
 
 .sale-clear-icon {
@@ -2883,15 +2886,19 @@ body.theme-dark .sale-report-btn:hover {
   line-height: 1;
 }
 
-body.theme-dark .sale-clear-btn {
+body.theme-dark .sale-clear-btn,
+body.theme-dark .outline-button.sale-clear-btn {
   background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
   border-color: #7f1d1d !important;
   color: #ffffff !important;
   box-shadow: 0 8px 18px rgba(239, 68, 68, 0.25) !important;
 }
 
-body.theme-dark .sale-clear-btn:hover {
+body.theme-dark .sale-clear-btn:hover,
+body.theme-dark .outline-button.sale-clear-btn:hover {
   background: linear-gradient(135deg, #dc2626, #991b1b) !important;
+  border-color: #7f1d1d !important;
+  color: #ffffff !important;
 }
 
 /* Fechar caixa button */
