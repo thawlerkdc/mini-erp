@@ -1,0 +1,7 @@
+rodada,ambiente,responsavel,build_commit,modulo,id_teste,cenario,passos,resultado_esperado,resultado_obtido,status,evidencia,defeito,observacoes
+Homologacao 2026-04-21 R1,Homolog,,ccfbea1,Login,SMK-01,Abrir tela inicial e autenticar,"1) Abrir login 2) Informar usuario/senha 3) Entrar",Dashboard abre sem erro,,Nao iniciado,,,
+Homologacao 2026-04-21 R1,Homolog,,ccfbea1,Parametros,PAR-01,Salvar parametros basicos,"1) Abrir parametros 2) Editar campos 3) Salvar",Dados persistem apos recarregar,,Nao iniciado,,,
+Homologacao 2026-04-21 R1,Homolog,,ccfbea1,Compras,COM-01,Entrada manual de estoque,"1) Abrir compras 2) Registrar entrada 3) Salvar",Estoque aumenta e gera movimento,,Nao iniciado,,,
+Homologacao 2026-04-21 R1,Homolog,,ccfbea1,Vendas,VEN-01,Venda simples dinheiro,"1) Abrir vendas 2) Adicionar item 3) Confirmar",Venda salva e estoque reduz,,Nao iniciado,,,
+Homologacao 2026-04-21 R1,Homolog,,ccfbea1,Financeiro,FIN-05,Pagamento parcial,"1) Criar titulo 2) Registrar pagamento parcial",Saldo remanescente permanece aberto,,Nao iniciado,,,
+Homologacao 2026-04-21 R1,Homolog,,ccfbea1,Relatorios,REL-10,Exportar Excel/PDF,"1) Abrir relatorio 2) Exportar Excel 3) Exportar PDF",Arquivos gerados sem erro,,Nao iniciado,,,
