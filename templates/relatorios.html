@@ -501,7 +501,7 @@ function exportReport(type) {
               {% for row in sales_period_heatmap %}
                 <tr>
                   <td><strong>{{ row.day }}</strong></td>
-                  {% for val in row.values %}
+                  {% for val in row['values'] %}
                     <td>{{ val }}</td>
                   {% endfor %}
                 </tr>
