@@ -225,7 +225,10 @@
         <input type="hidden" name="status">
         <input type="hidden" name="expiration_date">
         <input type="hidden" name="edit_id">
-        <button type="submit" class="outline-button small btn-aux">Salvar e selecionar</button>
+        <div class="inline-form-actions">
+          <button type="button" class="outline-button small" onclick="closeAllInlineForms()">Cancelar</button>
+          <button type="submit" class="outline-button small btn-aux">Salvar e selecionar</button>
+        </div>
       </form>
     </div>
     <div class="table-card">
@@ -627,6 +630,8 @@
         form.classList.add('hidden');
         form.style.top = '';
         form.style.left = '';
+        form.style.position = '';
+        form.style.width = '';
       });
     }
 
@@ -672,6 +677,22 @@
       form.addEventListener('submit', function() {
         syncHiddenFields(form);
       });
+    });
+
+    document.addEventListener('mousedown', function(event) {
+      const openForm = document.querySelector('.inline-add-category:not(.hidden)');
+      if (!openForm) return;
+      const clickedToggle = event.target.closest('.btn-aux');
+      if (clickedToggle) return;
+      if (!openForm.contains(event.target)) {
+        closeAllInlineForms();
+      }
+    });
+
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeAllInlineForms();
+      }
     });
 
     function copyPhoneToWhatsapp(checkbox, scope) {
@@ -772,21 +793,51 @@
     .inline-add-category {
       display: none;
       width: auto;
-      max-width: 360px;
+      max-width: 420px;
       gap: 10px;
       flex-wrap: wrap;
       align-items: flex-start;
       margin-bottom: 12px;
-      padding: 14px;
-      background: #ffffff;
-      border: 1px solid #d1d5db;
-      border-radius: 12px;
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+      padding: 18px;
+      background: linear-gradient(160deg, #ffffff 0%, #f3f7ff 100%);
+      border: 1px solid #d8e4ff;
+      border-radius: 18px;
+      box-shadow: 0 18px 40px rgba(11, 74, 130, 0.18);
+      backdrop-filter: blur(4px);
     }
 
     .inline-add-category.visible,
     .inline-add-category:not(.hidden) {
       display: flex;
+    }
+
+    .inline-add-category form {
+      width: 100%;
+    }
+
+    .inline-form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    body.theme-dark .inline-add-category {
+      background: linear-gradient(160deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border-color: rgba(96, 165, 250, 0.4);
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.55);
+    }
+
+    body.theme-dark .inline-add-category label {
+      color: #dbeafe;
+    }
+
+    body.theme-dark .inline-add-category input,
+    body.theme-dark .inline-add-category select {
+      background: rgba(15, 23, 42, 0.88);
+      border-color: rgba(148, 163, 184, 0.35);
+      color: #e2e8f0;
+      border-radius: 10px;
     }
 
     .inline-add-category form {

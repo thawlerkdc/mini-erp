@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from dotenv import load_dotenv
 import os
+from werkzeug.utils import secure_filename
 
 # Carregar variáveis de ambiente conforme ambiente alvo.
 APP_ENV = (os.environ.get("APP_ENV") or os.environ.get("ERP_ENV") or "development").strip().lower()
@@ -2419,6 +2420,23 @@ def parametros():
             return redirect(url_for("parametros"))
 
         save_account_settings(account_id, request.form)
+
+        logo_file = request.files.get("po_logo_file")
+        if logo_file and logo_file.filename:
+            filename = secure_filename(logo_file.filename)
+            ext = os.path.splitext(filename)[1].lower()
+            allowed_ext = {".png", ".jpg", ".jpeg", ".webp"}
+            if ext not in allowed_ext:
+                flash("Logo inválida. Use PNG, JPG, JPEG ou WEBP.", "error")
+                return redirect(url_for("parametros"))
+
+            logo_dir = os.path.join(app.root_path, "static", "img", "company_logos")
+            os.makedirs(logo_dir, exist_ok=True)
+            logo_name = f"account_{account_id}_po_logo{ext}"
+            logo_path = os.path.join(logo_dir, logo_name)
+            logo_file.save(logo_path)
+            set_account_setting(account_id, "po_logo_url", f"/static/img/company_logos/{logo_name}")
+
         flash("Parâmetros atualizados com sucesso.", "success")
         return redirect(url_for("parametros"))
 
@@ -4811,64 +4829,78 @@ def relatorios():
             "ticket_avg": ticket_avg,
         }
 
-        weekday_rows = conn.execute(
-            "SELECT EXTRACT(DOW FROM s.date::timestamp) AS dow, "
-            "COUNT(*) AS qty, COALESCE(SUM(s.total), 0) AS total "
-            "FROM sales s"
-            + sales_where
-            + " GROUP BY dow ORDER BY dow",
-            tuple(sales_params),
-        ).fetchall()
+        def parse_sale_datetime(raw_value):
+            if not raw_value:
+                return None
+            if hasattr(raw_value, "year") and hasattr(raw_value, "month") and hasattr(raw_value, "day"):
+                return raw_value
+            text = str(raw_value).strip().replace("T", " ")
+            try:
+                return datetime.fromisoformat(text)
+            except ValueError:
+                pass
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+                try:
+                    return datetime.strptime(text[:19], fmt)
+                except ValueError:
+                    continue
+            return None
+
+        weekday_totals_map = {}
+        hour_totals_map = {}
         dow_to_index = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6}
-        for row in weekday_rows:
-            idx = dow_to_index.get(int(row["dow"] or 0))
+
+        for sale_row in sales:
+            dt_value = parse_sale_datetime(sale_row.get("date"))
+            if not dt_value:
+                continue
+            py_weekday = dt_value.weekday()  # 0=Seg ... 6=Dom
+            dow_value = (py_weekday + 1) % 7
+            idx = dow_to_index.get(dow_value)
             if idx is None:
                 continue
-            sales_period_weekday_qty[idx] = int(row["qty"] or 0)
-            sales_period_weekday_totals[idx] = float(row["total"] or 0)
+            sale_total = float(sale_row.get("total") or 0)
+            weekday_totals_map[idx] = weekday_totals_map.get(idx, {"qty": 0, "total": 0.0})
+            weekday_totals_map[idx]["qty"] += 1
+            weekday_totals_map[idx]["total"] += sale_total
 
-        hour_rows = conn.execute(
-            "SELECT EXTRACT(HOUR FROM s.date::timestamp) AS sale_hour, "
-            "COUNT(*) AS qty, COALESCE(SUM(s.total), 0) AS total "
-            "FROM sales s"
-            + sales_where
-            + " GROUP BY sale_hour ORDER BY sale_hour",
-            tuple(sales_params),
-        ).fetchall()
-        for row in hour_rows:
-            hour = int(row["sale_hour"] or 0)
+            hour_value = int(dt_value.hour)
+            hour_totals_map[hour_value] = hour_totals_map.get(hour_value, {"qty": 0, "total": 0.0})
+            hour_totals_map[hour_value]["qty"] += 1
+            hour_totals_map[hour_value]["total"] += sale_total
+
+        for idx, values in weekday_totals_map.items():
+            sales_period_weekday_qty[idx] = int(values["qty"])
+            sales_period_weekday_totals[idx] = float(values["total"])
+
+        for hour, values in hour_totals_map.items():
             if 0 <= hour < 24:
-                sales_period_hour_qty[hour] = int(row["qty"] or 0)
-                sales_period_hour_totals[hour] = float(row["total"] or 0)
+                sales_period_hour_qty[hour] = int(values["qty"])
+                sales_period_hour_totals[hour] = float(values["total"])
 
         month_rows = conn.execute(
-            "SELECT TO_CHAR(DATE_TRUNC('month', s.date::timestamp), 'YYYY-MM') AS month_key, "
+            "SELECT SUBSTRING(s.date, 1, 7) AS month_key, "
             "COALESCE(SUM(s.total), 0) AS total "
             "FROM sales s "
             "WHERE s.account_id = %s "
-            "AND s.date::date >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months') "
+            "AND SUBSTRING(s.date, 1, 7) >= %s "
             "GROUP BY month_key ORDER BY month_key",
-            (account_id,),
+            (account_id, (datetime.now() - timedelta(days=180)).strftime("%Y-%m")),
         ).fetchall()
         sales_period_month_labels = [row["month_key"] for row in month_rows]
         sales_period_month_totals = [float(row["total"] or 0) for row in month_rows]
 
-        heat_rows = conn.execute(
-            "SELECT EXTRACT(DOW FROM s.date::timestamp) AS dow, EXTRACT(HOUR FROM s.date::timestamp) AS sale_hour, "
-            "COUNT(*) AS qty "
-            "FROM sales s"
-            + sales_where
-            + " GROUP BY dow, sale_hour ORDER BY dow, sale_hour",
-            tuple(sales_params),
-        ).fetchall()
         heat_map = {}
-        for row in heat_rows:
-            dow_value = int(row["dow"] or 0)
-            hour_value = int(row["sale_hour"] or 0)
+        for sale_row in sales:
+            dt_value = parse_sale_datetime(sale_row.get("date"))
+            if not dt_value:
+                continue
+            dow_value = (dt_value.weekday() + 1) % 7
+            hour_value = int(dt_value.hour)
             idx = dow_to_index.get(dow_value)
             if idx is None:
                 continue
-            heat_map[(idx, hour_value)] = int(row["qty"] or 0)
+            heat_map[(idx, hour_value)] = heat_map.get((idx, hour_value), 0) + 1
 
         for day_idx, day_label in enumerate(sales_period_weekday_labels):
             row_cells = []

@@ -8,7 +8,7 @@
       </div>
     {% endif %}
 
-    <form method="post" action="{{ url_for('parametros') }}">
+    <form method="post" action="{{ url_for('parametros') }}" enctype="multipart/form-data">
       <fieldset {% if read_only %}disabled{% endif %}>
       <section class="param-section">
         <h3>Precificação e estoque</h3>
@@ -121,6 +121,10 @@
 
         <label>URL da logo (opcional)</label>
         <input type="text" name="po_logo_url" value="{{ settings.get('po_logo_url', '') }}" placeholder="https://.../logo.png ou imagem pública">
+
+        <label>Logo local do computador (opcional)</label>
+        <input type="file" name="po_logo_file" accept="image/png,image/jpeg,image/webp">
+        <p class="param-hint-small">Ao selecionar um arquivo local, ele será salvo no sistema e usado no PDF do pedido de compra.</p>
 
         <label>Observação padrão de rodapé (opcional)</label>
         <textarea name="po_footer_notes" rows="3" placeholder="Informações comerciais, prazos e condições">{{ settings.get('po_footer_notes', '') }}</textarea>

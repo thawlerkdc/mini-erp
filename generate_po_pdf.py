@@ -1,5 +1,7 @@
 import io
+import os
 from flask import Blueprint, request, send_file, session
+from flask import current_app
 from models import get_db_connection
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -34,6 +36,12 @@ def _load_logo(logo_url):
         if url.startswith("http://") or url.startswith("https://"):
             with urlopen(url, timeout=5) as response:
                 return ImageReader(io.BytesIO(response.read()))
+        if url.startswith("/static/"):
+            local_path = os.path.join(current_app.root_path, url.lstrip("/").replace("/", os.sep))
+            if os.path.exists(local_path):
+                return ImageReader(local_path)
+        if os.path.exists(url):
+            return ImageReader(url)
     except Exception:
         return None
     return None
