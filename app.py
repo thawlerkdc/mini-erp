@@ -4806,110 +4806,114 @@ def relatorios():
     sales_period_heatmap = []
 
     if section == "vendas_periodo":
-        sales_period_kpi = conn.execute(
-            "SELECT COUNT(*) AS sales_count, "
-            "COALESCE(SUM(total), 0) AS sales_total, "
-            "COALESCE(SUM(surcharge), 0) AS surcharge_total, "
-            "COALESCE(SUM(discount), 0) AS discount_total "
-            "FROM sales s" + sales_where,
-            tuple(sales_params),
-        ).fetchone()
+        try:
+            sales_period_kpi = conn.execute(
+                "SELECT COUNT(*) AS sales_count, "
+                "COALESCE(SUM(total), 0) AS sales_total, "
+                "COALESCE(SUM(surcharge), 0) AS surcharge_total, "
+                "COALESCE(SUM(discount), 0) AS discount_total "
+                "FROM sales s" + sales_where,
+                tuple(sales_params),
+            ).fetchone()
 
-        sales_count = int(sales_period_kpi["sales_count"] or 0)
-        sales_total = float(sales_period_kpi["sales_total"] or 0)
-        surcharge_total = float(sales_period_kpi["surcharge_total"] or 0)
-        discount_total = float(sales_period_kpi["discount_total"] or 0)
-        ticket_avg = (sales_total / sales_count) if sales_count > 0 else 0.0
+            sales_count = int(sales_period_kpi["sales_count"] or 0)
+            sales_total = float(sales_period_kpi["sales_total"] or 0)
+            surcharge_total = float(sales_period_kpi["surcharge_total"] or 0)
+            discount_total = float(sales_period_kpi["discount_total"] or 0)
+            ticket_avg = (sales_total / sales_count) if sales_count > 0 else 0.0
 
-        sales_period_overview = {
-            "sales_count": sales_count,
-            "sales_total": sales_total,
-            "surcharge_total": surcharge_total,
-            "discount_total": discount_total,
-            "ticket_avg": ticket_avg,
-        }
+            sales_period_overview = {
+                "sales_count": sales_count,
+                "sales_total": sales_total,
+                "surcharge_total": surcharge_total,
+                "discount_total": discount_total,
+                "ticket_avg": ticket_avg,
+            }
 
-        def parse_sale_datetime(raw_value):
-            if not raw_value:
-                return None
-            if hasattr(raw_value, "year") and hasattr(raw_value, "month") and hasattr(raw_value, "day"):
-                if hasattr(raw_value, "hour"):
-                    return raw_value
-                return datetime(raw_value.year, raw_value.month, raw_value.day, 0, 0, 0)
-            text = str(raw_value).strip().replace("T", " ")
-            try:
-                return datetime.fromisoformat(text)
-            except ValueError:
-                pass
-            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            def parse_sale_datetime(raw_value):
+                if not raw_value:
+                    return None
+                if hasattr(raw_value, "year") and hasattr(raw_value, "month") and hasattr(raw_value, "day"):
+                    if hasattr(raw_value, "hour"):
+                        return raw_value
+                    return datetime(raw_value.year, raw_value.month, raw_value.day, 0, 0, 0)
+                text = str(raw_value).strip().replace("T", " ")
                 try:
-                    return datetime.strptime(text[:19], fmt)
+                    return datetime.fromisoformat(text)
                 except ValueError:
+                    pass
+                for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+                    try:
+                        return datetime.strptime(text[:19], fmt)
+                    except ValueError:
+                        continue
+                return None
+
+            weekday_totals_map = {}
+            hour_totals_map = {}
+            dow_to_index = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6}
+
+            for sale_row in sales:
+                dt_value = parse_sale_datetime(sale_row.get("date"))
+                if not dt_value:
                     continue
-            return None
+                py_weekday = dt_value.weekday()  # 0=Seg ... 6=Dom
+                dow_value = (py_weekday + 1) % 7
+                idx = dow_to_index.get(dow_value)
+                if idx is None:
+                    continue
+                sale_total = float(sale_row.get("total") or 0)
+                weekday_totals_map[idx] = weekday_totals_map.get(idx, {"qty": 0, "total": 0.0})
+                weekday_totals_map[idx]["qty"] += 1
+                weekday_totals_map[idx]["total"] += sale_total
 
-        weekday_totals_map = {}
-        hour_totals_map = {}
-        dow_to_index = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6}
+                hour_value = int(dt_value.hour)
+                hour_totals_map[hour_value] = hour_totals_map.get(hour_value, {"qty": 0, "total": 0.0})
+                hour_totals_map[hour_value]["qty"] += 1
+                hour_totals_map[hour_value]["total"] += sale_total
 
-        for sale_row in sales:
-            dt_value = parse_sale_datetime(sale_row.get("date"))
-            if not dt_value:
-                continue
-            py_weekday = dt_value.weekday()  # 0=Seg ... 6=Dom
-            dow_value = (py_weekday + 1) % 7
-            idx = dow_to_index.get(dow_value)
-            if idx is None:
-                continue
-            sale_total = float(sale_row.get("total") or 0)
-            weekday_totals_map[idx] = weekday_totals_map.get(idx, {"qty": 0, "total": 0.0})
-            weekday_totals_map[idx]["qty"] += 1
-            weekday_totals_map[idx]["total"] += sale_total
+            for idx, values in weekday_totals_map.items():
+                sales_period_weekday_qty[idx] = int(values["qty"])
+                sales_period_weekday_totals[idx] = float(values["total"])
 
-            hour_value = int(dt_value.hour)
-            hour_totals_map[hour_value] = hour_totals_map.get(hour_value, {"qty": 0, "total": 0.0})
-            hour_totals_map[hour_value]["qty"] += 1
-            hour_totals_map[hour_value]["total"] += sale_total
+            for hour, values in hour_totals_map.items():
+                if 0 <= hour < 24:
+                    sales_period_hour_qty[hour] = int(values["qty"])
+                    sales_period_hour_totals[hour] = float(values["total"])
 
-        for idx, values in weekday_totals_map.items():
-            sales_period_weekday_qty[idx] = int(values["qty"])
-            sales_period_weekday_totals[idx] = float(values["total"])
+            month_rows = conn.execute(
+                "SELECT LEFT(CAST(s.date AS TEXT), 7) AS month_key, "
+                "COALESCE(SUM(s.total), 0) AS total "
+                "FROM sales s "
+                "WHERE s.account_id = %s "
+                "AND LEFT(CAST(s.date AS TEXT), 7) >= %s "
+                "GROUP BY month_key ORDER BY month_key",
+                (account_id, (datetime.now() - timedelta(days=180)).strftime("%Y-%m")),
+            ).fetchall()
+            sales_period_month_labels = [row["month_key"] for row in month_rows]
+            sales_period_month_totals = [float(row["total"] or 0) for row in month_rows]
 
-        for hour, values in hour_totals_map.items():
-            if 0 <= hour < 24:
-                sales_period_hour_qty[hour] = int(values["qty"])
-                sales_period_hour_totals[hour] = float(values["total"])
+            heat_map = {}
+            for sale_row in sales:
+                dt_value = parse_sale_datetime(sale_row.get("date"))
+                if not dt_value:
+                    continue
+                dow_value = (dt_value.weekday() + 1) % 7
+                hour_value = int(dt_value.hour)
+                idx = dow_to_index.get(dow_value)
+                if idx is None:
+                    continue
+                heat_map[(idx, hour_value)] = heat_map.get((idx, hour_value), 0) + 1
 
-        month_rows = conn.execute(
-            "SELECT SUBSTRING(s.date, 1, 7) AS month_key, "
-            "COALESCE(SUM(s.total), 0) AS total "
-            "FROM sales s "
-            "WHERE s.account_id = %s "
-            "AND SUBSTRING(s.date, 1, 7) >= %s "
-            "GROUP BY month_key ORDER BY month_key",
-            (account_id, (datetime.now() - timedelta(days=180)).strftime("%Y-%m")),
-        ).fetchall()
-        sales_period_month_labels = [row["month_key"] for row in month_rows]
-        sales_period_month_totals = [float(row["total"] or 0) for row in month_rows]
-
-        heat_map = {}
-        for sale_row in sales:
-            dt_value = parse_sale_datetime(sale_row.get("date"))
-            if not dt_value:
-                continue
-            dow_value = (dt_value.weekday() + 1) % 7
-            hour_value = int(dt_value.hour)
-            idx = dow_to_index.get(dow_value)
-            if idx is None:
-                continue
-            heat_map[(idx, hour_value)] = heat_map.get((idx, hour_value), 0) + 1
-
-        for day_idx, day_label in enumerate(sales_period_weekday_labels):
-            row_cells = []
-            for hour_label in sales_period_heatmap_hours:
-                hour_int = int(hour_label[:2])
-                row_cells.append(heat_map.get((day_idx, hour_int), 0))
-            sales_period_heatmap.append({"day": day_label, "values": row_cells})
+            for day_idx, day_label in enumerate(sales_period_weekday_labels):
+                row_cells = []
+                for hour_label in sales_period_heatmap_hours:
+                    hour_int = int(hour_label[:2])
+                    row_cells.append(heat_map.get((day_idx, hour_int), 0))
+                sales_period_heatmap.append({"day": day_label, "values": row_cells})
+        except Exception as exc:
+            logger.exception("Falha ao montar seção vendas_periodo: %s", exc)
+            flash("Falha ao carregar o relatório de vendas. Exibindo dados básicos.", "error")
 
     sales_period_payment_cards = [
         {"key": "dinheiro", "label": "Dinheiro", "qty": 0, "total": 0.0},

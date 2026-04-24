@@ -178,14 +178,51 @@
 
     function initProductCombobox(selectEl) {
       if (!selectEl || typeof TomSelect === 'undefined' || selectEl.tomselect) return;
-      new TomSelect(selectEl, {
+      let combo = new TomSelect(selectEl, {
         create: false,
         allowEmptyOption: true,
         maxOptions: 500,
         searchField: ['text'],
         sortField: [{ field: '$order' }],
-        placeholder: 'Selecione ou digite produto',
+        placeholder: 'Selecione um produto',
       });
+
+      function syncComboboxLockState() {
+        let hasValue = !!combo.getValue();
+        if (combo.control) {
+          combo.control.classList.toggle('is-product-locked', hasValue);
+        }
+        if (combo.control_input) {
+          combo.control_input.readOnly = hasValue;
+          combo.control_input.placeholder = hasValue ? '' : 'Digite para buscar produto';
+        }
+        if (hasValue) {
+          combo.close();
+        }
+      }
+
+      combo.on('initialize', syncComboboxLockState);
+      combo.on('change', syncComboboxLockState);
+      combo.on('item_add', syncComboboxLockState);
+      combo.on('item_remove', syncComboboxLockState);
+      combo.on('clear', syncComboboxLockState);
+
+      if (combo.control) {
+        combo.control.addEventListener('mousedown', function(event) {
+          if (combo.getValue()) {
+            event.preventDefault();
+            combo.close();
+          }
+        });
+      }
+
+      if (combo.control_input) {
+        combo.control_input.addEventListener('keydown', function(event) {
+          if (combo.getValue()) {
+            event.preventDefault();
+          }
+        });
+      }
     }
 
     function formatCurrency(value) {
@@ -573,7 +610,13 @@
 
       let row = document.querySelector('#sale-items .sale-row');
       if (row) {
-        row.querySelector('select.product-select').selectedIndex = 0;
+        let productSelect = row.querySelector('select.product-select');
+        if (productSelect && productSelect.tomselect) {
+          productSelect.tomselect.clear(true);
+          productSelect.tomselect.sync();
+        } else if (productSelect) {
+          productSelect.selectedIndex = 0;
+        }
         row.querySelector('input[name="quantity[]"]').value = '1';
         row.querySelector('input[name="unit_price[]"]').value = '0.00';
         row.querySelector('input[name="line_total[]"]').value = '0.00';
