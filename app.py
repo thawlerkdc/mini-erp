@@ -4833,7 +4833,9 @@ def relatorios():
             if not raw_value:
                 return None
             if hasattr(raw_value, "year") and hasattr(raw_value, "month") and hasattr(raw_value, "day"):
-                return raw_value
+                if hasattr(raw_value, "hour"):
+                    return raw_value
+                return datetime(raw_value.year, raw_value.month, raw_value.day, 0, 0, 0)
             text = str(raw_value).strip().replace("T", " ")
             try:
                 return datetime.fromisoformat(text)

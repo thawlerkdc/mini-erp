@@ -114,18 +114,25 @@ def pedido_compra_pdf(po_id):
     c.rect(x, table_top, content_width, 20, stroke=0, fill=1)
     c.setFillColor(colors.black)
     c.setFont('Helvetica-Bold', 10)
-    c.drawString(x + 8, table_top + 6, 'Produto')
-    c.drawString(x + 300, table_top + 6, 'Quantidade')
-    c.drawString(x + 390, table_top + 6, 'Valor unitário')
-    c.drawString(x + 500, table_top + 6, 'Total')
+    col_prod = x + 8
+    col_qty = x + 320
+    col_unit = x + 405
+    col_total = x + content_width - 62
+    c.drawString(col_prod, table_top + 6, 'Produto')
+    c.drawString(col_qty, table_top + 6, 'Quantidade')
+    c.drawString(col_unit, table_top + 6, 'Valor unitário')
+    c.drawString(col_total, table_top + 6, 'Total')
 
     # Linha de item
     row_y = table_top - 22
     c.setFont('Helvetica', 10)
-    c.drawString(x + 8, row_y + 6, po['product_name'] or '-')
-    c.drawString(x + 300, row_y + 6, f"{float(po['quantity'] or 0):.3f}")
-    c.drawString(x + 390, row_y + 6, _money(po['unit_cost']))
-    c.drawString(x + 500, row_y + 6, _money(total))
+    product_name = (po['product_name'] or '-')
+    if len(product_name) > 48:
+        product_name = product_name[:45] + '...'
+    c.drawString(col_prod, row_y + 6, product_name)
+    c.drawString(col_qty, row_y + 6, f"{float(po['quantity'] or 0):.3f}")
+    c.drawString(col_unit, row_y + 6, _money(po['unit_cost']))
+    c.drawString(col_total, row_y + 6, _money(total))
     c.roundRect(x, row_y, content_width, 20, 2, stroke=1, fill=0)
 
     # Totais e dados complementares
@@ -135,11 +142,11 @@ def pedido_compra_pdf(po_id):
     c.setFont('Helvetica', 10)
     c.drawString(x, details_y - 18, f"Parcelas: {po['installments'] or 1}")
     c.drawString(x + 120, details_y - 18, f"1º vencimento: {_format_date_br(po['first_due_date'])}")
-    c.drawString(x + 320, details_y - 18, f"Previsão de entrega: {_format_date_br(po['expected_date'])}")
-    c.drawRightString(x + content_width, details_y - 18, f"Status: {(po['status'] or '-').capitalize()}")
+    c.drawString(x, details_y - 34, f"Previsão de entrega: {_format_date_br(po['expected_date'])}")
+    c.drawRightString(x + content_width, details_y - 34, f"Status: {(po['status'] or '-').capitalize()}")
 
     notes_text = (po['notes'] or '').strip() or footer_notes
-    notes_y = details_y - 44
+    notes_y = details_y - 62
     c.setFont('Helvetica-Bold', 10)
     c.drawString(x, notes_y, 'Observações:')
     c.setFont('Helvetica', 10)
