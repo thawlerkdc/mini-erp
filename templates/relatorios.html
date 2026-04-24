@@ -470,17 +470,23 @@ function exportReport(type) {
       <div class="payment-summary-block" style="margin-top: 18px;">
         <h4 class="payment-summary-title">Análises operacionais</h4>
         <div class="report-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
-          <div class="table-card" style="min-height: 260px; padding: 12px;">
+          <div class="table-card report-chart-card" style="padding: 12px;">
             <h4 style="margin: 0 0 8px;">Vendas por dia da semana</h4>
-            <canvas id="salesWeekdayChart" height="150"></canvas>
+            <div class="report-chart-wrap">
+              <canvas id="salesWeekdayChart" class="report-chart-canvas"></canvas>
+            </div>
           </div>
-          <div class="table-card" style="min-height: 260px; padding: 12px;">
+          <div class="table-card report-chart-card" style="padding: 12px;">
             <h4 style="margin: 0 0 8px;">Vendas por horário</h4>
-            <canvas id="salesHourChart" height="150"></canvas>
+            <div class="report-chart-wrap">
+              <canvas id="salesHourChart" class="report-chart-canvas"></canvas>
+            </div>
           </div>
-          <div class="table-card" style="min-height: 260px; padding: 12px;">
+          <div class="table-card report-chart-card" style="padding: 12px;">
             <h4 style="margin: 0 0 8px;">Comparativo mensal (últimos 6 meses)</h4>
-            <canvas id="salesMonthChart" height="150"></canvas>
+            <div class="report-chart-wrap">
+              <canvas id="salesMonthChart" class="report-chart-canvas"></canvas>
+            </div>
           </div>
         </div>
       </div>
@@ -834,6 +840,24 @@ function exportReport(type) {
 
     .report-result-card {
       padding: 18px;
+    }
+
+    .report-chart-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 290px;
+    }
+
+    .report-chart-wrap {
+      position: relative;
+      height: 220px;
+      max-height: 220px;
+      width: 100%;
+    }
+
+    .report-chart-canvas {
+      width: 100% !important;
+      height: 100% !important;
     }
 
     .report-result-header {
