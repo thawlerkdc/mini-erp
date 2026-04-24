@@ -8,16 +8,29 @@
   const THEME_KEY = 'mini_erp_app_theme';
   const THEME_LIGHT = 'light';
   const THEME_DARK = 'dark';
+  const SYSTEM_QUERY = '(prefers-color-scheme: dark)';
 
   /**
    * Obtém preferência de tema do localStorage
    */
   function getStoredTheme() {
     try {
-      return localStorage.getItem(THEME_KEY) || THEME_LIGHT;
+      const stored = localStorage.getItem(THEME_KEY);
+      return [THEME_LIGHT, THEME_DARK].includes(stored) ? stored : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getSystemTheme() {
+    try {
+      if (window.matchMedia && window.matchMedia(SYSTEM_QUERY).matches) {
+        return THEME_DARK;
+      }
     } catch (e) {
       return THEME_LIGHT;
     }
+    return THEME_LIGHT;
   }
 
   /**
@@ -40,6 +53,8 @@
     // Aplicar classe ao body
     document.body.classList.toggle('theme-dark', isDark);
     document.body.classList.toggle('theme-light', !isDark);
+    document.documentElement.classList.remove('theme-dark-pending');
+    document.documentElement.classList.remove('theme-init');
     
     // Atualizar atributo data para acesso via CSS/JS
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
@@ -78,20 +93,34 @@
    */
   function initializeTheme() {
     const savedTheme = getStoredTheme();
-    applyTheme(savedTheme);
+    const resolvedTheme = savedTheme || getSystemTheme();
+    applyTheme(resolvedTheme);
   }
 
-  // Aplicar tema AINDA mais cedo se possível (antes de pintura)  
-  // Isso previne flash de tema errado ao carregar página
-  const savedTheme = getStoredTheme();
-  if (savedTheme === THEME_DARK) {
-    document.documentElement.classList.add('theme-dark-pending');
+  function bindSystemThemeChanges() {
+    if (!window.matchMedia) return;
+    const media = window.matchMedia(SYSTEM_QUERY);
+    const listener = function(event) {
+      const hasUserPreference = !!getStoredTheme();
+      if (hasUserPreference) return;
+      applyTheme(event.matches ? THEME_DARK : THEME_LIGHT);
+    };
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', listener);
+    } else if (typeof media.addListener === 'function') {
+      media.addListener(listener);
+    }
   }
 
   // Inicializar assim que o DOM estiver pronto
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeTheme);
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeTheme();
+      bindSystemThemeChanges();
+    });
   } else {
     initializeTheme();
+    bindSystemThemeChanges();
   }
 })();

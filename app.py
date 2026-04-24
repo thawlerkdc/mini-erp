@@ -1124,6 +1124,10 @@ SETTINGS_DEFAULTS = {
     "pix_key_value": "",
     "pix_receiver_name": "",
     "pix_receiver_city": "SAO PAULO",
+    "po_company_name": "",
+    "po_logo_url": "",
+    "po_footer_notes": "",
+    "po_signature_label": "",
     "default_profit_margin": "100",
     "default_stock_min_percent": "20",
     "log_retention_days": "30",
@@ -1693,6 +1697,10 @@ def save_account_settings(account_id, form_data):
         "pix_key_value": pix_key_value,
         "pix_receiver_name": (form_data.get("pix_receiver_name") or "").strip(),
         "pix_receiver_city": (form_data.get("pix_receiver_city") or "SAO PAULO").strip().upper(),
+        "po_company_name": (form_data.get("po_company_name") or "").strip(),
+        "po_logo_url": (form_data.get("po_logo_url") or "").strip(),
+        "po_footer_notes": (form_data.get("po_footer_notes") or "").strip(),
+        "po_signature_label": (form_data.get("po_signature_label") or "").strip(),
         "log_retention_days": str(max(1, min(3650, int(form_data.get("log_retention_days") or 30)))),
     }
 
@@ -2548,6 +2556,7 @@ def cadastro(entity):
             elif entity == "produtos":
                 new_category_name = request.form.get("new_category_name")
                 new_unit_name = request.form.get("new_unit_name")
+                new_supplier_name = request.form.get("new_supplier_name")
                 if new_category_name:
                     new_category_id = None
                     try:
@@ -2584,6 +2593,36 @@ def cadastro(entity):
                     edit_data = dict(request.form)
                     if new_unit_id is not None:
                         edit_data["unit_id"] = str(new_unit_id)
+                elif new_supplier_name:
+                    new_supplier_id = None
+                    new_supplier_category_id = request.form.get("new_supplier_category_id")
+                    if not new_supplier_category_id:
+                        categories = conn.execute("SELECT * FROM categories WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                        units = conn.execute("SELECT * FROM units WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                        suppliers = conn.execute("SELECT * FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                        edit_data = dict(request.form)
+                        flash("Informe a categoria do fornecedor para criar cadastro rápido.", "error")
+                    else:
+                        try:
+                            supplier_name = new_supplier_name.strip()
+                            supplier_cnpj = re.sub(r"\D", "", request.form.get("new_supplier_cnpj") or "")[:14]
+                            supplier_phone = re.sub(r"\D", "", request.form.get("new_supplier_phone") or "")[:15] or None
+                            conn.execute(
+                                "INSERT INTO suppliers (account_id, name, cnpj, phone, category_id) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                                (account_id, supplier_name, supplier_cnpj, supplier_phone, new_supplier_category_id),
+                            )
+                            new_supplier_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('suppliers', 'id'))").fetchone()[0]
+                            conn.commit()
+                            flash("Fornecedor criado e selecionado no produto.", "success")
+                        except psycopg.IntegrityError:
+                            conn.rollback()
+                            flash("Não foi possível criar o fornecedor. Verifique se já existe cadastro com os mesmos dados.", "error")
+                        categories = conn.execute("SELECT * FROM categories WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                        units = conn.execute("SELECT * FROM units WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                        suppliers = conn.execute("SELECT * FROM suppliers WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+                        edit_data = dict(request.form)
+                        if new_supplier_id is not None:
+                            edit_data["supplier_id"] = str(new_supplier_id)
 
                 else:
                     name = request.form.get("name")
@@ -2857,12 +2896,22 @@ def vendas():
     account_id = get_current_account_id()
     conn = get_tenant_connection()
     products = conn.execute(
-        "SELECT p.*, u.name AS unit_name "
+        "WITH sold_rank AS ("
+        "  SELECT si.product_id, COALESCE(SUM(si.quantity), 0) AS qty_sold, "
+        "         DENSE_RANK() OVER (ORDER BY COALESCE(SUM(si.quantity), 0) DESC) AS sales_rank "
+        "  FROM sale_items si "
+        "  JOIN sales s ON s.id = si.sale_id "
+        "  WHERE s.account_id = %s "
+        "  GROUP BY si.product_id"
+        ") "
+        "SELECT p.*, u.name AS unit_name, COALESCE(sr.qty_sold, 0) AS qty_sold, "
+        "       CASE WHEN COALESCE(sr.qty_sold, 0) > 0 AND COALESCE(sr.sales_rank, 999999) <= 8 THEN 1 ELSE 0 END AS top_seller "
         "FROM products p "
         "LEFT JOIN units u ON p.unit_id = u.id "
+        "LEFT JOIN sold_rank sr ON sr.product_id = p.id "
         "WHERE p.account_id = %s AND COALESCE(p.status, 'ativo') = 'ativo' "
-        "ORDER BY (SELECT COALESCE(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name",
-        (account_id,),
+        "ORDER BY top_seller DESC, COALESCE(sr.qty_sold, 0) DESC, p.name",
+        (account_id, account_id),
     ).fetchall()
     clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     pix_code = None
@@ -3122,17 +3171,24 @@ def vendas():
                     if not sent:
                         flash(f"Falha ao enviar alerta de estoque mínimo: {err}", "error")
 
-        if payment_method.startswith("Pix"):
-            pix_code = f"PIX-{int(total * 100)}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
         # Recarrega os produtos para refletir o estoque atualizado na nova venda.
         products = conn.execute(
-            "SELECT p.*, u.name AS unit_name "
+            "WITH sold_rank AS ("
+            "  SELECT si.product_id, COALESCE(SUM(si.quantity), 0) AS qty_sold, "
+            "         DENSE_RANK() OVER (ORDER BY COALESCE(SUM(si.quantity), 0) DESC) AS sales_rank "
+            "  FROM sale_items si "
+            "  JOIN sales s ON s.id = si.sale_id "
+            "  WHERE s.account_id = %s "
+            "  GROUP BY si.product_id"
+            ") "
+            "SELECT p.*, u.name AS unit_name, COALESCE(sr.qty_sold, 0) AS qty_sold, "
+            "       CASE WHEN COALESCE(sr.qty_sold, 0) > 0 AND COALESCE(sr.sales_rank, 999999) <= 8 THEN 1 ELSE 0 END AS top_seller "
             "FROM products p "
             "LEFT JOIN units u ON p.unit_id = u.id "
+            "LEFT JOIN sold_rank sr ON sr.product_id = p.id "
             "WHERE p.account_id = %s AND COALESCE(p.status, 'ativo') = 'ativo' "
-            "ORDER BY (SELECT COALESCE(SUM(quantity), 0) FROM sale_items si WHERE si.product_id = p.id) DESC, p.name",
-            (account_id,),
+            "ORDER BY top_seller DESC, COALESCE(sr.qty_sold, 0) DESC, p.name",
+            (account_id, account_id),
         ).fetchall()
 
         conn.close()
@@ -4713,6 +4769,114 @@ def relatorios():
         tuple(sales_params),
     ).fetchall()
 
+    sales_period_overview = {
+        "sales_count": 0,
+        "sales_total": 0.0,
+        "surcharge_total": 0.0,
+        "discount_total": 0.0,
+        "ticket_avg": 0.0,
+    }
+    sales_period_weekday_labels = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"]
+    sales_period_weekday_totals = [0.0] * 7
+    sales_period_weekday_qty = [0] * 7
+    sales_period_hour_labels = [f"{hour:02d}h" for hour in range(24)]
+    sales_period_hour_totals = [0.0] * 24
+    sales_period_hour_qty = [0] * 24
+    sales_period_month_labels = []
+    sales_period_month_totals = []
+    sales_period_heatmap_hours = [f"{hour:02d}h" for hour in range(8, 23)]
+    sales_period_heatmap = []
+
+    if section == "vendas_periodo":
+        sales_period_kpi = conn.execute(
+            "SELECT COUNT(*) AS sales_count, "
+            "COALESCE(SUM(total), 0) AS sales_total, "
+            "COALESCE(SUM(surcharge), 0) AS surcharge_total, "
+            "COALESCE(SUM(discount), 0) AS discount_total "
+            "FROM sales s" + sales_where,
+            tuple(sales_params),
+        ).fetchone()
+
+        sales_count = int(sales_period_kpi["sales_count"] or 0)
+        sales_total = float(sales_period_kpi["sales_total"] or 0)
+        surcharge_total = float(sales_period_kpi["surcharge_total"] or 0)
+        discount_total = float(sales_period_kpi["discount_total"] or 0)
+        ticket_avg = (sales_total / sales_count) if sales_count > 0 else 0.0
+
+        sales_period_overview = {
+            "sales_count": sales_count,
+            "sales_total": sales_total,
+            "surcharge_total": surcharge_total,
+            "discount_total": discount_total,
+            "ticket_avg": ticket_avg,
+        }
+
+        weekday_rows = conn.execute(
+            "SELECT EXTRACT(DOW FROM s.date::timestamp) AS dow, "
+            "COUNT(*) AS qty, COALESCE(SUM(s.total), 0) AS total "
+            "FROM sales s"
+            + sales_where
+            + " GROUP BY dow ORDER BY dow",
+            tuple(sales_params),
+        ).fetchall()
+        dow_to_index = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6}
+        for row in weekday_rows:
+            idx = dow_to_index.get(int(row["dow"] or 0))
+            if idx is None:
+                continue
+            sales_period_weekday_qty[idx] = int(row["qty"] or 0)
+            sales_period_weekday_totals[idx] = float(row["total"] or 0)
+
+        hour_rows = conn.execute(
+            "SELECT EXTRACT(HOUR FROM s.date::timestamp) AS sale_hour, "
+            "COUNT(*) AS qty, COALESCE(SUM(s.total), 0) AS total "
+            "FROM sales s"
+            + sales_where
+            + " GROUP BY sale_hour ORDER BY sale_hour",
+            tuple(sales_params),
+        ).fetchall()
+        for row in hour_rows:
+            hour = int(row["sale_hour"] or 0)
+            if 0 <= hour < 24:
+                sales_period_hour_qty[hour] = int(row["qty"] or 0)
+                sales_period_hour_totals[hour] = float(row["total"] or 0)
+
+        month_rows = conn.execute(
+            "SELECT TO_CHAR(DATE_TRUNC('month', s.date::timestamp), 'YYYY-MM') AS month_key, "
+            "COALESCE(SUM(s.total), 0) AS total "
+            "FROM sales s "
+            "WHERE s.account_id = %s "
+            "AND s.date::date >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months') "
+            "GROUP BY month_key ORDER BY month_key",
+            (account_id,),
+        ).fetchall()
+        sales_period_month_labels = [row["month_key"] for row in month_rows]
+        sales_period_month_totals = [float(row["total"] or 0) for row in month_rows]
+
+        heat_rows = conn.execute(
+            "SELECT EXTRACT(DOW FROM s.date::timestamp) AS dow, EXTRACT(HOUR FROM s.date::timestamp) AS sale_hour, "
+            "COUNT(*) AS qty "
+            "FROM sales s"
+            + sales_where
+            + " GROUP BY dow, sale_hour ORDER BY dow, sale_hour",
+            tuple(sales_params),
+        ).fetchall()
+        heat_map = {}
+        for row in heat_rows:
+            dow_value = int(row["dow"] or 0)
+            hour_value = int(row["sale_hour"] or 0)
+            idx = dow_to_index.get(dow_value)
+            if idx is None:
+                continue
+            heat_map[(idx, hour_value)] = int(row["qty"] or 0)
+
+        for day_idx, day_label in enumerate(sales_period_weekday_labels):
+            row_cells = []
+            for hour_label in sales_period_heatmap_hours:
+                hour_int = int(hour_label[:2])
+                row_cells.append(heat_map.get((day_idx, hour_int), 0))
+            sales_period_heatmap.append({"day": day_label, "values": row_cells})
+
     sales_period_payment_cards = [
         {"key": "dinheiro", "label": "Dinheiro", "qty": 0, "total": 0.0},
         {"key": "pix", "label": "Pix", "qty": 0, "total": 0.0},
@@ -4787,6 +4951,17 @@ def relatorios():
         sales_period_payment_cards=sales_period_payment_cards,
         sales_period_grand_qty=sales_period_grand_qty,
         sales_period_grand_total=sales_period_grand_total,
+        sales_period_overview=sales_period_overview,
+        sales_period_weekday_labels=sales_period_weekday_labels,
+        sales_period_weekday_totals=sales_period_weekday_totals,
+        sales_period_weekday_qty=sales_period_weekday_qty,
+        sales_period_hour_labels=sales_period_hour_labels,
+        sales_period_hour_totals=sales_period_hour_totals,
+        sales_period_hour_qty=sales_period_hour_qty,
+        sales_period_month_labels=sales_period_month_labels,
+        sales_period_month_totals=sales_period_month_totals,
+        sales_period_heatmap_hours=sales_period_heatmap_hours,
+        sales_period_heatmap=sales_period_heatmap,
         filter_category_name=filter_category_name,
         product_gender_overall=product_gender_overall,
         relatorio_gerencial=relatorio_gerencial,

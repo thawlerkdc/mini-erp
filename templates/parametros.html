@@ -112,6 +112,23 @@
         </div>
       </section>
 
+      <section class="param-section">
+        <h3>Pedido de compra (PDF)</h3>
+        <p class="param-hint-small">Esses dados serão usados no PDF do pedido de compra para um layout mais profissional.</p>
+
+        <label>Nome da empresa no pedido</label>
+        <input type="text" name="po_company_name" value="{{ settings.get('po_company_name', '') }}" placeholder="Ex.: Kdc Systems Comércio Ltda">
+
+        <label>URL da logo (opcional)</label>
+        <input type="text" name="po_logo_url" value="{{ settings.get('po_logo_url', '') }}" placeholder="https://.../logo.png ou imagem pública">
+
+        <label>Observação padrão de rodapé (opcional)</label>
+        <textarea name="po_footer_notes" rows="3" placeholder="Informações comerciais, prazos e condições">{{ settings.get('po_footer_notes', '') }}</textarea>
+
+        <label>Texto da assinatura (opcional)</label>
+        <input type="text" name="po_signature_label" value="{{ settings.get('po_signature_label', '') }}" placeholder="Assinatura do responsável">
+      </section>
+
       <section class="param-section param-section-email">
         <h3>E-mail e notificações</h3>
         <div class="parametros-hint">

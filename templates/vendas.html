@@ -18,11 +18,19 @@
           <div class="field-group sale-field-product">
             <label>{{ t('product_label') }}</label>
             <div class="product-select-wrapper">
+              <input type="search" class="product-filter-input" placeholder="Buscar produto..." autocomplete="off" oninput="filterProductOptions(this)">
               <select name="product_id[]" class="product-select" required onchange="updatePrice(this)">
                 <option value="">{{ t('select_product') }}</option>
-                {% for product in products %}
-                  <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
-                {% endfor %}
+                <optgroup label="Mais vendidos">
+                  {% for product in products if product['top_seller'] %}
+                    <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
+                  {% endfor %}
+                </optgroup>
+                <optgroup label="Demais produtos">
+                  {% for product in products if not product['top_seller'] %}
+                    <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
+                  {% endfor %}
+                </optgroup>
               </select>
               <span class="product-search-icon" aria-hidden="true">&#128269;</span>
             </div>
@@ -121,13 +129,6 @@
       </div>
     </form>
   </div>
-
-  {% if pix_code %}
-    <div class="notice-card">
-      <h3>{{ t('pix_code_title') }}</h3>
-      <p>{{ pix_code }}</p>
-    </div>
-  {% endif %}
 
   <div class="manual-action">
     <a class="btn-close-cash" href="{{ url_for('fechar_caixa') }}">&#128717; {{ t('close_cash') }}</a>
@@ -508,6 +509,45 @@
       row.querySelector('input[name="line_total[]"]').value = formatNumber(quantity * price);
       applyCardSurcharge();
     }
+
+    function filterProductOptions(filterInput) {
+      let row = filterInput.closest('.sale-row');
+      if (!row) return;
+      let select = row.querySelector('select.product-select');
+      if (!select) return;
+      let query = (filterInput.value || '').trim().toLowerCase();
+
+      Array.from(select.options).forEach(option => {
+        if (!option.value) {
+          option.hidden = false;
+          option.disabled = false;
+          return;
+        }
+        let name = (option.dataset.name || option.textContent || '').toLowerCase();
+        let visible = !query || name.includes(query);
+        option.hidden = !visible;
+        option.disabled = !visible;
+      });
+
+      if (select.selectedOptions.length && select.selectedOptions[0].hidden) {
+        select.value = '';
+        updatePrice(select);
+      }
+    }
+
+    function resetProductFilter(row) {
+      let filterInput = row.querySelector('.product-filter-input');
+      if (filterInput) {
+        filterInput.value = '';
+      }
+      let select = row.querySelector('select.product-select');
+      if (!select) return;
+      Array.from(select.options).forEach(option => {
+        option.hidden = false;
+        option.disabled = false;
+      });
+    }
+
     function buildSaleRow() {
       let first = document.querySelector('.sale-row');
       let template = first.cloneNode(true);
@@ -515,6 +555,7 @@
         if (input.type !== 'hidden') input.value = input.name === 'quantity[]' ? '1' : '0.00';
       });
       template.querySelector('select.product-select').selectedIndex = 0;
+      resetProductFilter(template);
       return template;
     }
     function addSaleRow() {

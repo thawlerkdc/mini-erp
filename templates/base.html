@@ -4,9 +4,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kdc Systems - {{ title if title else 'ERP' }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260421menu-search1') }}">
+    <script>
+      (function() {
+        var THEME_KEY = 'mini_erp_app_theme';
+        var stored = null;
+        try {
+          stored = localStorage.getItem(THEME_KEY);
+        } catch (e) {
+          stored = null;
+        }
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'dark' || stored === 'light') ? stored : (prefersDark ? 'dark' : 'light');
+        var root = document.documentElement;
+        root.classList.add('theme-init');
+        root.setAttribute('data-theme', theme);
+        if (theme === 'dark') {
+          root.classList.add('theme-dark-pending');
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260424ux1') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
-    <script src="{{ url_for('static', filename='js/themeManager.js', v='20260418') }}"></script>
+    <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
   </head>
   <body>
     {% if session.get('user') %}

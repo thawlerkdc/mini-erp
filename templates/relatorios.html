@@ -409,6 +409,29 @@ function exportReport(type) {
         </div>
       {% endif %}
 
+      <div class="payment-summary-block">
+        <h4 class="payment-summary-title">Resumo geral do período</h4>
+        <div class="payment-summary-grid">
+          <div class="payment-summary-card pscard-total-geral">
+            <span class="pscard-method">Total de vendas</span>
+            <span class="pscard-qty">{{ sales_period_overview.sales_count }} venda{{ 's' if sales_period_overview.sales_count != 1 else '' }}</span>
+            <span class="pscard-total">R$ {{ "%.2f"|format(sales_period_overview.sales_total)|replace('.', ',') }}</span>
+          </div>
+          <div class="payment-summary-card pscard-credito">
+            <span class="pscard-method">Total de acréscimos</span>
+            <span class="pscard-total">R$ {{ "%.2f"|format(sales_period_overview.surcharge_total)|replace('.', ',') }}</span>
+          </div>
+          <div class="payment-summary-card pscard-debito">
+            <span class="pscard-method">Total de descontos</span>
+            <span class="pscard-total">R$ {{ "%.2f"|format(sales_period_overview.discount_total)|replace('.', ',') }}</span>
+          </div>
+          <div class="payment-summary-card pscard-pix">
+            <span class="pscard-method">Ticket médio</span>
+            <span class="pscard-total">R$ {{ "%.2f"|format(sales_period_overview.ticket_avg)|replace('.', ',') }}</span>
+          </div>
+        </div>
+      </div>
+
       <table>
         <thead><tr>
           <th>Período: {{ filters.start_date|replace('-', '/') }} a {{ filters.end_date|replace('-', '/') }}</th>
@@ -432,7 +455,61 @@ function exportReport(type) {
             <tr><td colspan="6">{{ t('no_records_found') }}</td></tr>
           {% endfor %}
         </tbody>
+        <tfoot>
+          <tr>
+            <td><strong>Total do período</strong></td>
+            <td><strong>{{ sales_period_overview.sales_count }} venda{{ 's' if sales_period_overview.sales_count != 1 else '' }}</strong></td>
+            <td><strong>—</strong></td>
+            <td><strong>R$ {{ "%.2f"|format(sales_period_overview.sales_total)|replace('.', ',') }}</strong></td>
+            <td><strong>R$ {{ "%.2f"|format(sales_period_overview.surcharge_total)|replace('.', ',') }}</strong></td>
+            <td><strong>R$ {{ "%.2f"|format(sales_period_overview.discount_total)|replace('.', ',') }}</strong></td>
+          </tr>
+        </tfoot>
       </table>
+
+      <div class="payment-summary-block" style="margin-top: 18px;">
+        <h4 class="payment-summary-title">Análises operacionais</h4>
+        <div class="report-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+          <div class="table-card" style="min-height: 260px; padding: 12px;">
+            <h4 style="margin: 0 0 8px;">Vendas por dia da semana</h4>
+            <canvas id="salesWeekdayChart" height="150"></canvas>
+          </div>
+          <div class="table-card" style="min-height: 260px; padding: 12px;">
+            <h4 style="margin: 0 0 8px;">Vendas por horário</h4>
+            <canvas id="salesHourChart" height="150"></canvas>
+          </div>
+          <div class="table-card" style="min-height: 260px; padding: 12px;">
+            <h4 style="margin: 0 0 8px;">Comparativo mensal (últimos 6 meses)</h4>
+            <canvas id="salesMonthChart" height="150"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="payment-summary-block">
+        <h4 class="payment-summary-title">Mapa de calor de vendas (dia x hora)</h4>
+        <div class="report-table-wrap">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Dia</th>
+                {% for hour in sales_period_heatmap_hours %}
+                  <th>{{ hour }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in sales_period_heatmap %}
+                <tr>
+                  <td><strong>{{ row.day }}</strong></td>
+                  {% for val in row.values %}
+                    <td>{{ val }}</td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   {% endif %}
 
@@ -921,8 +998,10 @@ function exportReport(type) {
     }
   </style>
 
-  {% if chart_data_json %}
+  {% if chart_data_json or section == "vendas_periodo" %}
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  {% endif %}
+  {% if chart_data_json %}
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
   <script>
     const ctx = document.getElementById('reportChart').getContext('2d');
@@ -971,6 +1050,68 @@ function exportReport(type) {
       },
       plugins: [ChartDataLabels]
     });
+  </script>
+  {% endif %}
+
+  {% if section == "vendas_periodo" %}
+  <script>
+    (function() {
+      if (typeof Chart === 'undefined') return;
+
+      const weekdayCtx = document.getElementById('salesWeekdayChart');
+      const hourCtx = document.getElementById('salesHourChart');
+      const monthCtx = document.getElementById('salesMonthChart');
+
+      if (weekdayCtx) {
+        new Chart(weekdayCtx.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: {{ sales_period_weekday_labels|tojson }},
+            datasets: [{
+              label: 'Total vendido (R$)',
+              data: {{ sales_period_weekday_totals|tojson }},
+              backgroundColor: '#3b82f6',
+              borderRadius: 6,
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+
+      if (hourCtx) {
+        new Chart(hourCtx.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: {{ sales_period_hour_labels|tojson }},
+            datasets: [{
+              label: 'Quantidade de vendas',
+              data: {{ sales_period_hour_qty|tojson }},
+              borderColor: '#06b6d4',
+              backgroundColor: 'rgba(6, 182, 212, 0.18)',
+              fill: true,
+              tension: 0.3,
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+
+      if (monthCtx) {
+        new Chart(monthCtx.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: {{ sales_period_month_labels|tojson }},
+            datasets: [{
+              label: 'Faturamento mensal (R$)',
+              data: {{ sales_period_month_totals|tojson }},
+              backgroundColor: '#10b981',
+              borderRadius: 6,
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+    })();
   </script>
   {% endif %}
 {% endblock %}

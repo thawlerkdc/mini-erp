@@ -204,6 +204,59 @@
   </form>
 </div>
 
+{% if purchase_orders %}
+<div class="form-card" style="margin-top:1.5rem">
+  <h3>Pedidos de compra</h3>
+  <div class="report-table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Emissão</th>
+          <th>Produto</th>
+          <th>Fornecedor</th>
+          <th>Qtd</th>
+          <th>Custo unit.</th>
+          <th>Parcelas</th>
+          <th>1º venc.</th>
+          <th>Prev. entrega</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for po in purchase_orders %}
+        <tr>
+          <td>{{ po['id'] }}</td>
+          <td>{{ po['created_at_display'] or '—' }}</td>
+          <td>{{ po['product_name'] or '—' }}</td>
+          <td>{{ po['supplier_name'] or '—' }}</td>
+          <td>{{ "%.3f"|format(po['quantity']) }}</td>
+          <td>R$ {{ "%.2f"|format(po['unit_cost'] or 0)|replace('.', ',') }}</td>
+          <td>{{ po['installments'] or 1 }}</td>
+          <td>{{ po['first_due_date_display'] or '—' }}</td>
+          <td>{{ po['expected_date_display'] or '—' }}</td>
+          <td>{{ po['status']|capitalize }}</td>
+          <td style="display:flex; gap:6px; align-items:center;">
+            <a href="/pedido_compra/pdf/{{ po['id'] }}" target="_blank" class="outline-button small btn-pdf" title="Gerar PDF"><span aria-hidden="true">📄</span> PDF</a>
+            {% if po['status'] != 'recebido' %}
+            <form method="post" action="{{ url_for('estoque_entrada') }}" style="display:inline">
+              <input type="hidden" name="action" value="receive_purchase_order">
+              <input type="hidden" name="po_id" value="{{ po['id'] }}">
+              <button type="submit" class="btn-confirm" title="Marcar como recebido">Receber</button>
+            </form>
+            {% else %}
+            <span class="field-hint">Recebido em {{ po['received_at_display'] or '—' }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% if recent %}
 <div class="form-card" style="margin-top:1.5rem">
   <h3>Últimas entradas registradas</h3>
@@ -226,57 +279,6 @@
           <td>{{ r['quantity'] }} {{ r['unit_name'] or '' }}</td>
           <td>{{ r['date_display'] or '—' }}</td>
           <td>{{ r['notes'] or '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
-{% if purchase_orders %}
-<div class="form-card" style="margin-top:1.5rem">
-  <h3>Pedidos de compra</h3>
-  <div class="report-table-wrap">
-    <table class="report-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Produto</th>
-          <th>Fornecedor</th>
-          <th>Qtd</th>
-          <th>Custo unit.</th>
-          <th>Parcelas</th>
-          <th>1º venc.</th>
-          <th>Prev. entrega</th>
-          <th>Status</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for po in purchase_orders %}
-        <tr>
-          <td>{{ po['id'] }}</td>
-          <td>{{ po['product_name'] or '—' }}</td>
-          <td>{{ po['supplier_name'] or '—' }}</td>
-          <td>{{ "%.3f"|format(po['quantity']) }}</td>
-          <td>R$ {{ "%.2f"|format(po['unit_cost'] or 0)|replace('.', ',') }}</td>
-          <td>{{ po['installments'] or 1 }}</td>
-          <td>{{ po['first_due_date_display'] or '—' }}</td>
-          <td>{{ po['expected_date_display'] or '—' }}</td>
-          <td>{{ po['status']|capitalize }}</td>
-          <td style="display:flex; gap:6px; align-items:center;">
-            <a href="/pedido_compra/pdf/{{ po['id'] }}" target="_blank" class="outline-button small btn-pdf" title="Gerar PDF"><span aria-hidden="true">📄</span> PDF</a>
-            {% if po['status'] != 'recebido' %}
-            <form method="post" action="{{ url_for('estoque_entrada') }}" style="display:inline">
-              <input type="hidden" name="action" value="receive_purchase_order">
-              <input type="hidden" name="po_id" value="{{ po['id'] }}">
-              <button type="submit" class="btn-confirm" title="Marcar como recebido">Receber</button>
-            </form>
-            {% else %}
-            <span class="field-hint">Recebido em {{ po['received_at_display'] or '—' }}</span>
-            {% endif %}
-          </td>
         </tr>
         {% endfor %}
       </tbody>

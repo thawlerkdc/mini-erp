@@ -106,12 +106,16 @@
       <input type="number" name="conversion_factor" step="1" min="1" placeholder="1" value="{{ (edit_data.get('conversion_factor', 1)|int) if edit_data else '1' }}">
        <p class="param-hint-small">Quantas unidades de venda estão em uma unidade de compra. Ex: 1 caixa = 12 unidades = fator 12</p>
         <label>{{ t('supplier_name') }}</label>
-        <select name="supplier_id">
-          <option value="">Selecione...</option>
-          {% for supplier in suppliers %}
-            <option value="{{ supplier['id'] }}" {% if edit_data and (edit_data.get('supplier_id')|string) == (supplier['id']|string) %}selected{% endif %}>{{ supplier['name'] }}</option>
-          {% endfor %}
-        </select>
+        <div class="inline-group">
+          <select name="supplier_id">
+            <option value="">Selecione...</option>
+            {% for supplier in suppliers %}
+              <option value="{{ supplier['id'] }}" {% if edit_data and (edit_data.get('supplier_id')|string) == (supplier['id']|string) %}selected{% endif %}>{{ supplier['name'] }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="outline-button small btn-aux" onclick="toggleSupplierForm('product-supplier-form', this)">Adicionar fornecedor</button>
+          <a href="{{ url_for('cadastro', entity='fornecedores') }}" class="outline-button small btn-manage">Gerenciar fornecedores</a>
+        </div>
         <label>{{ t('cost_label') }}</label>
         <input id="product-cost" type="number" name="cost" step="0.01" placeholder="0.00" value="{{ edit_data.get('cost', '0.00') if edit_data else '' }}" required>
         <label>{{ t('price_label') }}</label>
@@ -181,6 +185,47 @@
           <input type="hidden" name="edit_id">
         </div>
         <button type="submit" class="outline-button small btn-aux">{{ t('add_unit') }}</button>
+      </form>
+    </div>
+    <div id="product-supplier-form" class="inline-add-category hidden">
+      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" class="preserve-main-form" data-source-form="product-main-form" style="display: flex; flex-direction: column; gap: 10px; align-items: stretch;">
+        <div>
+          <label>Novo fornecedor</label>
+          <input type="text" name="new_supplier_name" placeholder="Nome do fornecedor" required>
+        </div>
+        <div>
+          <label>Categoria do fornecedor</label>
+          <select name="new_supplier_category_id" required>
+            <option value="">Selecione...</option>
+            {% for category in categories %}
+              <option value="{{ category['id'] }}">{{ category['name'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>CNPJ (opcional)</label>
+          <input type="text" name="new_supplier_cnpj" inputmode="numeric" pattern="[0-9]*" maxlength="14" oninput="this.value=this.value.replace(/\D/g,'')" placeholder="Somente números">
+        </div>
+        <div>
+          <label>Telefone (opcional)</label>
+          <input type="text" name="new_supplier_phone" inputmode="numeric" pattern="[0-9]*" maxlength="15" oninput="this.value=this.value.replace(/\D/g,'')" placeholder="Somente números">
+        </div>
+        <input type="hidden" name="name">
+        <input type="hidden" name="product_code">
+        <input type="hidden" name="category_id">
+        <input type="hidden" name="unit_id">
+        <input type="hidden" name="supplier_id">
+        <input type="hidden" name="cost">
+        <input type="hidden" name="price">
+        <input type="hidden" name="margin_percent">
+        <input type="hidden" name="unit_buy">
+        <input type="hidden" name="conversion_factor">
+        <input type="hidden" name="stock">
+        <input type="hidden" name="stock_min">
+        <input type="hidden" name="status">
+        <input type="hidden" name="expiration_date">
+        <input type="hidden" name="edit_id">
+        <button type="submit" class="outline-button small btn-aux">Salvar e selecionar</button>
       </form>
     </div>
     <div class="table-card">
@@ -548,6 +593,21 @@
     }
 
     function toggleUnitForm(id, button) {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const isHidden = el.classList.contains('hidden');
+      closeAllInlineForms();
+
+      if (isHidden) {
+        positionInlineForm(el, button);
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+
+    function toggleSupplierForm(id, button) {
       const el = document.getElementById(id);
       if (!el) return;
 
