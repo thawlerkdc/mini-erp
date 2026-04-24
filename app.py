@@ -4079,8 +4079,8 @@ def relatorios():
             start_date = first_day.strftime("%Y-%m-%d")
             end_date = last_day.strftime("%Y-%m-%d")
 
-        sales_conditions.append("s.date BETWEEN %s AND %s")
-        sales_params.extend([f"{start_date} 00:00:00", f"{end_date} 23:59:59"])
+        sales_conditions.append("LEFT(CAST(s.date AS TEXT), 10) BETWEEN %s AND %s")
+        sales_params.extend([start_date, end_date])
 
     sales_where = " WHERE " + " AND ".join(sales_conditions)
 
@@ -4323,9 +4323,10 @@ def relatorios():
                         "FROM sale_items si "
                         "JOIN sales s ON si.sale_id = s.id "
                         "JOIN products p ON si.product_id = p.id "
-                        "WHERE s.account_id = %s AND s.client_id = %s AND s.date BETWEEN %s AND %s "
+                        "WHERE s.account_id = %s AND s.client_id = %s "
+                        "AND LEFT(CAST(s.date AS TEXT), 10) BETWEEN %s AND %s "
                         "ORDER BY s.date DESC, s.id DESC",
-                        (account_id, client_id, f"{start_date} 00:00:00", f"{end_date} 23:59:59"),
+                        (account_id, client_id, start_date, end_date),
                     ).fetchall()
                     report_total = sum(float(row["total_price"] or 0) for row in client_purchase_rows)
         elif report == "client_sales_quantity":
