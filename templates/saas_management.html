@@ -45,6 +45,45 @@
     <h3>Gestao de Empresas</h3>
     <p class="param-hint-small">CRUD completo das contas clientes, com status operacional e dados de contato.</p>
 
+    <form method="get" action="{{ url_for('saas.gestao_saas') }}" class="saas-form-grid" style="margin-bottom:10px;">
+      <div>
+        <label>Buscar por empresa</label>
+        <input type="text" name="company_name" value="{{ company_filters['company_name'] }}" placeholder="Nome da empresa">
+      </div>
+      <div>
+        <label>Filtrar por plano</label>
+        <input type="text" name="plan_name" value="{{ company_filters['plan_name'] }}" placeholder="Nome do plano">
+      </div>
+      <div>
+        <label>Status</label>
+        <select name="status_filter">
+          <option value="ativo" {% if company_filters['status_filter'] == 'ativo' %}selected{% endif %}>Ativo</option>
+          <option value="inativos" {% if company_filters['status_filter'] == 'inativos' %}selected{% endif %}>Inativos</option>
+          <option value="todos" {% if company_filters['status_filter'] == 'todos' %}selected{% endif %}>Todos</option>
+        </select>
+      </div>
+      <div>
+        <label>Ordenar por</label>
+        <select name="sort_field">
+          <option value="name" {% if company_filters['sort_field'] == 'name' %}selected{% endif %}>Nome empresa</option>
+          <option value="created_at" {% if company_filters['sort_field'] == 'created_at' %}selected{% endif %}>Data cadastro</option>
+          <option value="last_access_at" {% if company_filters['sort_field'] == 'last_access_at' %}selected{% endif %}>Ultimo acesso</option>
+          <option value="value" {% if company_filters['sort_field'] == 'value' %}selected{% endif %}>Valor</option>
+        </select>
+      </div>
+      <div>
+        <label>Direcao</label>
+        <select name="sort_dir">
+          <option value="asc" {% if company_filters['sort_dir'] == 'asc' %}selected{% endif %}>Asc</option>
+          <option value="desc" {% if company_filters['sort_dir'] == 'desc' %}selected{% endif %}>Desc</option>
+        </select>
+      </div>
+      <div class="saas-actions-full">
+        <button type="submit" class="btn-confirm">Aplicar filtros</button>
+        <a href="{{ url_for('saas.gestao_saas') }}" class="outline-button">Limpar</a>
+      </div>
+    </form>
+
     <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-form-grid">
       <input type="hidden" name="action" value="save_company">
       <input type="hidden" name="account_id" value="{{ selected_company['id'] if selected_company else '' }}">
@@ -67,11 +106,18 @@
       </div>
       <div>
         <label>Telefone</label>
-        <input type="text" name="phone" value="{{ selected_company['phone'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="text" id="company_phone" name="phone" value="{{ selected_company['phone'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
       </div>
       <div>
         <label>WhatsApp *</label>
-        <input type="text" name="whatsapp" required value="{{ selected_company['whatsapp'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="text" id="company_whatsapp" name="whatsapp" required value="{{ selected_company['whatsapp'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <div class="param-check-row" style="margin:0;">
+          <input type="checkbox" id="same_phone_whatsapp" {% if not can_edit_saas %}disabled{% endif %}>
+          <label for="same_phone_whatsapp">Telefone igual ao WhatsApp</label>
+        </div>
       </div>
       <div>
         <label>Responsavel pela conta *</label>
@@ -128,9 +174,9 @@
               <td>{{ company['plan_name'] or '-' }}</td>
               <td>{{ company['billing_cycle'] or '-' }}</td>
               <td>R$ {{ '%.2f'|format(company['subscription_amount'] or 0) }}</td>
-              <td>{{ company['created_at'] }}</td>
-              <td>{{ company['last_access_at'] }}</td>
-              <td class="action-buttons">
+              <td>{{ company['created_at_display'] }}</td>
+              <td>{{ company['last_access_at_display'] }}</td>
+              <td class="action-buttons saas-action-inline">
                 <a href="{{ url_for('saas.gestao_saas', edit_account_id=company['id']) }}" class="btn-edit">Editar</a>
                 <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form" onsubmit="return confirm('Inativar esta conta cliente?');">
                   <input type="hidden" name="action" value="inactivate_company">
@@ -151,6 +197,7 @@
     <h3>Planos e Assinaturas</h3>
     <div class="param-inline-grid">
       <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-subform">
+        <h4 class="param-subtitle" style="margin-top:0;">Cadastro de planos</h4>
         <input type="hidden" name="action" value="save_plan">
         <input type="hidden" name="plan_id" value="{{ selected_plan['id'] if selected_plan else '' }}">
 
@@ -187,6 +234,7 @@
       </form>
 
       <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-subform">
+        <h4 class="param-subtitle" style="margin-top:0;">Vincular empresa ao plano</h4>
         <input type="hidden" name="action" value="assign_subscription">
         <label>Empresa</label>
         <select name="account_id" required {% if not can_edit_saas %}disabled{% endif %}>
@@ -207,7 +255,7 @@
         </select>
 
         <label>Ciclo</label>
-        <select name="billing_cycle" {% if not can_edit_saas %}disabled{% endif %}>
+        <select id="subscription_cycle" name="billing_cycle" {% if not can_edit_saas %}disabled{% endif %}>
           <option value="mensal">Mensal</option>
           <option value="anual">Anual</option>
         </select>
@@ -215,14 +263,11 @@
         <label>Valor contratado</label>
         <input type="number" step="0.01" min="0" name="amount" required {% if not can_edit_saas %}disabled{% endif %}>
 
-        <label>Taxa de adesao</label>
-        <input type="number" step="0.01" min="0" name="setup_fee_amount" value="0" {% if not can_edit_saas %}disabled{% endif %}>
-
         <label>Inicio</label>
-        <input type="date" name="starts_at" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="date" id="subscription_starts_at" name="starts_at" {% if not can_edit_saas %}disabled{% endif %}>
 
         <label>Proximo vencimento</label>
-        <input type="date" name="next_due_date" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="date" id="subscription_next_due_date" name="next_due_date" {% if not can_edit_saas %}disabled{% endif %}>
 
         <label>Status assinatura</label>
         <select name="subscription_status" {% if not can_edit_saas %}disabled{% endif %}>
@@ -349,7 +394,7 @@
               <td>R$ {{ '%.2f'|format(bill['amount'] or 0) }}</td>
               <td><span class="status-pill {{ 'status-pago' if bill['status']=='pago' else 'status-vencido' if bill['status']=='atrasado' else 'status-pendente' }}">{{ bill['status']|capitalize }}</span></td>
               <td>{{ bill['paid_at'] }}</td>
-              <td class="action-buttons">
+              <td class="action-buttons saas-action-inline">
                 <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form">
                   <input type="hidden" name="action" value="mark_paid">
                   <input type="hidden" name="billing_id" value="{{ bill['id'] }}">
@@ -431,7 +476,7 @@
               <td>{{ item['severity']|capitalize }}</td>
               <td>{{ item['title'] }}</td>
               <td>{{ item['message'] }}</td>
-              <td>{{ item['generated_on'] }}</td>
+              <td>{{ item['generated_on_display'] }}</td>
             </tr>
           {% else %}
             <tr><td colspan="6">Sem insights no momento.</td></tr>
@@ -562,7 +607,7 @@
               <td>{{ item['action'] }}</td>
               <td>{{ item['method'] }}</td>
               <td>{{ item['path'] }}</td>
-              <td>{{ item['created_at'] }}</td>
+              <td>{{ item['created_at_display'] }}</td>
             </tr>
           {% else %}
             <tr><td colspan="5">Sem logs de uso.</td></tr>
@@ -576,6 +621,10 @@
 <style>
   .saas-panel-card {
     max-width: 1320px;
+  }
+
+  .saas-panel-card .param-section {
+    margin-bottom: 24px;
   }
 
   .saas-header p {
@@ -636,6 +685,46 @@
     display: grid;
     gap: 8px;
     align-content: start;
+  }
+
+  .saas-action-inline {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+
+  .saas-action-inline .inline-form {
+    margin: 0;
+  }
+
+  .saas-action-inline .btn-edit,
+  .saas-action-inline .btn-delete,
+  .saas-action-inline .btn-confirm {
+    min-width: 96px;
+    text-align: center;
+  }
+
+  .saas-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .saas-collapse-btn {
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    border-radius: 10px;
+    padding: 6px 10px;
+    background: rgba(241, 245, 249, 0.9);
+    color: #0f172a;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .saas-section-collapsed .saas-section-body {
+    display: none;
   }
 
   .saas-charts-grid {
@@ -699,6 +788,18 @@
     border-color: rgba(148, 163, 184, 0.2);
   }
 
+  [data-theme="dark"] .saas-panel-card input[type="url"] {
+    background: rgba(15, 23, 42, 0.9);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.26);
+  }
+
+  [data-theme="dark"] .saas-collapse-btn {
+    background: rgba(15, 23, 42, 0.86);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.26);
+  }
+
   [data-theme="dark"] .saas-chart-card {
     background: rgba(15, 23, 42, 0.82);
     border-color: rgba(148, 163, 184, 0.2);
@@ -708,10 +809,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
   (function () {
-    if (!window.Chart) {
-      return;
-    }
-
     var usageLabels = {{ usage_chart_labels_json|safe }};
     var usageSessions = {{ usage_chart_sessions_json|safe }};
     var usageUsers = {{ usage_chart_active_users_json|safe }};
@@ -724,7 +821,7 @@
     var gridColor = document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(148,163,184,.25)" : "rgba(148,163,184,.22)";
 
     var usageCanvas = document.getElementById("saasUsageChart");
-    if (usageCanvas) {
+    if (window.Chart && usageCanvas) {
       new Chart(usageCanvas, {
         type: "line",
         data: {
@@ -760,7 +857,7 @@
     }
 
     var featureCanvas = document.getElementById("saasFeatureChart");
-    if (featureCanvas) {
+    if (window.Chart && featureCanvas) {
       new Chart(featureCanvas, {
         type: "bar",
         data: {
@@ -783,7 +880,7 @@
     }
 
     var accountCanvas = document.getElementById("saasAccountChart");
-    if (accountCanvas) {
+    if (window.Chart && accountCanvas) {
       new Chart(accountCanvas, {
         type: "bar",
         data: {
@@ -806,6 +903,103 @@
         }
       });
     }
+
+    var phoneInput = document.getElementById("company_phone");
+    var whatsappInput = document.getElementById("company_whatsapp");
+    var samePhoneCheck = document.getElementById("same_phone_whatsapp");
+    function syncPhoneToWhatsapp() {
+      if (!phoneInput || !whatsappInput || !samePhoneCheck) {
+        return;
+      }
+      if (samePhoneCheck.checked) {
+        whatsappInput.value = phoneInput.value;
+      }
+    }
+    if (samePhoneCheck) {
+      samePhoneCheck.addEventListener("change", syncPhoneToWhatsapp);
+      if ((phoneInput && whatsappInput) && phoneInput.value && phoneInput.value === whatsappInput.value) {
+        samePhoneCheck.checked = true;
+      }
+    }
+    if (phoneInput) {
+      phoneInput.addEventListener("input", syncPhoneToWhatsapp);
+    }
+
+    var cycleField = document.getElementById("subscription_cycle");
+    var startField = document.getElementById("subscription_starts_at");
+    var dueField = document.getElementById("subscription_next_due_date");
+
+    function addCycleDate(baseDate, cycle) {
+      var date = new Date(baseDate + "T00:00:00");
+      if (Number.isNaN(date.getTime())) {
+        return "";
+      }
+      if (cycle === "anual") {
+        date.setFullYear(date.getFullYear() + 1);
+      } else {
+        var originalDay = date.getDate();
+        date.setMonth(date.getMonth() + 1);
+        while (date.getDate() < originalDay) {
+          date.setDate(date.getDate() - 1);
+        }
+      }
+      var yyyy = date.getFullYear();
+      var mm = String(date.getMonth() + 1).padStart(2, "0");
+      var dd = String(date.getDate()).padStart(2, "0");
+      return yyyy + "-" + mm + "-" + dd;
+    }
+
+    function refreshDueDate() {
+      if (!cycleField || !startField || !dueField) {
+        return;
+      }
+      if (!startField.value) {
+        var now = new Date();
+        startField.value = now.toISOString().slice(0, 10);
+      }
+      if (!dueField.value || dueField.dataset.auto === "1") {
+        dueField.value = addCycleDate(startField.value, cycleField.value || "mensal");
+        dueField.dataset.auto = "1";
+      }
+    }
+
+    if (cycleField && startField && dueField) {
+      dueField.addEventListener("input", function () { dueField.dataset.auto = "0"; });
+      cycleField.addEventListener("change", function () { dueField.dataset.auto = "1"; refreshDueDate(); });
+      startField.addEventListener("change", function () { dueField.dataset.auto = "1"; refreshDueDate(); });
+      refreshDueDate();
+    }
+
+    var saasSections = document.querySelectorAll(".saas-panel-card .param-section");
+    saasSections.forEach(function (section) {
+      var title = section.querySelector("h3");
+      if (!title) {
+        return;
+      }
+
+      var head = document.createElement("div");
+      head.className = "saas-section-head";
+      title.parentNode.insertBefore(head, title);
+      head.appendChild(title);
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "saas-collapse-btn";
+      button.textContent = "Recolher";
+      head.appendChild(button);
+
+      var body = document.createElement("div");
+      body.className = "saas-section-body";
+      while (head.nextSibling) {
+        body.appendChild(head.nextSibling);
+      }
+      section.appendChild(body);
+
+      button.addEventListener("click", function () {
+        section.classList.toggle("saas-section-collapsed");
+        button.textContent = section.classList.contains("saas-section-collapsed") ? "Expandir" : "Recolher";
+      });
+    });
   })();
 </script>
 {% endblock %}

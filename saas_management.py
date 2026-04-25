@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 import io
 import json
 import os
-from collections import defaultdict
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 
@@ -70,6 +69,56 @@ def _safe_int(value, default=0):
         return int(float(text))
     except (TypeError, ValueError):
         return default
+
+
+def _parse_datetime(value):
+    text = (value or "").strip()
+    if not text or text == "-":
+        return None
+    for pattern in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(text, pattern)
+        except ValueError:
+            continue
+    return None
+
+
+def _format_datetime_br(value):
+    dt = _parse_datetime(value)
+    if not dt:
+        return "-"
+    return dt.strftime("%d/%m/%Y %H:%M:%S")
+
+
+def _format_date_br(value):
+    dt = _parse_datetime(value)
+    if not dt:
+        return "-"
+    return dt.strftime("%d/%m/%Y")
+
+
+def _add_cycle_date(start_date, cycle):
+    base = _parse_datetime(start_date) or datetime.now()
+    if cycle == "anual":
+        try:
+            return base.replace(year=base.year + 1).strftime("%Y-%m-%d")
+        except ValueError:
+            # 29/02 fallback
+            return (base + timedelta(days=365)).strftime("%Y-%m-%d")
+
+    # mensal
+    month = base.month + 1
+    year = base.year
+    if month > 12:
+        month = 1
+        year += 1
+    day = base.day
+    while day > 28:
+        try:
+            return datetime(year, month, day).strftime("%Y-%m-%d")
+        except ValueError:
+            day -= 1
+    return datetime(year, month, day).strftime("%Y-%m-%d")
 
 
 def _parse_json_or_text(raw_text):
@@ -512,6 +561,16 @@ def run_saas_daily_monitor_job(reference_date=None):
     conn = get_db_connection()
     try:
         _ensure_saas_defaults(conn)
+
+        company_name_filter = (request.args.get("company_name") or "").strip().lower()
+        plan_filter = (request.args.get("plan_name") or "").strip().lower()
+        status_filter = (request.args.get("status_filter") or "ativo").strip().lower()
+        sort_field = (request.args.get("sort_field") or "name").strip().lower()
+        sort_dir = (request.args.get("sort_dir") or "asc").strip().lower()
+        if sort_field not in {"name", "created_at", "last_access_at", "value"}:
+            sort_field = "name"
+        if sort_dir not in {"asc", "desc"}:
+            sort_dir = "asc"
         _run_daily_monitor(conn, reference_date=reference_date or _today_str())
         conn.commit()
     finally:
@@ -528,10 +587,23 @@ def _upsert_subscription(conn, form_data):
     if cycle not in PLAN_CYCLES:
         cycle = "mensal"
 
-    amount = _safe_float(form_data.get("amount"), 0.0)
-    setup_fee_amount = _safe_float(form_data.get("setup_fee_amount"), 0.0)
+    plan_row = conn.execute(
+        "SELECT id, name, price_monthly, price_yearly, setup_fee FROM saas_plans WHERE id = %s LIMIT 1",
+        (plan_id,),
+    ).fetchone()
+    if not plan_row:
+        return False, "Plano selecionado nao foi encontrado."
+
+    default_amount = _safe_float(plan_row["price_yearly"] if cycle == "anual" else plan_row["price_monthly"], 0.0)
+    amount = _safe_float(form_data.get("amount"), default_amount)
+    if amount <= 0:
+        amount = default_amount
+
+    setup_fee_amount = _safe_float(plan_row["setup_fee"], 0.0)
     starts_at = (form_data.get("starts_at") or _today_str()).strip()
-    next_due_date = (form_data.get("next_due_date") or _today_str()).strip()
+    next_due_date = (form_data.get("next_due_date") or "").strip()
+    if not next_due_date:
+        next_due_date = _add_cycle_date(starts_at, cycle)
     status = (form_data.get("subscription_status") or "ativa").strip().lower()
     if status not in ACCOUNT_STATUS:
         status = "ativa"
@@ -576,6 +648,73 @@ def _upsert_subscription(conn, form_data):
             now,
         ),
     )
+
+    subscription = conn.execute(
+        "SELECT id FROM saas_subscriptions WHERE account_id = %s LIMIT 1",
+        (account_id,),
+    ).fetchone()
+    subscription_id = subscription["id"] if subscription else None
+
+    setup_already = conn.execute(
+        "SELECT id FROM saas_billing_events WHERE account_id = %s AND charge_type = 'adesao' LIMIT 1",
+        (account_id,),
+    ).fetchone()
+    if setup_fee_amount > 0 and not setup_already:
+        conn.execute(
+            """
+            INSERT INTO saas_billing_events (
+                account_id, subscription_id, charge_type, reference_period,
+                due_date, amount, status, notes, created_at, updated_at
+            )
+            VALUES (%s, %s, 'adesao', %s, %s, %s, 'pendente', %s, %s, %s)
+            """,
+            (
+                account_id,
+                subscription_id,
+                starts_at[:7],
+                starts_at,
+                setup_fee_amount,
+                f"Taxa de adesao do plano {plan_row['name']}",
+                now,
+                now,
+            ),
+        )
+
+    charge_type = "anuidade" if cycle == "anual" else "mensalidade"
+    reference_period = next_due_date[:7]
+    recurring_exists = conn.execute(
+        """
+        SELECT id
+        FROM saas_billing_events
+        WHERE account_id = %s
+          AND charge_type = %s
+          AND reference_period = %s
+        LIMIT 1
+        """,
+        (account_id, charge_type, reference_period),
+    ).fetchone()
+    if not recurring_exists and amount > 0:
+        conn.execute(
+            """
+            INSERT INTO saas_billing_events (
+                account_id, subscription_id, charge_type, reference_period,
+                due_date, amount, status, notes, created_at, updated_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, 'pendente', %s, %s, %s)
+            """,
+            (
+                account_id,
+                subscription_id,
+                charge_type,
+                reference_period,
+                next_due_date,
+                amount,
+                f"Cobranca automatica de {charge_type} ({plan_row['name']})",
+                now,
+                now,
+            ),
+        )
+
     return True, "Assinatura atualizada com sucesso."
 
 
@@ -955,9 +1094,43 @@ def gestao_saas():
             LEFT JOIN users o ON o.account_id = a.id AND o.role = 'owner'
             LEFT JOIN saas_subscriptions s ON s.account_id = a.id
             LEFT JOIN saas_plans p ON p.id = s.plan_id
-            ORDER BY a.created_at DESC
+            ORDER BY a.id DESC
             """
         ).fetchall()
+        companies = [dict(row) for row in companies]
+
+        for company in companies:
+            company["created_at_display"] = _format_datetime_br(company.get("created_at"))
+            company["last_access_at_display"] = _format_datetime_br(company.get("last_access_at"))
+
+        if company_name_filter:
+            companies = [
+                c
+                for c in companies
+                if company_name_filter in (c.get("name") or "").lower()
+                or company_name_filter in (c.get("trade_name") or "").lower()
+            ]
+
+        if plan_filter:
+            companies = [c for c in companies if plan_filter in (c.get("plan_name") or "").lower()]
+
+        if status_filter == "ativo":
+            companies = [c for c in companies if (c.get("status") or "").lower() == "ativa"]
+        elif status_filter == "inativos":
+            companies = [c for c in companies if (c.get("status") or "").lower() != "ativa"]
+
+        def company_sort_key(item):
+            if sort_field == "created_at":
+                dt = _parse_datetime(item.get("created_at"))
+                return dt or datetime.min
+            if sort_field == "last_access_at":
+                dt = _parse_datetime(item.get("last_access_at"))
+                return dt or datetime.min
+            if sort_field == "value":
+                return _safe_float(item.get("subscription_amount"), 0)
+            return (item.get("name") or "").lower()
+
+        companies = sorted(companies, key=company_sort_key, reverse=(sort_dir == "desc"))
 
         plans = conn.execute(
             """
@@ -1008,6 +1181,7 @@ def gestao_saas():
             LIMIT 120
             """
         ).fetchall()
+        insights = [{**dict(row), "generated_on_display": _format_date_br(row["generated_on"])} for row in insights]
 
         access_logs = conn.execute(
             """
@@ -1017,6 +1191,7 @@ def gestao_saas():
             LIMIT 200
             """
         ).fetchall()
+        access_logs = [{**dict(row), "created_at_display": _format_datetime_br(row["created_at"])} for row in access_logs]
 
         usage_last_30 = conn.execute(
             """
@@ -1140,6 +1315,13 @@ def gestao_saas():
             account_chart_values_json=json.dumps(account_chart_values, ensure_ascii=False),
             can_edit_saas=_can_access_saas(require_edit=True),
             can_delete_saas=_can_access_saas(require_delete=True),
+            company_filters={
+                "company_name": request.args.get("company_name") or "",
+                "plan_name": request.args.get("plan_name") or "",
+                "status_filter": status_filter,
+                "sort_field": sort_field,
+                "sort_dir": sort_dir,
+            },
         )
     finally:
         conn.close()
