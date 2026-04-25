@@ -357,6 +357,40 @@
         </div>
       </div>
 
+      <div class="system-audit-summary-grid">
+        <div class="status-pill audit-pill">
+          <span class="status-label">Eventos auditados</span>
+          <strong>{{ audit_summary.total_events }}</strong>
+        </div>
+        <div class="status-pill audit-pill success">
+          <span class="status-label">E-mails enviados</span>
+          <strong>{{ audit_summary.email_sent_count }}</strong>
+        </div>
+        <div class="status-pill audit-pill danger">
+          <span class="status-label">Falhas de e-mail</span>
+          <strong>{{ audit_summary.email_failed_count }}</strong>
+        </div>
+        <div class="status-pill audit-pill info">
+          <span class="status-label">Ações administrativas</span>
+          <strong>{{ audit_summary.admin_action_count }}</strong>
+        </div>
+      </div>
+
+      <div class="system-audit-toolbar">
+        <select id="system-audit-account-filter">
+          <option value="all">Todas as contas</option>
+        </select>
+        <input type="search" id="system-audit-user-filter" placeholder="Filtrar por usuário">
+        <select id="system-audit-action-filter">
+          <option value="all">Todas as ações</option>
+        </select>
+        <select id="system-audit-result-filter">
+          <option value="all">Todos os resultados</option>
+          <option value="success">Somente sucesso</option>
+          <option value="failure">Somente falha</option>
+        </select>
+      </div>
+
       <div class="report-table-wrap">
         <table class="report-table system-audit-table">
           <thead>
@@ -372,12 +406,14 @@
           <tbody>
             {% for entry in audit_entries %}
               {% set data = entry.data_json or {} %}
-              <tr>
+              {% set audit_action = data.get('email_action') or data.get('audit_event') or '-' %}
+              {% set audit_result = 'failure' if 'failed' in (data.get('audit_event') or '') else 'success' %}
+              <tr class="system-audit-row" data-account="{{ (entry.account_name or '-')|lower }}" data-user="{{ (entry.user_name or entry.username or '-')|lower }}" data-action="{{ audit_action|lower }}" data-result="{{ audit_result }}">
                 <td>{{ entry.created_at_display }}</td>
                 <td>{{ entry.account_name or '-' }}</td>
                 <td>{{ entry.user_name or entry.username or '-' }}</td>
                 <td>
-                  <strong>{{ data.get('email_action') or data.get('audit_event') or '-' }}</strong>
+                  <strong>{{ audit_action }}</strong>
                 </td>
                 <td>{{ data.get('result_message') or ('Concluído' if data.get('audit_event') else '-') }}</td>
                 <td class="system-audit-details">
@@ -417,36 +453,82 @@
       var searchInput = document.getElementById('system-user-search');
       var statusFilter = document.getElementById('system-user-status-filter');
       var groups = Array.from(document.querySelectorAll('.account-user-group'));
+      var auditRows = Array.from(document.querySelectorAll('.system-audit-row'));
+      var auditAccountFilter = document.getElementById('system-audit-account-filter');
+      var auditUserFilter = document.getElementById('system-audit-user-filter');
+      var auditActionFilter = document.getElementById('system-audit-action-filter');
+      var auditResultFilter = document.getElementById('system-audit-result-filter');
 
-      if (!searchInput || !statusFilter || !groups.length) return;
+      if (searchInput && statusFilter && groups.length) {
+        function applyFilters() {
+          var query = (searchInput.value || '').trim().toLowerCase();
+          var status = statusFilter.value;
 
-      function applyFilters() {
-        var query = (searchInput.value || '').trim().toLowerCase();
-        var status = statusFilter.value;
+          groups.forEach(function (group) {
+            var accountTokens = ((group.getAttribute('data-account-name') || '') + ' ' + (group.getAttribute('data-account-slug') || '')).trim();
+            var userCards = Array.from(group.querySelectorAll('.user-record-card'));
+            var visibleCards = 0;
 
-        groups.forEach(function (group) {
-          var accountTokens = ((group.getAttribute('data-account-name') || '') + ' ' + (group.getAttribute('data-account-slug') || '')).trim();
-          var userCards = Array.from(group.querySelectorAll('.user-record-card'));
-          var visibleCards = 0;
+            userCards.forEach(function (card) {
+              var cardStatus = card.getAttribute('data-user-status') || 'active';
+              var haystack = card.getAttribute('data-user-search') || '';
+              var statusMatch = status === 'all' || cardStatus === status;
+              var queryMatch = !query || haystack.indexOf(query) >= 0 || accountTokens.indexOf(query) >= 0;
+              var visible = statusMatch && queryMatch;
+              card.hidden = !visible;
+              if (visible) visibleCards += 1;
+            });
 
-          userCards.forEach(function (card) {
-            var cardStatus = card.getAttribute('data-user-status') || 'active';
-            var haystack = card.getAttribute('data-user-search') || '';
-            var statusMatch = status === 'all' || cardStatus === status;
-            var queryMatch = !query || haystack.indexOf(query) >= 0 || accountTokens.indexOf(query) >= 0;
-            var visible = statusMatch && queryMatch;
-            card.hidden = !visible;
-            if (visible) visibleCards += 1;
+            var accountMatch = !query || accountTokens.indexOf(query) >= 0;
+            group.hidden = !accountMatch && visibleCards === 0;
           });
+        }
 
-          var accountMatch = !query || accountTokens.indexOf(query) >= 0;
-          group.hidden = !accountMatch && visibleCards === 0;
-        });
+        searchInput.addEventListener('input', applyFilters);
+        statusFilter.addEventListener('change', applyFilters);
+        applyFilters();
       }
 
-      searchInput.addEventListener('input', applyFilters);
-      statusFilter.addEventListener('change', applyFilters);
-      applyFilters();
+      function fillSelectOptions(select, values, fallbackLabel) {
+        if (!select) return;
+        var current = select.value;
+        var options = ['<option value="all">' + fallbackLabel + '</option>'];
+        values.forEach(function (value) {
+          options.push('<option value="' + value + '">' + value + '</option>');
+        });
+        select.innerHTML = options.join('');
+        if (values.indexOf(current) >= 0 || current === 'all') {
+          select.value = current;
+        }
+      }
+
+      if (auditRows.length && auditAccountFilter && auditActionFilter && auditUserFilter && auditResultFilter) {
+        var accountValues = Array.from(new Set(auditRows.map(function (row) { return row.getAttribute('data-account'); }).filter(Boolean))).sort();
+        var actionValues = Array.from(new Set(auditRows.map(function (row) { return row.getAttribute('data-action'); }).filter(Boolean))).sort();
+        fillSelectOptions(auditAccountFilter, accountValues, 'Todas as contas');
+        fillSelectOptions(auditActionFilter, actionValues, 'Todas as ações');
+
+        function applyAuditFilters() {
+          var account = auditAccountFilter.value;
+          var user = (auditUserFilter.value || '').trim().toLowerCase();
+          var action = auditActionFilter.value;
+          var result = auditResultFilter.value;
+
+          auditRows.forEach(function (row) {
+            var matchesAccount = account === 'all' || row.getAttribute('data-account') === account;
+            var matchesUser = !user || (row.getAttribute('data-user') || '').indexOf(user) >= 0;
+            var matchesAction = action === 'all' || row.getAttribute('data-action') === action;
+            var matchesResult = result === 'all' || row.getAttribute('data-result') === result;
+            row.hidden = !(matchesAccount && matchesUser && matchesAction && matchesResult);
+          });
+        }
+
+        auditAccountFilter.addEventListener('change', applyAuditFilters);
+        auditUserFilter.addEventListener('input', applyAuditFilters);
+        auditActionFilter.addEventListener('change', applyAuditFilters);
+        auditResultFilter.addEventListener('change', applyAuditFilters);
+        applyAuditFilters();
+      }
     })();
   </script>
 
@@ -498,7 +580,8 @@
 
     .system-user-toolbar,
     .system-user-creation-grid,
-    .system-user-actions-row {
+    .system-user-actions-row,
+    .system-audit-toolbar {
       display: flex;
       gap: 12px;
     }
@@ -518,6 +601,36 @@
       flex-wrap: wrap;
       align-items: stretch;
       margin-bottom: 18px;
+    }
+
+    .system-audit-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .audit-pill.success {
+      background: linear-gradient(135deg, rgba(22, 163, 74, 0.16), rgba(15, 118, 110, 0.12));
+    }
+
+    .audit-pill.danger {
+      background: linear-gradient(135deg, rgba(220, 38, 38, 0.16), rgba(190, 24, 93, 0.12));
+    }
+
+    .audit-pill.info {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(14, 165, 233, 0.12));
+    }
+
+    .system-audit-toolbar {
+      margin: 0 0 16px;
+      flex-wrap: wrap;
+    }
+
+    .system-audit-toolbar input,
+    .system-audit-toolbar select {
+      min-width: 200px;
+      flex: 1 1 220px;
     }
 
     .system-user-create-card {
@@ -632,6 +745,63 @@
       margin-top: 4px;
     }
 
+    [data-theme="dark"] .system-admin-header p,
+    [data-theme="dark"] .status-label,
+    [data-theme="dark"] .system-user-section-header p,
+    [data-theme="dark"] .account-user-group-header p,
+    [data-theme="dark"] .helper-card p,
+    [data-theme="dark"] .system-user-active-toggle {
+      color: #cbd5e1;
+    }
+
+    [data-theme="dark"] .status-pill,
+    [data-theme="dark"] .system-user-create-card,
+    [data-theme="dark"] .account-user-group,
+    [data-theme="dark"] .system-user-form,
+    [data-theme="dark"] .report-table-wrap {
+      background: rgba(15, 23, 42, 0.82);
+      border-color: rgba(148, 163, 184, 0.2);
+      box-shadow: 0 12px 30px rgba(2, 6, 23, 0.24);
+    }
+
+    [data-theme="dark"] .system-user-form.owner-form {
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.18), rgba(29, 78, 216, 0.16));
+    }
+
+    [data-theme="dark"] .account-user-total {
+      background: rgba(45, 212, 191, 0.14);
+      color: #99f6e4;
+    }
+
+    [data-theme="dark"] .user-role-title,
+    [data-theme="dark"] .system-user-create-card h4,
+    [data-theme="dark"] .status-pill strong,
+    [data-theme="dark"] .system-audit-table td,
+    [data-theme="dark"] .system-audit-table th {
+      color: #e2e8f0;
+    }
+
+    [data-theme="dark"] .user-meta-pill {
+      background: rgba(59, 130, 246, 0.2);
+      color: #bfdbfe;
+    }
+
+    [data-theme="dark"] .user-status-badge.active {
+      background: rgba(22, 163, 74, 0.18);
+      color: #86efac;
+    }
+
+    [data-theme="dark"] .user-status-badge.inactive {
+      background: rgba(220, 38, 38, 0.18);
+      color: #fca5a5;
+    }
+
+    [data-theme="dark"] .menu-empty-hint {
+      background: rgba(15, 23, 42, 0.7);
+      color: #cbd5e1;
+      border-color: rgba(148, 163, 184, 0.2);
+    }
+
     .user-status-badge,
     .user-meta-pill {
       display: inline-flex;
@@ -671,7 +841,8 @@
       .system-user-meta-row,
       .system-user-toolbar,
       .system-user-creation-grid,
-      .system-user-actions-row {
+      .system-user-actions-row,
+      .system-audit-toolbar {
         flex-direction: column;
         align-items: stretch;
       }

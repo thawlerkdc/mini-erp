@@ -1212,6 +1212,32 @@ def get_system_audit_feed(limit=150):
     )
 
 
+def get_system_audit_summary(entries):
+    summary = {
+        "total_events": len(entries),
+        "email_sent_count": 0,
+        "email_failed_count": 0,
+        "admin_action_count": 0,
+    }
+
+    for entry in entries:
+        data = entry.get("data_json") or {}
+        event_type = (data.get("audit_event") or "").strip().lower()
+        if event_type in {"system_email_sent", "account_email_sent"}:
+            summary["email_sent_count"] += 1
+        elif event_type in {"system_email_failed", "account_email_failed"}:
+            summary["email_failed_count"] += 1
+        elif event_type in {
+            "system_settings_saved",
+            "system_user_updated",
+            "system_account_created",
+            "system_dependent_created",
+        }:
+            summary["admin_action_count"] += 1
+
+    return summary
+
+
 def get_default_route_for_current_user():
     if get_current_user_role() == "owner":
         return url_for("dashboard")
@@ -2830,13 +2856,15 @@ def admin_system_settings():
         return redirect(url_for("admin_system_settings"))
 
     settings = get_global_settings()
+    audit_entries = get_system_audit_feed()
     return render_template(
         "admin_system_settings.html",
         title="Administração do Sistema",
         settings=settings,
         db_status=DB_STATUS,
         user_groups=get_system_user_groups(),
-        audit_entries=get_system_audit_feed(),
+        audit_entries=audit_entries,
+        audit_summary=get_system_audit_summary(audit_entries),
     )
 
 
