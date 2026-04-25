@@ -348,6 +348,68 @@
         </div>
       {% endfor %}
     </section>
+
+    <section class="param-section system-audit-section" id="system-audit">
+      <div class="system-user-section-header">
+        <div>
+          <h3>Auditoria global de e-mails e ações administrativas</h3>
+          <p>Mostra quem executou a ação, em qual conta, quando ocorreu e qual resultado foi registrado.</p>
+        </div>
+      </div>
+
+      <div class="report-table-wrap">
+        <table class="report-table system-audit-table">
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Conta</th>
+              <th>Usuário</th>
+              <th>Ação</th>
+              <th>Resultado</th>
+              <th>Detalhes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in audit_entries %}
+              {% set data = entry.data_json or {} %}
+              <tr>
+                <td>{{ entry.created_at_display }}</td>
+                <td>{{ entry.account_name or '-' }}</td>
+                <td>{{ entry.user_name or entry.username or '-' }}</td>
+                <td>
+                  <strong>{{ data.get('email_action') or data.get('audit_event') or '-' }}</strong>
+                </td>
+                <td>{{ data.get('result_message') or ('Concluído' if data.get('audit_event') else '-') }}</td>
+                <td class="system-audit-details">
+                  {% if data.get('recipients') %}
+                    <div><strong>Destinatários:</strong> {{ data.get('recipients')|join(', ') }}</div>
+                  {% endif %}
+                  {% if data.get('subject') %}
+                    <div><strong>Assunto:</strong> {{ data.get('subject') }}</div>
+                  {% endif %}
+                  {% if data.get('target_username') %}
+                    <div><strong>Usuário alvo:</strong> {{ data.get('target_username') }}</div>
+                  {% endif %}
+                  {% if data.get('updated_username') %}
+                    <div><strong>Login atualizado:</strong> {{ data.get('updated_username') }}</div>
+                  {% endif %}
+                  {% if data.get('account_name') %}
+                    <div><strong>Conta criada:</strong> {{ data.get('account_name') }}</div>
+                  {% endif %}
+                  {% if data.get('report_date') %}
+                    <div><strong>Referência:</strong> {{ data.get('report_date') }}</div>
+                  {% endif %}
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="6">Nenhum evento administrativo ou envio de e-mail foi encontrado até o momento.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <script>
@@ -556,6 +618,18 @@
     .system-user-actions-row {
       margin-top: 12px;
       justify-content: flex-end;
+    }
+
+    .system-audit-details {
+      min-width: 280px;
+      white-space: normal;
+      word-break: break-word;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .system-audit-details div + div {
+      margin-top: 4px;
     }
 
     .user-status-badge,

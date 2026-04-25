@@ -37,6 +37,16 @@
       <select name="event_type">
         <option value="">Todos</option>
         <option value="access_denied" {% if filters and filters.event_type == 'access_denied' %}selected{% endif %}>Acesso negado</option>
+        <option value="write_denied" {% if filters and filters.event_type == 'write_denied' %}selected{% endif %}>Edição negada</option>
+        <option value="delete_denied" {% if filters and filters.event_type == 'delete_denied' %}selected{% endif %}>Exclusão negada</option>
+        <option value="account_email_sent" {% if filters and filters.event_type == 'account_email_sent' %}selected{% endif %}>E-mail de conta enviado</option>
+        <option value="account_email_failed" {% if filters and filters.event_type == 'account_email_failed' %}selected{% endif %}>E-mail de conta com falha</option>
+        <option value="system_email_sent" {% if filters and filters.event_type == 'system_email_sent' %}selected{% endif %}>E-mail global enviado</option>
+        <option value="system_email_failed" {% if filters and filters.event_type == 'system_email_failed' %}selected{% endif %}>E-mail global com falha</option>
+        <option value="system_settings_saved" {% if filters and filters.event_type == 'system_settings_saved' %}selected{% endif %}>Configuração global alterada</option>
+        <option value="system_user_updated" {% if filters and filters.event_type == 'system_user_updated' %}selected{% endif %}>Usuário alterado pelo admin global</option>
+        <option value="system_account_created" {% if filters and filters.event_type == 'system_account_created' %}selected{% endif %}>Conta principal criada</option>
+        <option value="system_dependent_created" {% if filters and filters.event_type == 'system_dependent_created' %}selected{% endif %}>Dependente criado</option>
       </select>
     </div>
     <div>

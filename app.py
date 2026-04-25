@@ -49,7 +49,7 @@ except ImportError:
     print("⚠️  import_excel não disponível (requer pandas)")
 
 from access_control import access_bp
-from logs_auditoria import auditoria_bp, log_audit_event
+from logs_auditoria import auditoria_bp, log_audit_event, get_recent_audit_logs
 from datetime import datetime, timedelta
 from calendar import monthrange
 import re
@@ -1093,6 +1093,20 @@ def update_system_user_by_admin(form_data):
         conn.close()
         return False, "Este login já está em uso por outro usuário."
 
+    log_audit_event(
+        "system_user_updated",
+        {
+            "target_user_id": int(user_id),
+            "target_account_id": user["account_id"],
+            "target_role": user["role"],
+            "updated_name": name,
+            "updated_username": username,
+            "updated_email": email,
+            "is_active": bool(is_active),
+            "password_changed": bool(password),
+        },
+        account_id=user["account_id"],
+    )
     conn.close()
     return True, "Usuário atualizado com sucesso."
 
@@ -1110,10 +1124,21 @@ def create_system_account_by_admin(form_data):
         return False, "O login da conta principal não pode conter espaços."
 
     try:
-        create_account_with_owner(account_name, owner_name, username, password, email)
+        account_id = create_account_with_owner(account_name, owner_name, username, password, email)
     except psycopg.IntegrityError:
         return False, "Este login principal já está em uso."
 
+    log_audit_event(
+        "system_account_created",
+        {
+            "target_account_id": account_id,
+            "account_name": account_name,
+            "owner_name": owner_name,
+            "owner_username": username,
+            "owner_email": email or "",
+        },
+        account_id=account_id,
+    )
     return True, "Nova conta principal criada com sucesso."
 
 
@@ -1151,8 +1176,40 @@ def create_system_dependent_user_by_admin(form_data):
         conn.close()
         return False, "Este login de dependente já está em uso."
 
+    created_user = conn.execute(
+        "SELECT id FROM users WHERE account_id = %s AND username = %s LIMIT 1",
+        (account_id, username),
+    ).fetchone()
+    log_audit_event(
+        "system_dependent_created",
+        {
+            "target_account_id": int(account_id),
+            "target_user_id": created_user["id"] if created_user else None,
+            "name": name,
+            "username": username,
+            "email": email or "",
+            "owner_user_id": owner["id"],
+        },
+        account_id=int(account_id),
+    )
     conn.close()
     return True, "Novo dependente criado com sucesso."
+
+
+def get_system_audit_feed(limit=150):
+    return get_recent_audit_logs(
+        limit=limit,
+        event_types=[
+            "system_settings_saved",
+            "system_user_updated",
+            "system_account_created",
+            "system_dependent_created",
+            "system_email_sent",
+            "system_email_failed",
+            "account_email_sent",
+            "account_email_failed",
+        ],
+    )
 
 
 def get_default_route_for_current_user():
@@ -1731,6 +1788,7 @@ def _send_financial_due_alert_email(conn, account_id, snapshot):
         recipients,
         f"Alerta financeiro diário - {today}",
         "\n".join(lines),
+        audit_payload={"email_action": "financial_daily_alert", "report_date": today},
     )
     if not sent:
         return
@@ -2029,6 +2087,16 @@ def save_global_settings(form_data):
         )
     conn.commit()
     conn.close()
+    log_audit_event(
+        "system_settings_saved",
+        {
+            "updated_keys": sorted(values.keys()),
+            "smtp_provider": values["smtp_provider"],
+            "smtp_from_email": values["smtp_from_email"],
+            "public_support_email": values["public_support_email"],
+            "allow_public_account_signup": values["allow_public_account_signup"] == "1",
+        },
+    )
 
 
 def _resolve_smtp_settings(settings=None):
@@ -2093,26 +2161,54 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
         return False, _humanize_email_error(str(exc), settings)
 
 
-def send_email_with_settings(account_id, recipients, subject, body):
+def send_email_with_settings(account_id, recipients, subject, body, audit_payload=None):
     settings = _resolve_smtp_settings(get_account_settings(account_id))
-    return _send_email_with_smtp_settings(
+    sent, message = _send_email_with_smtp_settings(
         recipients,
         subject,
         body,
         settings,
         "SMTP não configurado em Parâmetros",
     )
+    log_audit_event(
+        "account_email_sent" if sent else "account_email_failed",
+        {
+            "email_scope": "account",
+            "email_action": (audit_payload or {}).get("email_action") or "generic_account_email",
+            "recipients": recipients,
+            "subject": subject,
+            "result_message": message,
+            **(audit_payload or {}),
+        },
+        account_id=account_id,
+    )
+    return sent, message
 
 
-def send_system_email(recipients, subject, body):
+def send_system_email(recipients, subject, body, audit_payload=None, account_id=None, user_id=None):
     settings = _resolve_smtp_settings(get_global_settings())
-    return _send_email_with_smtp_settings(
+    resolved_account_id = account_id or session.get("account_id")
+    sent, message = _send_email_with_smtp_settings(
         recipients,
         subject,
         body,
         settings,
         "SMTP global do sistema não configurado",
     )
+    log_audit_event(
+        "system_email_sent" if sent else "system_email_failed",
+        {
+            "email_scope": "system",
+            "email_action": (audit_payload or {}).get("email_action") or "generic_system_email",
+            "recipients": recipients,
+            "subject": subject,
+            "result_message": message,
+            **(audit_payload or {}),
+        },
+        account_id=resolved_account_id,
+        user_id=user_id,
+    )
+    return sent, message
 
 
 def run_daily_birthday_automation(account_id):
@@ -2145,7 +2241,13 @@ def run_daily_birthday_automation(account_id):
     for client in clients:
         subject = subject_template.replace("{name}", client["name"] or "cliente")
         body = body_template.replace("{name}", client["name"] or "cliente")
-        send_email_with_settings(account_id, [client["email"]], subject, body)
+        send_email_with_settings(
+            account_id,
+            [client["email"]],
+            subject,
+            body,
+            audit_payload={"email_action": "birthday_campaign", "client_name": client["name"] or "cliente"},
+        )
 
     set_account_setting(account_id, "last_birthday_run_date", today)
 
@@ -2700,6 +2802,7 @@ def admin_system_settings():
                 [test_email],
                 f"Teste SMTP global - {system_name}",
                 "Este e-mail confirma que o serviço global do sistema está configurado corretamente.",
+                audit_payload={"email_action": "system_smtp_test"},
             )
             if sent:
                 flash(f"Teste SMTP global enviado para {test_email}.", "success")
@@ -2733,6 +2836,7 @@ def admin_system_settings():
         settings=settings,
         db_status=DB_STATUS,
         user_groups=get_system_user_groups(),
+        audit_entries=get_system_audit_feed(),
     )
 
 
@@ -2749,7 +2853,7 @@ def forgot_password():
         if username and email:
             conn = get_auth_connection()
             user = conn.execute(
-                "SELECT id FROM users WHERE username = %s AND email = %s AND is_active = 1",
+                "SELECT id, account_id FROM users WHERE username = %s AND email = %s AND is_active = 1",
                 (username, email)
             ).fetchone()
 
@@ -2784,6 +2888,8 @@ def forgot_password():
                     [email],
                     subject,
                     body,
+                    audit_payload={"email_action": "password_reset", "target_username": username, "target_user_id": user["id"]},
+                    account_id=user["account_id"],
                 )
                 if sent:
                     forgot_success = f"E-mail de redefinição enviado para {email}. Verifique sua caixa de entrada."
@@ -2880,6 +2986,7 @@ def parametros():
                 recipients,
                 "Teste SMTP - Kdc Systems",
                 "Este é um e-mail de teste enviado pela tela de parâmetros.",
+                audit_payload={"email_action": "account_smtp_test"},
             )
             if sent:
                 flash(f"Teste SMTP enviado para: {', '.join(recipients)}.", "success")
@@ -3620,6 +3727,7 @@ def vendas():
                     [client["email"]],
                     f"Obrigado pela compra - Venda #{sale_id}",
                     sale_body,
+                    audit_payload={"email_action": "sale_thank_you", "sale_id": sale_id, "client_name": client.get("name") or "cliente"},
                 )
                 if sent:
                     flash(f"E-mail de agradecimento enviado para {client['email']}.", "info")
@@ -3653,6 +3761,7 @@ def vendas():
                         recipients,
                         "Alerta de estoque mínimo",
                         alert_body,
+                        audit_payload={"email_action": "stock_min_alert"},
                     )
                     if not sent:
                         flash(f"Falha ao enviar alerta de estoque mínimo: {err}", "error")
@@ -3762,6 +3871,7 @@ def fechar_caixa():
             recipients,
             f"Fechamento de caixa - {today}",
             body,
+            audit_payload={"email_action": "cash_close_report", "report_date": today},
         )
 
     conn.close()

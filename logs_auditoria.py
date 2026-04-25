@@ -7,62 +7,21 @@ from datetime import datetime, timedelta
 auditoria_bp = Blueprint('auditoria', __name__)
 
 
-def log_audit_event(event_type, payload=None):
-    """Registra eventos explícitos de auditoria (ex.: acesso negado por permissão)."""
-    if not session.get('user_id'):
+def _insert_audit_log(account_id, user_id, endpoint, method, path, payload):
+    if not account_id:
         return
 
     conn = None
     try:
         conn = get_db_connection()
-        account_id = session.get('account_id')
-        user_id = session.get('user_id')
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        event_payload = payload or {}
-        event_payload['audit_event'] = event_type
-
+        serialized = json.dumps(payload or {}, ensure_ascii=False)
         conn.execute(
             """
             INSERT INTO logs (account_id, user_id, endpoint, method, path, data, created_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
-            (
-                account_id,
-                user_id,
-                request.endpoint or '',
-                request.method,
-                request.path,
-                json.dumps(event_payload, ensure_ascii=False),
-                now,
-            ),
-        )
-        conn.commit()
-    except Exception as exc:
-        logging.exception("Falha ao registrar evento de auditoria: %s", exc)
-    finally:
-        if conn:
-            conn.close()
-
-@auditoria_bp.before_app_request
-def registrar_log():
-    if not session.get('user_id'):
-        return
-    conn = None
-    try:
-        conn = get_db_connection()
-        account_id = session.get('account_id')
-        user_id = session.get('user_id')
-        endpoint = request.endpoint or ''
-        method = request.method
-        path = request.path
-        data = dict(request.form) if request.form else None
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        conn.execute(
-            """
-            INSERT INTO logs (account_id, user_id, endpoint, method, path, data, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """,
-            (account_id, user_id, endpoint, method, path, str(data), now),
+            (account_id, user_id, endpoint or '', method or '', path or '', serialized, now),
         )
         conn.commit()
     except Exception as exc:
@@ -70,6 +29,79 @@ def registrar_log():
     finally:
         if conn:
             conn.close()
+
+
+def log_audit_event(event_type, payload=None, account_id=None, user_id=None, endpoint=None, method=None, path=None):
+    """Registra eventos explícitos de auditoria (ex.: acesso negado, email enviado, ação administrativa)."""
+    resolved_account_id = account_id or session.get('account_id')
+    resolved_user_id = session.get('user_id') if user_id is None else user_id
+    event_payload = payload or {}
+    event_payload['audit_event'] = event_type
+    _insert_audit_log(
+        resolved_account_id,
+        resolved_user_id,
+        endpoint or request.endpoint or '',
+        method or request.method,
+        path or request.path,
+        event_payload,
+    )
+
+
+def get_recent_audit_logs(limit=200, account_id=None, event_types=None):
+    conn = get_db_connection()
+
+    where = []
+    params = []
+    if account_id is not None:
+        where.append('l.account_id = %s')
+        params.append(account_id)
+
+    if event_types:
+        event_clauses = []
+        for event_type in event_types:
+            event_clauses.append("LOWER(COALESCE(l.data, '')) LIKE %s")
+            params.append(f'%"audit_event": "{event_type.lower()}"%')
+        where.append('(' + ' OR '.join(event_clauses) + ')')
+
+    query = (
+        "SELECT l.*, u.username, COALESCE(u.name, u.username) AS user_name, a.name AS account_name "
+        "FROM logs l "
+        "LEFT JOIN users u ON l.user_id = u.id "
+        "LEFT JOIN accounts a ON l.account_id = a.id "
+    )
+    if where:
+        query += 'WHERE ' + ' AND '.join(where) + ' '
+    query += 'ORDER BY l.id DESC LIMIT %s'
+    params.append(limit)
+
+    rows = conn.execute(query, tuple(params)).fetchall()
+    conn.close()
+
+    formatted = []
+    for row in rows:
+        item = dict(row)
+        item['created_at_display'] = _format_datetime_br(item.get('created_at'))
+        raw_data = item.get('data') or ''
+        try:
+            item['data_json'] = json.loads(raw_data) if isinstance(raw_data, str) and raw_data.startswith('{') else None
+        except json.JSONDecodeError:
+            item['data_json'] = None
+        formatted.append(item)
+    return formatted
+
+
+@auditoria_bp.before_app_request
+def registrar_log():
+    if not session.get('user_id'):
+        return
+    _insert_audit_log(
+        session.get('account_id'),
+        session.get('user_id'),
+        request.endpoint or '',
+        request.method,
+        request.path,
+        dict(request.form) if request.form else None,
+    )
 
 @auditoria_bp.route('/auditoria', endpoint='auditoria')
 def auditoria():
