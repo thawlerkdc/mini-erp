@@ -1,1003 +1,899 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block content %}
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 
     :root {
-      --login2-bg: #060d1c;
-      --login2-bg-soft: rgba(10, 19, 38, 0.82);
-      --login2-panel: rgba(10, 18, 36, 0.78);
-      --login2-panel-strong: rgba(12, 22, 43, 0.92);
-      --login2-border: rgba(148, 163, 184, 0.16);
-      --login2-text: #eef2ff;
-      --login2-muted: #a8b4cf;
-      --login2-primary: #2f6bff;
-      --login2-secondary: #5a37ff;
-      --login2-success: #7dd3fc;
-      --login2-card: rgba(9, 16, 31, 0.76);
-      --login2-shadow: 0 30px 80px rgba(2, 6, 23, 0.48);
+      --login2-bg: #060f24;
+      --login2-bg-2: #0a1632;
+      --login2-panel: rgba(7, 19, 44, 0.9);
+      --login2-panel-soft: rgba(18, 35, 66, 0.9);
+      --login2-auth: rgba(27, 43, 73, 0.84);
+      --login2-border: rgba(70, 102, 166, 0.34);
+      --login2-text: #e6edf9;
+      --login2-muted: #9db0d0;
+      --login2-primary: #2f68ff;
+      --login2-secondary: #5b3dff;
+      --login2-glow: rgba(78, 97, 255, 0.3);
+      --login2-shadow: 0 26px 60px rgba(2, 8, 22, 0.55);
     }
 
     [data-theme="light"] {
-      --login2-bg: #edf4ff;
-      --login2-bg-soft: rgba(255, 255, 255, 0.74);
-      --login2-panel: rgba(255, 255, 255, 0.88);
-      --login2-panel-strong: rgba(255, 255, 255, 0.95);
-      --login2-border: rgba(37, 99, 235, 0.12);
-      --login2-text: #0f172a;
-      --login2-muted: #475569;
-      --login2-primary: #2563eb;
-      --login2-secondary: #4f46e5;
-      --login2-success: #0f766e;
-      --login2-card: rgba(255, 255, 255, 0.92);
-      --login2-shadow: 0 30px 80px rgba(37, 99, 235, 0.14);
+      --login2-bg: #0c1d3d;
+      --login2-bg-2: #10305d;
+      --login2-panel: rgba(8, 22, 50, 0.88);
+      --login2-panel-soft: rgba(12, 33, 66, 0.9);
+      --login2-auth: rgba(32, 52, 87, 0.84);
+      --login2-border: rgba(92, 127, 194, 0.38);
+      --login2-text: #ecf2ff;
+      --login2-muted: #adc0de;
+      --login2-primary: #3a71ff;
+      --login2-secondary: #6548ff;
+      --login2-glow: rgba(74, 116, 255, 0.34);
+      --login2-shadow: 0 26px 60px rgba(4, 15, 37, 0.5);
+    }
+
+    html,
+    body {
+      height: 100%;
     }
 
     body {
       font-family: 'Manrope', sans-serif;
-      background:
-        radial-gradient(circle at 14% 20%, rgba(47, 107, 255, 0.18), transparent 26%),
-        radial-gradient(circle at 55% 34%, rgba(99, 102, 241, 0.24), transparent 22%),
-        radial-gradient(circle at 78% 78%, rgba(56, 189, 248, 0.12), transparent 22%),
-        linear-gradient(180deg, var(--login2-bg) 0%, #071224 100%);
       color: var(--login2-text);
-      min-height: 100vh;
-    }
-
-    [data-theme="light"] body {
       background:
-        radial-gradient(circle at 14% 20%, rgba(47, 107, 255, 0.12), transparent 26%),
-        radial-gradient(circle at 55% 34%, rgba(99, 102, 241, 0.11), transparent 22%),
-        radial-gradient(circle at 78% 78%, rgba(56, 189, 248, 0.10), transparent 22%),
-        linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+        radial-gradient(circle at 18% 14%, rgba(41, 79, 197, 0.23), transparent 30%),
+        radial-gradient(circle at 54% 42%, rgba(92, 66, 240, 0.2), transparent 26%),
+        linear-gradient(180deg, var(--login2-bg) 0%, #07122b 100%);
+      overflow: hidden;
     }
 
     body > header {
-      max-width: 1340px;
-      margin: 18px auto 0;
-      padding: 0 24px 18px;
+      max-width: 1220px;
+      margin: 14px auto 0;
+      padding: 0 18px 12px;
+      border-bottom: 1px solid rgba(94, 125, 185, 0.22);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 18px;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-      position: relative;
-      z-index: 3;
+      gap: 14px;
     }
 
     body > header .brand {
+      position: relative;
       width: auto;
-      justify-content: flex-start;
-      gap: 12px;
       margin: 0;
       display: inline-flex;
       align-items: center;
-      color: var(--login2-text);
+      justify-content: flex-start;
+      gap: 10px;
+      padding: 10px 14px 10px 52px;
+      border-radius: 12px;
+      background: rgba(30, 74, 131, 0.36);
+      border: 1px solid rgba(96, 126, 190, 0.42);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     body > header .brand::before {
       content: "";
-      width: 34px;
-      height: 34px;
-      border-radius: 11px;
-      background:
-        linear-gradient(135deg, rgba(47, 107, 255, 1), rgba(84, 94, 255, 0.98));
-      box-shadow: 0 14px 30px rgba(47, 107, 255, 0.32);
-      position: relative;
-      clip-path: polygon(0 0, 42% 0, 42% 42%, 100% 0, 100% 24%, 58% 58%, 100% 100%, 72% 100%, 36% 64%, 36% 100%, 0 100%);
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #3070ff 0%, #5d54ff 100%);
+      box-shadow: 0 8px 20px rgba(38, 94, 255, 0.5);
+    }
+
+    body > header .brand::after {
+      content: "K";
+      position: absolute;
+      left: 22px;
+      top: 50%;
+      transform: translateY(-54%);
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 900;
+      color: #8dc1ff;
+      letter-spacing: -0.06em;
+      text-shadow: 0 0 10px rgba(95, 150, 255, 0.58);
     }
 
     body > header .brand-name.brand-animated {
-      color: var(--login2-text);
-      background: none;
-      -webkit-text-fill-color: currentColor;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      font-size: 2rem;
+      font-size: 22px;
       font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #edf3ff;
+      background: none;
+      -webkit-text-fill-color: #edf3ff;
       box-shadow: none;
       padding: 0;
       animation: none;
     }
 
     body > header .brand-subtitle {
+      color: #4f86ff;
+      font-size: 16px;
       text-transform: uppercase;
-      letter-spacing: 0.22em;
-      color: #4f83ff;
-      font-size: 0.82rem;
       font-weight: 800;
+      letter-spacing: 0.18em;
     }
 
     body > header .topbar,
     body > header .actions {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     body > header .public-theme-switch,
     body > header .language-dropdown > button {
-      border: 1px solid rgba(148, 163, 184, 0.16);
-      background: rgba(15, 23, 42, 0.55);
-      backdrop-filter: blur(18px);
-      border-radius: 14px;
-      padding: 4px;
-      box-shadow: 0 16px 40px rgba(2, 6, 23, 0.24);
-    }
-
-    [data-theme="light"] body > header .public-theme-switch,
-    [data-theme="light"] body > header .language-dropdown > button {
-      background: rgba(255, 255, 255, 0.9);
-      box-shadow: 0 18px 38px rgba(37, 99, 235, 0.12);
+      border-radius: 12px;
+      border: 1px solid rgba(94, 125, 185, 0.34);
+      background: rgba(9, 23, 50, 0.72);
+      box-shadow: 0 12px 26px rgba(2, 8, 22, 0.36);
+      padding: 3px;
     }
 
     body > header .public-theme-switch .user-menu-theme,
     body > header .language-dropdown > button {
-      color: var(--login2-text);
-      min-height: 44px;
-      border-radius: 10px;
+      min-height: 36px;
+      border-radius: 9px;
       border: 0;
-      padding: 0 16px;
+      color: #cbd9f1;
       font-weight: 700;
+      padding: 0 13px;
     }
 
     body > header .public-theme-switch .user-menu-theme.active {
-      background: linear-gradient(135deg, rgba(47, 107, 255, 0.22), rgba(90, 55, 255, 0.3));
-      color: #f8fafc;
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-    }
-
-    [data-theme="light"] body > header .public-theme-switch .user-menu-theme.active {
-      color: #ffffff;
-    }
-
-    body > header .language-dropdown {
-      position: relative;
+      color: #ecf2ff;
+      background: linear-gradient(135deg, rgba(47, 104, 255, 0.44), rgba(91, 61, 255, 0.48));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
     }
 
     body > header .language-dropdown-menu {
-      min-width: 180px;
-      border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.14);
-      background: rgba(8, 15, 28, 0.96);
+      border-radius: 12px;
+      border: 1px solid rgba(94, 125, 185, 0.34);
+      background: rgba(8, 21, 45, 0.96);
       box-shadow: var(--login2-shadow);
-    }
-
-    [data-theme="light"] body > header .language-dropdown-menu {
-      background: rgba(255, 255, 255, 0.98);
     }
 
     body > main {
-      max-width: 1340px;
+      max-width: 1220px;
       margin: 0 auto;
-      padding: 26px 24px 18px;
+      padding: 12px 18px 6px;
+      height: calc(100vh - 120px);
     }
 
-    .login-template2-shell {
+    .login2-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.8fr);
-      gap: 28px;
-      align-items: stretch;
+      grid-template-columns: minmax(0, 1.8fr) minmax(350px, 0.86fr);
+      gap: 24px;
+      height: 100%;
+      min-height: 0;
     }
 
-    .login-template2-stage {
-      position: relative;
-      overflow: hidden;
-      border-radius: 28px;
+    .login2-stage,
+    .login2-auth {
+      border-radius: 22px;
       border: 1px solid var(--login2-border);
-      background: linear-gradient(180deg, rgba(3, 10, 24, 0.86), rgba(7, 18, 36, 0.66));
       box-shadow: var(--login2-shadow);
-      padding: 28px;
-      min-height: 620px;
+      min-height: 0;
+      overflow: hidden;
     }
 
-    [data-theme="light"] .login-template2-stage {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(239, 246, 255, 0.9));
+    .login2-stage {
+      position: relative;
+      background: linear-gradient(170deg, rgba(6, 18, 44, 0.96), rgba(4, 12, 30, 0.95));
+      padding: 20px;
     }
 
-    .login-template2-stage::before,
-    .login-template2-stage::after {
+    .login2-stage::before {
       content: "";
       position: absolute;
-      border-radius: 999px;
-      pointer-events: none;
-      filter: blur(18px);
-      opacity: 0.95;
-    }
-
-    .login-template2-stage::before {
       width: 340px;
       height: 340px;
-      left: -60px;
-      bottom: -120px;
-      background: radial-gradient(circle, rgba(47, 107, 255, 0.24), transparent 70%);
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(89, 74, 255, 0.24), transparent 70%);
+      right: 16%;
+      top: 26%;
+      filter: blur(16px);
+      pointer-events: none;
     }
 
-    .login-template2-stage::after {
-      width: 320px;
-      height: 320px;
-      right: 8%;
-      top: 10%;
-      background: radial-gradient(circle, rgba(121, 40, 202, 0.24), transparent 68%);
-    }
-
-    .login-template2-stage-grid {
+    .login2-stage-grid {
       position: relative;
       z-index: 1;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(280px, 0.58fr);
-      gap: 24px;
+      grid-template-columns: minmax(0, 1fr) minmax(250px, 0.48fr);
+      gap: 18px;
       height: 100%;
+      min-height: 0;
       align-items: center;
     }
 
-    .login-template2-copy {
-      display: flex;
-      flex-direction: column;
-      gap: 22px;
-      align-self: start;
+    .login2-copy {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      min-height: 0;
     }
 
-    .login-template2-kicker {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
+    .login2-kicker {
       width: fit-content;
-      padding: 10px 16px;
+      padding: 8px 14px;
       border-radius: 999px;
-      border: 1px solid rgba(79, 131, 255, 0.2);
-      background: rgba(29, 44, 82, 0.46);
-      color: #b9c7ff;
-      font-size: 0.84rem;
-      font-weight: 800;
-      letter-spacing: 0.04em;
+      border: 1px solid rgba(95, 126, 189, 0.4);
+      background: rgba(24, 40, 77, 0.72);
+      color: #b5c7ec;
+      font-size: 14px;
+      font-weight: 700;
       text-transform: uppercase;
     }
 
-    [data-theme="light"] .login-template2-kicker {
-      background: rgba(219, 234, 254, 0.72);
-      color: #1d4ed8;
-    }
-
-    .login-template2-title {
+    .login2-title {
       margin: 0;
-      max-width: 760px;
-      font-size: clamp(2.5rem, 4vw, 4.15rem);
-      line-height: 1.02;
-      letter-spacing: -0.04em;
-      color: var(--login2-text);
+      font-size: clamp(40px, 4.1vw, 62px);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+      color: #e8effd;
+      max-width: 640px;
     }
 
-    .login-template2-title .accent {
+    .login2-title .accent {
       display: inline-block;
-      background: linear-gradient(135deg, #2f6bff, #8452ff 46%, #8b5cf6 100%);
+      background: linear-gradient(135deg, #3b74ff 0%, #6f4bff 66%, #8e62ff 100%);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
     }
 
-    .login-template2-description {
+    .login2-description {
       margin: 0;
-      max-width: 620px;
+      font-size: 15px;
+      line-height: 1.56;
       color: var(--login2-muted);
-      font-size: 1.1rem;
-      line-height: 1.75;
+      max-width: 580px;
     }
 
-    .login-template2-notice {
-      padding: 14px 16px;
-      border-radius: 16px;
-      background: rgba(37, 99, 235, 0.12);
-      border: 1px solid rgba(96, 165, 250, 0.22);
-      color: #dbeafe;
-      max-width: 620px;
+    .login2-notice {
+      max-width: 590px;
+      border-radius: 12px;
+      border: 1px solid rgba(100, 139, 225, 0.28);
+      background: rgba(44, 88, 186, 0.16);
+      color: #d9e7ff;
+      padding: 10px 12px;
+      font-size: 14px;
     }
 
-    [data-theme="light"] .login-template2-notice {
-      color: #1e3a8a;
-      background: rgba(191, 219, 254, 0.56);
-    }
-
-    .login-template2-feature-grid {
+    .login2-features {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 8px;
+      gap: 10px;
     }
 
-    .login-template2-feature {
-      min-height: 150px;
-      padding: 18px 16px;
-      border-radius: 22px;
-      border: 1px solid rgba(148, 163, 184, 0.12);
-      background: rgba(8, 15, 29, 0.56);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    .login2-feature {
+      border-radius: 16px;
+      border: 1px solid rgba(77, 109, 173, 0.3);
+      background: rgba(12, 25, 54, 0.72);
+      padding: 12px;
+      min-height: 126px;
+      display: grid;
+      align-content: start;
+      gap: 10px;
     }
 
-    [data-theme="light"] .login-template2-feature {
-      background: rgba(255, 255, 255, 0.72);
-    }
-
-    .feature-icon {
-      width: 48px;
-      height: 48px;
+    .icon-circle {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      border-radius: 16px;
-      margin-bottom: 18px;
-      font-size: 1.15rem;
-      font-weight: 800;
-      color: #bfd1ff;
-      background: linear-gradient(135deg, rgba(47, 107, 255, 0.18), rgba(90, 55, 255, 0.2));
-      border: 1px solid rgba(96, 165, 250, 0.16);
+      background: rgba(56, 90, 170, 0.4);
+      border: 1px solid rgba(106, 146, 231, 0.38);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      color: #9ec4ff;
     }
 
-    [data-theme="light"] .feature-icon {
-      color: #1d4ed8;
-      background: linear-gradient(135deg, rgba(191, 219, 254, 0.9), rgba(224, 231, 255, 0.95));
+    .icon-circle svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
-    .login-template2-feature h3 {
-      margin: 0 0 10px;
-      font-size: 1.03rem;
-      color: var(--login2-text);
-    }
-
-    .login-template2-feature p {
+    .login2-feature h3 {
       margin: 0;
-      color: var(--login2-muted);
-      font-size: 0.95rem;
-      line-height: 1.55;
+      font-size: 20px;
+      line-height: 1.04;
+      letter-spacing: -0.03em;
+      color: #e6edfb;
     }
 
-    .login-template2-metrics {
+    .login2-feature p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.34;
+      color: #a8bcdd;
+    }
+
+    .login2-metrics {
+      margin-top: 2px;
+      border-radius: 16px;
+      border: 1px solid rgba(77, 109, 173, 0.28);
+      background: rgba(9, 20, 44, 0.76);
+      padding: 10px 12px;
       display: grid;
-      grid-template-columns: 1.3fr repeat(4, 1fr);
-      gap: 18px;
-      margin-top: 10px;
-      padding: 16px 18px;
-      border-radius: 24px;
-      border: 1px solid rgba(148, 163, 184, 0.12);
-      background: rgba(7, 13, 28, 0.54);
-    }
-
-    [data-theme="light"] .login-template2-metrics {
-      background: rgba(255, 255, 255, 0.76);
-    }
-
-    .metrics-copy {
-      color: var(--login2-muted);
-      font-size: 0.98rem;
-      display: flex;
+      grid-template-columns: 1.25fr repeat(4, 1fr);
+      gap: 10px;
       align-items: center;
     }
 
-    .metric-item {
-      position: relative;
-      padding-left: 16px;
+    .login2-metrics-copy {
+      color: #b0c0de;
+      font-size: 14px;
     }
 
-    .metric-item::before {
+    .login2-metric {
+      display: grid;
+      gap: 5px;
+      position: relative;
+      padding-left: 8px;
+    }
+
+    .login2-metric::before {
       content: "";
       position: absolute;
       left: 0;
-      top: 6px;
-      bottom: 6px;
+      top: 4px;
+      bottom: 4px;
       width: 1px;
-      background: rgba(148, 163, 184, 0.14);
+      background: rgba(106, 136, 196, 0.3);
     }
 
-    .metric-value {
-      display: block;
-      font-size: 2rem;
+    .login2-metric-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .login2-metric-value {
+      font-size: 24px;
       line-height: 1;
       font-weight: 800;
-      color: var(--login2-text);
-      margin-bottom: 8px;
+      color: #eaf1ff;
+      letter-spacing: -0.03em;
     }
 
-    .metric-label {
-      color: var(--login2-muted);
-      font-size: 0.92rem;
-      line-height: 1.45;
+    .login2-metric-label {
+      font-size: 13px;
+      color: #9cb0d2;
+      line-height: 1.34;
     }
 
-    .login-template2-preview {
+    .login2-preview {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100%;
-      position: relative;
+      min-height: 0;
+      height: 100%;
     }
 
-    .login-template2-preview::before,
-    .login-template2-preview::after {
+    .login2-preview::before {
       content: "";
       position: absolute;
-      border-radius: 999px;
-      filter: blur(34px);
-      z-index: 0;
-      opacity: 0.85;
-    }
-
-    .login-template2-preview::before {
       width: 220px;
       height: 220px;
-      background: radial-gradient(circle, rgba(47, 107, 255, 0.28), transparent 70%);
+      border-radius: 999px;
+      background: radial-gradient(circle, var(--login2-glow), transparent 68%);
       left: 10%;
-      bottom: 16%;
+      bottom: 8%;
+      filter: blur(12px);
     }
 
-    .login-template2-preview::after {
-      width: 260px;
-      height: 260px;
-      background: radial-gradient(circle, rgba(90, 55, 255, 0.26), transparent 70%);
-      right: 2%;
-      top: 10%;
-    }
-
-    .app-preview-shell {
+    .app-preview {
       position: relative;
-      z-index: 1;
-      width: min(100%, 355px);
-      border-radius: 28px;
-      border: 1px solid rgba(96, 165, 250, 0.28);
-      background: linear-gradient(180deg, rgba(7, 15, 31, 0.96), rgba(9, 17, 34, 0.92));
-      box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-        0 32px 70px rgba(2, 6, 23, 0.54),
-        0 0 46px rgba(90, 55, 255, 0.18);
+      width: min(100%, 300px);
+      border-radius: 18px;
       overflow: hidden;
-      transform: perspective(1600px) rotateY(-12deg) rotateX(5deg);
+      border: 1px solid rgba(84, 121, 197, 0.34);
+      background: linear-gradient(180deg, rgba(9, 21, 46, 0.97), rgba(10, 20, 42, 0.96));
+      box-shadow: 0 24px 48px rgba(2, 8, 22, 0.52), 0 0 44px rgba(91, 71, 255, 0.2);
+      transform: perspective(1200px) rotateY(-10deg) rotateX(4deg);
     }
 
-    [data-theme="light"] .app-preview-shell {
-      background: linear-gradient(180deg, rgba(243, 247, 255, 0.98), rgba(225, 236, 255, 0.96));
-      box-shadow:
-        0 0 0 1px rgba(37, 99, 235, 0.05) inset,
-        0 32px 70px rgba(37, 99, 235, 0.16),
-        0 0 46px rgba(90, 55, 255, 0.10);
-    }
-
-    .app-preview-topbar {
+    .app-preview-top {
+      border-bottom: 1px solid rgba(91, 124, 188, 0.22);
+      padding: 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      padding: 18px 18px 14px;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-      color: #e5ecff;
-    }
-
-    [data-theme="light"] .app-preview-topbar {
-      color: #0f172a;
-      border-bottom-color: rgba(37, 99, 235, 0.08);
+      gap: 8px;
+      color: #dce8ff;
+      font-size: 14px;
+      font-weight: 700;
     }
 
     .app-preview-brand {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      font-size: 0.92rem;
-      font-weight: 800;
-      letter-spacing: 0.02em;
+      gap: 7px;
     }
 
-    .app-preview-brand-mark {
-      width: 14px;
-      height: 14px;
-      border-radius: 4px;
-      background: linear-gradient(135deg, #2f6bff, #7c3aed);
-      box-shadow: 0 0 16px rgba(47, 107, 255, 0.48);
+    .app-preview-brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3d77ff, #6b52ff);
+      box-shadow: 0 0 14px rgba(66, 107, 255, 0.6);
     }
 
     .app-preview-body {
       display: grid;
-      grid-template-columns: 46px 1fr;
-      gap: 14px;
-      padding: 16px;
-    }
-
-    .app-preview-sidebar {
-      display: grid;
+      grid-template-columns: 34px 1fr;
       gap: 10px;
-      justify-items: center;
-      align-content: start;
+      padding: 12px;
     }
 
-    .app-preview-navdot {
-      width: 28px;
-      height: 28px;
-      border-radius: 9px;
-      background: rgba(15, 23, 42, 0.88);
-      border: 1px solid rgba(148, 163, 184, 0.12);
+    .app-preview-menu {
+      display: grid;
+      align-content: start;
+      justify-items: center;
+      gap: 8px;
+    }
+
+    .app-preview-menu-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid rgba(100, 133, 197, 0.33);
+      background: rgba(24, 44, 80, 0.86);
       position: relative;
     }
 
-    [data-theme="light"] .app-preview-navdot {
-      background: rgba(255, 255, 255, 0.96);
-    }
-
-    .app-preview-navdot.active {
-      background: linear-gradient(135deg, rgba(47, 107, 255, 0.94), rgba(90, 55, 255, 0.92));
-    }
-
-    .app-preview-navdot::before {
+    .app-preview-menu-dot::before {
       content: "";
       position: absolute;
-      inset: 8px;
-      border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      opacity: 0.8;
+      inset: 6px;
+      border-radius: 50%;
+      border: 1px solid rgba(182, 209, 255, 0.7);
+    }
+
+    .app-preview-menu-dot.active {
+      background: linear-gradient(135deg, #3770ff, #6c4bff);
+      box-shadow: 0 0 16px rgba(63, 104, 255, 0.5);
+      border-color: rgba(130, 164, 236, 0.64);
     }
 
     .app-preview-main {
       display: grid;
-      gap: 12px;
-    }
-
-    .app-preview-title,
-    .app-preview-subtitle {
-      margin: 0;
+      gap: 9px;
     }
 
     .app-preview-title {
-      color: #eef2ff;
-      font-size: 0.95rem;
+      margin: 0;
+      font-size: 14px;
       font-weight: 800;
+      color: #e6eefe;
     }
 
     .app-preview-subtitle {
-      color: rgba(226, 232, 240, 0.6);
-      font-size: 0.72rem;
+      margin: 0;
+      font-size: 11px;
+      color: #8ea3c9;
     }
 
-    [data-theme="light"] .app-preview-title {
-      color: #0f172a;
-    }
-
-    [data-theme="light"] .app-preview-subtitle {
-      color: #64748b;
-    }
-
-    .preview-stats {
+    .app-preview-stats {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      gap: 8px;
     }
 
-    .preview-stat {
-      border-radius: 16px;
-      padding: 12px;
-      border: 1px solid rgba(148, 163, 184, 0.1);
-      background: rgba(10, 18, 36, 0.84);
+    .app-preview-stat {
+      border-radius: 10px;
+      border: 1px solid rgba(86, 118, 183, 0.28);
+      background: rgba(14, 27, 56, 0.86);
+      padding: 9px;
+      display: grid;
+      gap: 4px;
     }
 
-    [data-theme="light"] .preview-stat {
-      background: rgba(255, 255, 255, 0.94);
+    .app-preview-stat small {
+      color: #90a5ca;
+      font-size: 10px;
     }
 
-    .preview-stat-label {
-      display: block;
-      font-size: 0.68rem;
-      color: rgba(226, 232, 240, 0.68);
-      margin-bottom: 8px;
+    .app-preview-stat strong {
+      color: #f2f6ff;
+      font-size: 14px;
+      line-height: 1.1;
     }
 
-    .preview-stat-value {
-      display: block;
-      color: #f8fafc;
-      font-size: 1.2rem;
-      font-weight: 800;
-      margin-bottom: 4px;
+    .app-preview-stat em {
+      color: #73b2ff;
+      font-style: normal;
+      font-size: 10px;
     }
 
-    .preview-stat-trend {
-      font-size: 0.7rem;
-      color: #7dd3fc;
+    .app-preview-chart,
+    .app-preview-table {
+      border-radius: 10px;
+      border: 1px solid rgba(86, 118, 183, 0.28);
+      background: rgba(14, 27, 56, 0.86);
+      padding: 9px;
     }
 
-    [data-theme="light"] .preview-stat-label {
-      color: #64748b;
-    }
-
-    [data-theme="light"] .preview-stat-value {
-      color: #0f172a;
-    }
-
-    .preview-chart,
-    .preview-table {
-      border-radius: 16px;
-      padding: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.1);
-      background: rgba(10, 18, 36, 0.84);
-    }
-
-    [data-theme="light"] .preview-chart,
-    [data-theme="light"] .preview-table {
-      background: rgba(255, 255, 255, 0.94);
-    }
-
-    .preview-chart svg {
+    .app-preview-chart svg {
       width: 100%;
-      height: 86px;
-      margin-top: 8px;
+      height: 60px;
+      margin-top: 5px;
     }
 
-    .preview-chart path {
+    .app-preview-chart path {
       fill: none;
-      stroke: url(#previewLineGradient);
-      stroke-width: 4;
+      stroke: url(#previewLineGradient2);
+      stroke-width: 3;
       stroke-linecap: round;
     }
 
-    .preview-chart line {
-      stroke: rgba(148, 163, 184, 0.14);
+    .app-preview-chart line {
+      stroke: rgba(115, 139, 185, 0.28);
     }
 
-    .preview-table-row {
+    .app-preview-row {
       display: grid;
-      grid-template-columns: 1.5fr 0.7fr 0.6fr;
-      gap: 8px;
+      grid-template-columns: 1.5fr 0.7fr 0.7fr;
+      gap: 7px;
       align-items: center;
-      font-size: 0.72rem;
-      color: rgba(226, 232, 240, 0.8);
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(86, 118, 183, 0.2);
+      font-size: 10px;
+      color: #c9d8f4;
     }
 
-    .preview-table-row:last-child {
+    .app-preview-row:last-child {
       border-bottom: 0;
     }
 
-    [data-theme="light"] .preview-table-row {
-      color: #334155;
-    }
-
-    .preview-chip {
-      width: fit-content;
+    .app-preview-chip {
       justify-self: end;
-      padding: 4px 8px;
       border-radius: 999px;
+      padding: 2px 6px;
+      font-size: 9px;
       font-weight: 700;
-      font-size: 0.66rem;
-      background: rgba(250, 204, 21, 0.12);
       color: #fbbf24;
+      background: rgba(250, 204, 21, 0.14);
     }
 
-    .preview-chip.ok {
-      background: rgba(34, 197, 94, 0.14);
+    .app-preview-chip.ok {
       color: #4ade80;
+      background: rgba(74, 222, 128, 0.14);
     }
 
-    .login-template2-auth {
-      align-self: stretch;
-      border-radius: 26px;
-      border: 1px solid var(--login2-border);
-      background: var(--login2-panel);
-      box-shadow: var(--login2-shadow);
-      padding: 28px;
+    .login2-auth {
       display: flex;
-      flex-direction: column;
+      align-items: center;
       justify-content: center;
-      backdrop-filter: blur(18px);
+      background: var(--login2-panel-soft);
+      padding: 16px;
     }
 
-    .login-template2-auth-card {
-      border-radius: 24px;
-      border: 1px solid rgba(148, 163, 184, 0.14);
-      background: var(--login2-panel-strong);
-      padding: 34px 28px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    .login2-auth-card {
+      width: 100%;
+      max-height: 100%;
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(91, 123, 187, 0.34);
+      background: var(--login2-auth);
+      padding: 20px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
-    .login-template2-auth-card h2 {
-      margin: 0 0 10px;
-      font-size: 2rem;
-      letter-spacing: -0.03em;
-      color: var(--login2-text);
+    .login2-auth-card h2 {
+      margin: 0 0 6px;
+      font-size: 21px;
+      line-height: 1.08;
+      color: #edf3ff;
     }
 
-    .login-template2-auth-card > p {
-      margin: 0 0 28px;
-      color: var(--login2-muted);
-      font-size: 1rem;
+    .login2-auth-card > p {
+      margin: 0 0 16px;
+      color: #a9bedf;
+      font-size: 14px;
+      line-height: 1.4;
     }
 
-    .login-template2-form {
+    .login2-form {
       display: grid;
-      gap: 18px;
+      gap: 12px;
     }
 
-    .login-template2-field {
+    .login2-field {
       display: grid;
-      gap: 10px;
+      gap: 7px;
     }
 
-    .login-template2-field label {
-      color: var(--login2-text);
+    .login2-field label {
+      color: #edf3ff;
+      font-size: 14px;
       font-weight: 700;
-      font-size: 0.97rem;
     }
 
-    .login-template2-input {
+    .login2-input {
       position: relative;
     }
 
-    .login-template2-input input {
+    .login2-input input {
       width: 100%;
-      min-height: 58px;
-      border-radius: 16px;
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      background: rgba(6, 12, 24, 0.82);
-      color: var(--login2-text);
-      padding: 0 48px 0 48px;
-      font-size: 1rem;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      min-height: 48px;
+      border-radius: 14px;
+      border: 1px solid rgba(94, 125, 185, 0.38);
+      background: rgba(18, 35, 66, 0.88);
+      color: #ebf2ff;
+      font-size: 14px;
+      padding: 0 42px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    [data-theme="light"] .login-template2-input input {
-      background: rgba(255, 255, 255, 0.98);
+    .login2-input input::placeholder {
+      color: #8ea3c9;
     }
 
-    .login-template2-input input:focus {
+    .login2-input input:focus {
       outline: 0;
-      border-color: rgba(96, 165, 250, 0.64);
-      box-shadow: 0 0 0 4px rgba(47, 107, 255, 0.14);
+      border-color: rgba(101, 143, 228, 0.84);
+      box-shadow: 0 0 0 3px rgba(53, 101, 214, 0.24);
     }
 
-    .login-template2-icon,
-    .login-template2-toggle {
+    .login2-icon,
+    .login2-toggle {
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
-      width: 22px;
-      height: 22px;
-      opacity: 0.8;
+      width: 18px;
+      height: 18px;
+      color: #8ea3c9;
     }
 
-    .login-template2-icon {
-      left: 16px;
-      color: #94a3b8;
+    .login2-icon {
+      left: 14px;
     }
 
-    .login-template2-toggle {
-      right: 14px;
+    .login2-toggle {
+      right: 12px;
       border: 0;
-      background: transparent;
-      color: #94a3b8;
       padding: 0;
+      background: transparent;
       cursor: pointer;
     }
 
-    .login-template2-aux {
+    .login2-aux {
       display: flex;
       justify-content: flex-end;
-      margin-top: -6px;
+      margin-top: -2px;
     }
 
-    .login-template2-aux a,
-    .login-template2-support a {
-      color: #4f83ff;
+    .login2-aux a,
+    .login2-support a {
+      color: #5286ff;
       text-decoration: none;
+      font-size: 14px;
       font-weight: 700;
     }
 
-    .login-template2-aux a:hover,
-    .login-template2-support a:hover {
+    .login2-aux a:hover,
+    .login2-support a:hover {
       text-decoration: underline;
     }
 
-    .login-template2-submit,
-    .login-template2-signup-toggle {
+    .login2-submit,
+    .login2-signup-toggle,
+    .login2-create-submit {
+      min-height: 48px;
       width: 100%;
-      min-height: 56px;
-      border-radius: 16px;
+      border-radius: 14px;
       border: 0;
-      font-size: 1rem;
+      font-size: 17px;
       font-weight: 800;
       cursor: pointer;
-      transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+      transition: filter 0.18s ease, transform 0.18s ease;
     }
 
-    .login-template2-submit {
+    .login2-submit {
+      color: #eef4ff;
       background: linear-gradient(135deg, var(--login2-primary), var(--login2-secondary));
-      color: #ffffff;
-      box-shadow: 0 18px 34px rgba(79, 70, 229, 0.28);
+      box-shadow: 0 14px 24px rgba(65, 73, 210, 0.34);
     }
 
-    .login-template2-signup-toggle {
-      background: transparent;
-      color: var(--login2-text);
-      border: 1px solid rgba(148, 163, 184, 0.18);
+    .login2-signup-toggle {
+      color: #dce8ff;
+      border: 1px solid rgba(94, 125, 185, 0.34);
+      background: rgba(14, 30, 58, 0.72);
     }
 
-    .login-template2-submit:hover,
-    .login-template2-signup-toggle:hover,
-    .login-template2-security:hover {
-      transform: translateY(-1px);
-      filter: brightness(1.03);
-    }
-
-    .login-template2-divider {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      color: var(--login2-muted);
-      margin: 6px 0;
-    }
-
-    .login-template2-divider::before,
-    .login-template2-divider::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: rgba(148, 163, 184, 0.16);
-    }
-
-    .login-template2-signup-panel {
-      margin-top: 2px;
-      padding: 18px;
-      border-radius: 18px;
-      background: rgba(8, 15, 29, 0.5);
-      border: 1px solid rgba(148, 163, 184, 0.14);
-    }
-
-    [data-theme="light"] .login-template2-signup-panel {
-      background: rgba(248, 250, 252, 0.92);
-    }
-
-    .login-template2-signup-panel.hidden {
-      display: none;
-    }
-
-    .login-template2-signup-panel h3 {
-      margin: 0 0 16px;
-      font-size: 1rem;
-      color: var(--login2-text);
-    }
-
-    .login-template2-signup-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .login-template2-signup-grid .full {
-      grid-column: 1 / -1;
-    }
-
-    .login-template2-signup-grid label {
-      display: block;
-      margin-bottom: 8px;
-      color: var(--login2-text);
-      font-size: 0.9rem;
-      font-weight: 700;
-    }
-
-    .login-template2-signup-grid input {
-      width: 100%;
-      min-height: 50px;
-      border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.16);
-      background: rgba(6, 12, 24, 0.82);
-      color: var(--login2-text);
-      padding: 0 16px;
-    }
-
-    [data-theme="light"] .login-template2-signup-grid input {
-      background: rgba(255, 255, 255, 0.98);
-    }
-
-    .login-template2-create-submit {
-      width: 100%;
-      min-height: 52px;
-      border-radius: 14px;
-      border: 0;
-      margin-top: 16px;
+    .login2-create-submit {
+      color: #ecfdf5;
       background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: #fff;
-      font-weight: 800;
-      cursor: pointer;
+      margin-top: 12px;
     }
 
-    .login-template2-security {
-      margin-top: 18px;
-      width: 100%;
-      border-radius: 16px;
-      border: 1px solid rgba(148, 163, 184, 0.16);
-      background: rgba(255, 255, 255, 0.02);
-      padding: 16px 18px;
+    .login2-submit:hover,
+    .login2-signup-toggle:hover,
+    .login2-create-submit:hover,
+    .login2-security:hover {
+      filter: brightness(1.04);
+      transform: translateY(-1px);
+    }
+
+    .login2-divider {
       display: flex;
       align-items: center;
       gap: 10px;
-      color: var(--login2-muted);
-      font-weight: 700;
+      color: #a4b6d4;
+      font-size: 15px;
     }
 
-    .login-template2-security-icon {
-      width: 18px;
-      height: 18px;
-      flex: 0 0 18px;
-      color: #a5b4fc;
+    .login2-divider::before,
+    .login2-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(94, 125, 185, 0.34);
     }
 
-    .login-template2-support {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 14px;
-      color: var(--login2-muted);
-      font-size: 0.88rem;
-    }
-
-    .login-template2-error,
-    .login-template2-success {
+    .login2-signup-panel {
+      margin-top: 2px;
       border-radius: 14px;
-      padding: 14px 16px;
-      font-size: 0.94rem;
+      border: 1px solid rgba(94, 125, 185, 0.34);
+      background: rgba(13, 28, 54, 0.78);
+      padding: 12px;
+    }
+
+    .login2-signup-panel.hidden {
+      display: none;
+    }
+
+    .login2-signup-panel h3 {
+      margin: 0 0 10px;
+      color: #e5eeff;
+      font-size: 16px;
       font-weight: 700;
     }
 
-    .login-template2-error {
-      background: rgba(220, 38, 38, 0.14);
-      border: 1px solid rgba(248, 113, 113, 0.28);
+    .login2-signup-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .login2-signup-grid .full {
+      grid-column: 1 / -1;
+    }
+
+    .login2-signup-grid label {
+      display: block;
+      margin-bottom: 5px;
+      color: #d8e4fb;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .login2-signup-grid input {
+      width: 100%;
+      min-height: 40px;
+      border-radius: 11px;
+      border: 1px solid rgba(94, 125, 185, 0.34);
+      background: rgba(18, 35, 66, 0.9);
+      color: #e7efff;
+      padding: 0 12px;
+    }
+
+    .login2-security {
+      margin-top: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(94, 125, 185, 0.34);
+      background: rgba(15, 31, 60, 0.76);
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #b0c2df;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .login2-security svg {
+      width: 16px;
+      height: 16px;
+      color: #9fc1ff;
+      flex: 0 0 16px;
+    }
+
+    .login2-support {
+      margin-top: 8px;
+      display: grid;
+      gap: 4px;
+      color: #a9bbd9;
+      font-size: 13px;
+    }
+
+    .login2-error,
+    .login2-success {
+      border-radius: 12px;
+      padding: 10px 11px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .login2-error {
       color: #fecaca;
+      border: 1px solid rgba(248, 113, 113, 0.36);
+      background: rgba(220, 38, 38, 0.16);
     }
 
-    .login-template2-success {
-      background: rgba(34, 197, 94, 0.14);
-      border: 1px solid rgba(74, 222, 128, 0.28);
+    .login2-success {
       color: #bbf7d0;
-    }
-
-    [data-theme="light"] .login-template2-error {
-      color: #b91c1c;
-    }
-
-    [data-theme="light"] .login-template2-success {
-      color: #15803d;
+      border: 1px solid rgba(74, 222, 128, 0.36);
+      background: rgba(22, 163, 74, 0.16);
     }
 
     body > footer {
-      max-width: 1340px;
-      margin: 8px auto 18px;
-      padding: 16px 24px 0;
-      border-top: 1px solid rgba(148, 163, 184, 0.12);
-      color: var(--login2-muted);
+      max-width: 1220px;
+      margin: 4px auto 10px;
+      padding: 8px 18px 0;
+      border-top: 1px solid rgba(94, 125, 185, 0.22);
       text-align: center;
+      color: #98afd4;
+      font-size: 13px;
     }
 
-    @media (max-width: 1180px) {
-      .login-template2-shell,
-      .login-template2-stage-grid {
+    @media (max-width: 1160px) {
+      body {
+        overflow: auto;
+      }
+
+      body > main {
+        height: auto;
+        padding-bottom: 14px;
+      }
+
+      .login2-layout,
+      .login2-stage-grid {
         grid-template-columns: 1fr;
+        height: auto;
       }
 
-      .login-template2-preview {
-        min-height: 420px;
+      .login2-preview {
+        min-height: 300px;
       }
 
-      .app-preview-shell {
+      .app-preview {
         transform: none;
       }
 
-      .login-template2-feature-grid {
+      .login2-features {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .login-template2-metrics {
+      .login2-metrics {
         grid-template-columns: 1fr 1fr;
       }
 
-      .metrics-copy {
+      .login2-metrics-copy {
         grid-column: 1 / -1;
       }
     }
 
-    @media (max-width: 820px) {
+    @media (max-width: 720px) {
       body > header {
         flex-direction: column;
         align-items: stretch;
@@ -1009,31 +905,29 @@
         justify-content: space-between;
       }
 
-      .login-template2-stage,
-      .login-template2-auth {
-        padding: 20px;
+      .login2-title {
+        font-size: clamp(34px, 9vw, 50px);
       }
 
-      .login-template2-auth-card {
-        padding: 24px 20px;
+      .login2-description {
+        font-size: 15px;
       }
 
-      .login-template2-title {
-        font-size: 2.45rem;
+      .login2-feature {
+        min-height: 120px;
       }
 
-      .login-template2-feature-grid,
-      .login-template2-signup-grid {
+      .login2-signup-grid {
         grid-template-columns: 1fr;
       }
     }
 
-    @media (max-width: 560px) {
+    @media (max-width: 520px) {
       body > header,
       body > main,
       body > footer {
-        padding-left: 14px;
-        padding-right: 14px;
+        padding-left: 12px;
+        padding-right: 12px;
       }
 
       body > header .topbar,
@@ -1042,144 +936,161 @@
         align-items: stretch;
       }
 
-      .login-template2-title {
-        font-size: 2rem;
-      }
-
-      .login-template2-metrics {
+      .login2-features,
+      .login2-metrics {
         grid-template-columns: 1fr;
       }
 
-      .metric-item {
-        padding-left: 0;
-      }
-
-      .metric-item::before {
+      .login2-metric::before {
         display: none;
       }
 
-      .login-template2-auth-card h2 {
-        font-size: 1.7rem;
+      .login2-metric {
+        padding-left: 0;
       }
     }
   </style>
 
-  <div class="login-template2-shell">
-    <section class="login-template2-stage" aria-label="Vitrine do sistema">
-      <div class="login-template2-stage-grid">
-        <div class="login-template2-copy">
-          <span class="login-template2-kicker">{{ global_settings.get('login_kicker', 'ERP completo e inteligente') }}</span>
-          <h1 class="login-template2-title">
-            Gestão inteligente para<br>
+  <div class="login2-layout">
+    <section class="login2-stage" aria-label="Vitrine do sistema">
+      <div class="login2-stage-grid">
+        <div class="login2-copy">
+          <span class="login2-kicker">{{ global_settings.get('login_kicker', 'KDC SYSTEMS ERP') }}</span>
+          <h1 class="login2-title">
+            GestÃ£o inteligente para<br>
             vendas, compras e estoque<br>
             <span class="accent">em tempo real</span>
           </h1>
-          <p class="login-template2-description">{{ global_settings.get('login_description', 'Tenha controle total da sua operação com um sistema integrado que conecta processos, pessoas e informações em uma única plataforma.') }}</p>
+          <p class="login2-description">{{ global_settings.get('login_description', 'Controle sua operaÃ§Ã£o com fluxo integrado: compra, entrada, venda, alertas e relatÃ³rios essenciais em uma Ãºnica plataforma.') }}</p>
           {% if global_settings.get('public_login_notice') %}
-            <div class="login-template2-notice">{{ global_settings.get('public_login_notice') }}</div>
+            <div class="login2-notice">{{ global_settings.get('public_login_notice') }}</div>
           {% endif %}
 
-          <div class="login-template2-feature-grid">
-            <article class="login-template2-feature">
-              <span class="feature-icon">⌁</span>
-              <h3>{{ global_settings.get('login_badge_1', 'Estoque Integrado') }}</h3>
-              <p>Controle em tempo real com entradas, saídas, alertas e visão consolidada.</p>
+          <div class="login2-features">
+            <article class="login2-feature">
+              <span class="icon-circle" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 6h16"></path><path d="M7 6l1-2h8l1 2"></path><path d="M5 6l1 12h12l1-12"></path><path d="M9 11h6"></path></svg>
+              </span>
+              <h3>{{ global_settings.get('login_badge_1', 'Estoque integrado') }}</h3>
+              <p>Controle em tempo real</p>
             </article>
-            <article class="login-template2-feature">
-              <span class="feature-icon">◈</span>
+            <article class="login2-feature">
+              <span class="icon-circle" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6l7-3Z"></path><path d="M9.5 12.5l1.8 1.8 3.5-3.8"></path></svg>
+              </span>
               <h3>{{ global_settings.get('login_badge_2', 'Financeiro + XML') }}</h3>
-              <p>Emissão, conciliação e gestão automatizada em uma operação conectada.</p>
+              <p>EmissÃ£o e gestÃ£o automatizada</p>
             </article>
-            <article class="login-template2-feature">
-              <span class="feature-icon">▣</span>
-              <h3>{{ global_settings.get('login_badge_3', 'Relatórios Inteligentes') }}</h3>
-              <p>Dados que geram decisões com leitura executiva da saúde do negócio.</p>
+            <article class="login2-feature">
+              <span class="icon-circle" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M5 19V9"></path><path d="M10 19V5"></path><path d="M15 19v-7"></path><path d="M20 19v-4"></path></svg>
+              </span>
+              <h3>{{ global_settings.get('login_badge_3', 'RelatÃ³rios inteligentes') }}</h3>
+              <p>Dados que geram decisÃµes</p>
             </article>
-            <article class="login-template2-feature">
-              <span class="feature-icon">◎</span>
-              <h3>Multiusuário</h3>
-              <p>Acesso seguro e personalizado para conta principal e usuários dependentes.</p>
+            <article class="login2-feature">
+              <span class="icon-circle" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><path d="M20 8v6"></path><path d="M23 11h-6"></path></svg>
+              </span>
+              <h3>MultiusuÃ¡rio</h3>
+              <p>Acesso seguro e personalizado</p>
             </article>
           </div>
 
-          <div class="login-template2-metrics">
-            <div class="metrics-copy">Feito para o seu negócio crescer com previsibilidade, governança e execução mais rápida.</div>
-            <div class="metric-item">
-              <span class="metric-value">+10k</span>
-              <span class="metric-label">Empresas que confiam</span>
+          <div class="login2-metrics">
+            <div class="login2-metrics-copy">Feito para o seu negÃ³cio crescer</div>
+            <div class="login2-metric">
+              <div class="login2-metric-top">
+                <span class="icon-circle" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"></rect><path d="M8 7V5"></path><path d="M16 7V5"></path><path d="M4 11h16"></path></svg>
+                </span>
+                <span class="login2-metric-value">+10k</span>
+              </div>
+              <span class="login2-metric-label">Empresas que confiam</span>
             </div>
-            <div class="metric-item">
-              <span class="metric-value">+1M</span>
-              <span class="metric-label">Operações por dia</span>
+            <div class="login2-metric">
+              <div class="login2-metric-top">
+                <span class="icon-circle" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-8"></path><path d="M14 8h6v6"></path></svg>
+                </span>
+                <span class="login2-metric-value">+1M</span>
+              </div>
+              <span class="login2-metric-label">OperaÃ§Ãµes por dia</span>
             </div>
-            <div class="metric-item">
-              <span class="metric-value">99,9%</span>
-              <span class="metric-label">Disponibilidade</span>
+            <div class="login2-metric">
+              <div class="login2-metric-top">
+                <span class="icon-circle" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6l7-3Z"></path></svg>
+                </span>
+                <span class="login2-metric-value">99,9%</span>
+              </div>
+              <span class="login2-metric-label">Disponibilidade</span>
             </div>
-            <div class="metric-item">
-              <span class="metric-value">Suporte</span>
-              <span class="metric-label">Especializado</span>
+            <div class="login2-metric">
+              <div class="login2-metric-top">
+                <span class="icon-circle" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"></path><path d="M4 12v4a2 2 0 0 0 2 2h2"></path><path d="M20 12v4a2 2 0 0 1-2 2h-2"></path><path d="M12 18v2"></path></svg>
+                </span>
+                <span class="login2-metric-value">Suporte</span>
+              </div>
+              <span class="login2-metric-label">Especializado</span>
             </div>
           </div>
         </div>
 
-        <div class="login-template2-preview" aria-hidden="true">
-          <div class="app-preview-shell">
-            <div class="app-preview-topbar">
+        <div class="login2-preview" aria-hidden="true">
+          <div class="app-preview">
+            <div class="app-preview-top">
               <div class="app-preview-brand">
-                <span class="app-preview-brand-mark"></span>
+                <span class="app-preview-brand-dot"></span>
                 <span>{{ global_settings.get('brand_name', 'Kdc Systems') }} <small style="color:#4f83ff">{{ global_settings.get('brand_subtitle', 'ERP') }}</small></span>
               </div>
             </div>
             <div class="app-preview-body">
-              <div class="app-preview-sidebar">
-                <span class="app-preview-navdot active"></span>
-                <span class="app-preview-navdot"></span>
-                <span class="app-preview-navdot"></span>
-                <span class="app-preview-navdot"></span>
-                <span class="app-preview-navdot"></span>
-                <span class="app-preview-navdot"></span>
+              <div class="app-preview-menu">
+                <span class="app-preview-menu-dot active"></span>
+                <span class="app-preview-menu-dot"></span>
+                <span class="app-preview-menu-dot"></span>
+                <span class="app-preview-menu-dot"></span>
+                <span class="app-preview-menu-dot"></span>
+                <span class="app-preview-menu-dot"></span>
               </div>
               <div class="app-preview-main">
                 <div>
                   <p class="app-preview-title">Resumo Geral</p>
-                  <p class="app-preview-subtitle">Acompanhe os principais indicadores do seu negócio</p>
+                  <p class="app-preview-subtitle">Acompanhe os principais indicadores do seu negÃ³cio</p>
                 </div>
-
-                <div class="preview-stats">
-                  <div class="preview-stat">
-                    <span class="preview-stat-label">Vendas Hoje</span>
-                    <span class="preview-stat-value">R$ 24.350,00</span>
-                    <span class="preview-stat-trend">+ 18,5% vs ontem</span>
+                <div class="app-preview-stats">
+                  <div class="app-preview-stat">
+                    <small>Vendas Hoje</small>
+                    <strong>R$ 24.350,00</strong>
+                    <em>+ 18,5% vs ontem</em>
                   </div>
-                  <div class="preview-stat">
-                    <span class="preview-stat-label">Pedidos Hoje</span>
-                    <span class="preview-stat-value">128</span>
-                    <span class="preview-stat-trend">+ 12,2% vs ontem</span>
+                  <div class="app-preview-stat">
+                    <small>Pedidos Hoje</small>
+                    <strong>128</strong>
+                    <em>+ 12,2% vs ontem</em>
                   </div>
                 </div>
-
-                <div class="preview-chart">
-                  <p class="app-preview-title">Evolução de Vendas</p>
-                  <p class="app-preview-subtitle">Últimos 7 dias</p>
-                  <svg viewBox="0 0 260 86" role="img" aria-label="Gráfico de evolução de vendas">
+                <div class="app-preview-chart">
+                  <p class="app-preview-title">EvoluÃ§Ã£o de Vendas</p>
+                  <svg viewBox="0 0 240 60" role="img" aria-label="GrÃ¡fico de evoluÃ§Ã£o de vendas">
                     <defs>
-                      <linearGradient id="previewLineGradient" x1="0" x2="1" y1="0" y2="0">
+                      <linearGradient id="previewLineGradient2" x1="0" x2="1" y1="0" y2="0">
                         <stop offset="0%" stop-color="#2f6bff"></stop>
                         <stop offset="100%" stop-color="#8b5cf6"></stop>
                       </linearGradient>
                     </defs>
-                    <line x1="0" y1="68" x2="260" y2="68"></line>
-                    <path d="M 0 62 C 18 66, 28 18, 52 28 S 84 76, 108 60 S 134 40, 156 54 S 184 70, 208 42 S 236 22, 260 40"></path>
+                    <line x1="0" y1="46" x2="240" y2="46"></line>
+                    <path d="M 0 40 C 20 44, 32 10, 52 20 S 84 52, 104 38 S 132 24, 156 34 S 188 50, 212 26 S 230 16, 240 24"></path>
                   </svg>
                 </div>
-
-                <div class="preview-table">
+                <div class="app-preview-table">
                   <p class="app-preview-title">Estoque em Destaque</p>
-                  <div class="preview-table-row"><span>Lâmpada LED</span><span>50 un.</span><span class="preview-chip">Atenção</span></div>
-                  <div class="preview-table-row"><span>Painel LED</span><span>40 un.</span><span class="preview-chip">Atenção</span></div>
-                  <div class="preview-table-row"><span>Chave de Fenda</span><span>50 un.</span><span class="preview-chip ok">Ok</span></div>
-                  <div class="preview-table-row"><span>Capacete</span><span>45 un.</span><span class="preview-chip ok">Ok</span></div>
+                  <div class="app-preview-row"><span>LÃ¢mpada LED</span><span>50 un.</span><span class="app-preview-chip">AtenÃ§Ã£o</span></div>
+                  <div class="app-preview-row"><span>Painel LED</span><span>40 un.</span><span class="app-preview-chip">AtenÃ§Ã£o</span></div>
+                  <div class="app-preview-row"><span>Chave de Fenda</span><span>50 un.</span><span class="app-preview-chip ok">Ok</span></div>
+                  <div class="app-preview-row"><span>Capacete</span><span>45 un.</span><span class="app-preview-chip ok">Ok</span></div>
                 </div>
               </div>
             </div>
@@ -1188,88 +1099,88 @@
       </div>
     </section>
 
-    <aside class="login-template2-auth">
-      <div class="login-template2-auth-card">
+    <aside class="login2-auth">
+      <div class="login2-auth-card">
         <h2>Acesse sua conta</h2>
         <p>Entre com suas credenciais para continuar.</p>
 
-        <form method="post" action="{{ url_for('login') }}" class="login-template2-form">
-          <div class="login-template2-field">
-            <label for="login-template2-username">{{ t('username_label') }}</label>
-            <div class="login-template2-input">
-              <svg class="login-template2-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z"></path><path d="M4 20a8 8 0 0 1 16 0"></path></svg>
-              <input id="login-template2-username" name="username" type="text" placeholder="Digite seu usuário" required>
+        <form method="post" action="{{ url_for('login') }}" class="login2-form">
+          <div class="login2-field">
+            <label for="login2-username">{{ t('username_label') }}</label>
+            <div class="login2-input">
+              <svg class="login2-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z"></path><path d="M4 20a8 8 0 0 1 16 0"></path></svg>
+              <input id="login2-username" name="username" type="text" placeholder="Digite seu usuÃ¡rio" required>
             </div>
           </div>
 
-          <div class="login-template2-field">
-            <label for="login-template2-password">{{ t('password_label') }}</label>
-            <div class="login-template2-input">
-              <svg class="login-template2-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 1 1 8 0v3"></path></svg>
-              <input id="login-template2-password" name="password" type="password" placeholder="Digite sua senha" required>
-              <button type="button" class="login-template2-toggle" id="login-template2-toggle" aria-label="Mostrar ou ocultar senha">
+          <div class="login2-field">
+            <label for="login2-password">{{ t('password_label') }}</label>
+            <div class="login2-input">
+              <svg class="login2-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 1 1 8 0v3"></path></svg>
+              <input id="login2-password" name="password" type="password" placeholder="Digite sua senha" required>
+              <button type="button" class="login2-toggle" id="login2-toggle" aria-label="Mostrar ou ocultar senha">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"></path><path d="M10.6 10.6a2 2 0 1 0 2.8 2.8"></path><path d="M9.9 5.1A10.9 10.9 0 0 1 12 5c5.5 0 9.5 5.5 9.5 7s-1.4 3.4-3.6 5.1"></path><path d="M6.2 6.3C3.9 8 2.5 10.4 2.5 12c0 1.5 4 7 9.5 7 1 0 2-.2 2.9-.5"></path></svg>
               </button>
             </div>
           </div>
 
-          <div class="login-template2-aux">
+          <div class="login2-aux">
             <a href="{{ url_for('forgot_password') }}">{{ t('forgot_password_label') }}</a>
           </div>
 
           {% if login_success %}
-            <div class="login-template2-success">{{ login_success }}</div>
+            <div class="login2-success">{{ login_success }}</div>
           {% endif %}
           {% if login_error %}
-            <div class="login-template2-error">{{ login_error }}</div>
+            <div class="login2-error">{{ login_error }}</div>
           {% endif %}
 
-          <button type="submit" class="login-template2-submit">Entrar no sistema</button>
+          <button type="submit" class="login2-submit">Entrar no sistema</button>
 
           {% if global_settings.get('allow_public_account_signup') == '1' %}
-            <div class="login-template2-divider">ou</div>
-            <button type="button" class="login-template2-signup-toggle" onclick="toggleSignupPanelTemplate2()">Criar conta principal</button>
+            <div class="login2-divider">ou</div>
+            <button type="button" class="login2-signup-toggle" onclick="toggleSignupPanelTemplate2()">Criar conta principal</button>
           {% endif %}
         </form>
 
         {% if global_settings.get('allow_public_account_signup') == '1' %}
-          <div id="login-template2-signup-panel" class="login-template2-signup-panel hidden">
+          <div id="login2-signup-panel" class="login2-signup-panel hidden">
             <h3>Nova conta principal</h3>
             <form method="post" action="{{ url_for('criar_conta_principal') }}">
-              <div class="login-template2-signup-grid">
+              <div class="login2-signup-grid">
                 <div class="full">
-                  <label for="template2-account-name">Empresa</label>
-                  <input id="template2-account-name" name="account_name" type="text" placeholder="Ex: Padaria Central" required>
+                  <label for="login2-account-name">Empresa</label>
+                  <input id="login2-account-name" name="account_name" type="text" placeholder="Ex: Padaria Central" required>
                 </div>
                 <div>
-                  <label for="template2-owner-name">Responsável</label>
-                  <input id="template2-owner-name" name="owner_name" type="text" placeholder="Ex: Maria Souza" required>
+                  <label for="login2-owner-name">ResponsÃ¡vel</label>
+                  <input id="login2-owner-name" name="owner_name" type="text" placeholder="Ex: Maria Souza" required>
                 </div>
                 <div>
-                  <label for="template2-username">Usuário principal</label>
-                  <input id="template2-username" name="username" type="text" placeholder="Ex: padaria.central" required>
+                  <label for="login2-signup-username">UsuÃ¡rio principal</label>
+                  <input id="login2-signup-username" name="username" type="text" placeholder="Ex: padaria.central" required>
                 </div>
                 <div>
-                  <label for="template2-email">E-mail</label>
-                  <input id="template2-email" name="email" type="email" placeholder="Ex: contato@empresa.com">
+                  <label for="login2-signup-email">E-mail</label>
+                  <input id="login2-signup-email" name="email" type="email" placeholder="Ex: contato@empresa.com">
                 </div>
                 <div>
-                  <label for="template2-password">Senha</label>
-                  <input id="template2-password" name="password" type="password" required>
+                  <label for="login2-signup-password">Senha</label>
+                  <input id="login2-signup-password" name="password" type="password" required>
                 </div>
               </div>
-              <button type="submit" class="login-template2-create-submit">Finalizar criação da conta</button>
+              <button type="submit" class="login2-create-submit">Finalizar criaÃ§Ã£o da conta</button>
             </form>
           </div>
         {% endif %}
 
-        <div class="login-template2-security">
-          <svg class="login-template2-security-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6l7-3Z"></path><path d="M9.5 12.5l1.8 1.8 3.5-3.8"></path></svg>
-          <span>Seus dados estão protegidos com segurança avançada.</span>
+        <div class="login2-security">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6l7-3Z"></path><path d="M9.5 12.5l1.8 1.8 3.5-3.8"></path></svg>
+          <span>Seus dados estÃ£o protegidos com seguranÃ§a avanÃ§ada.</span>
         </div>
 
         {% if global_settings.get('public_support_email') or global_settings.get('public_support_whatsapp') %}
-          <div class="login-template2-support">
+          <div class="login2-support">
             {% if global_settings.get('public_support_email') %}<span>Suporte: <a href="mailto:{{ global_settings.get('public_support_email') }}">{{ global_settings.get('public_support_email') }}</a></span>{% endif %}
             {% if global_settings.get('public_support_whatsapp') %}<span>WhatsApp: <a href="https://wa.me/{{ global_settings.get('public_support_whatsapp')|replace(' ', '')|replace('(', '')|replace(')', '')|replace('-', '') }}" target="_blank" rel="noopener noreferrer">{{ global_settings.get('public_support_whatsapp') }}</a></span>{% endif %}
           </div>
@@ -1280,7 +1191,7 @@
 
   <script>
     function toggleSignupPanelTemplate2() {
-      var panel = document.getElementById('login-template2-signup-panel');
+      var panel = document.getElementById('login2-signup-panel');
       if (!panel) return;
       panel.classList.toggle('hidden');
       if (!panel.classList.contains('hidden')) {
@@ -1290,8 +1201,8 @@
     }
 
     (function () {
-      var passwordInput = document.getElementById('login-template2-password');
-      var toggleButton = document.getElementById('login-template2-toggle');
+      var passwordInput = document.getElementById('login2-password');
+      var toggleButton = document.getElementById('login2-toggle');
       if (!passwordInput || !toggleButton) return;
 
       toggleButton.addEventListener('click', function () {
