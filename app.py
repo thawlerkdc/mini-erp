@@ -1738,27 +1738,48 @@ def set_account_setting(account_id, key, value):
     conn.close()
 
 
-def send_email_with_settings(account_id, recipients, subject, body):
-    recipients = [email for email in recipients if email]
-    if not recipients:
-        return False, "Sem destinatário configurado"
-
-    settings = get_account_settings(account_id)
-    provider = _sanitize_provider(settings.get("smtp_provider"))
+def _resolve_smtp_settings(settings=None):
+    settings = settings or {}
+    provider = _sanitize_provider(settings.get("smtp_provider") or os.environ.get("SMTP_PROVIDER", "custom"))
     preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
-    host = settings.get("smtp_host") or preset["host"] or os.environ.get("SMTP_HOST", "")
-    port = int(settings.get("smtp_port") or preset["port"] or os.environ.get("SMTP_PORT", 587))
-    username = settings.get("smtp_username") or os.environ.get("SMTP_USERNAME", "")
-    password = settings.get("smtp_password") or os.environ.get("SMTP_PASSWORD", "")
-    from_email = settings.get("smtp_from_email") or os.environ.get("SMTP_FROM_EMAIL", "")
-    from_name = settings.get("smtp_from_name") or "Kdc Systems"
-    use_tls = _to_bool(settings.get("smtp_use_tls", preset["use_tls"]))
+    host = (settings.get("smtp_host") or os.environ.get("SMTP_HOST") or preset["host"] or "").strip()
+    port = int((settings.get("smtp_port") or os.environ.get("SMTP_PORT") or preset["port"] or 587))
+    username = (settings.get("smtp_username") or os.environ.get("SMTP_USERNAME") or "").strip()
+    password = (settings.get("smtp_password") or os.environ.get("SMTP_PASSWORD") or "").strip()
+    from_email = (settings.get("smtp_from_email") or os.environ.get("SMTP_FROM_EMAIL") or "").strip()
+    from_name = (settings.get("smtp_from_name") or os.environ.get("SMTP_FROM_NAME") or "Kdc Systems").strip() or "Kdc Systems"
+    use_tls = _to_bool(settings.get("smtp_use_tls") if settings.get("smtp_use_tls") is not None else os.environ.get("SMTP_USE_TLS", preset["use_tls"]))
 
     if not username and provider != "custom":
         username = from_email
 
+    return {
+        "smtp_provider": provider,
+        "smtp_host": host,
+        "smtp_port": port,
+        "smtp_username": username,
+        "smtp_password": password,
+        "smtp_from_email": from_email,
+        "smtp_from_name": from_name,
+        "smtp_use_tls": use_tls,
+    }
+
+
+def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_config_message):
+    recipients = [email for email in recipients if email]
+    if not recipients:
+        return False, "Sem destinatário configurado"
+
+    host = settings.get("smtp_host", "")
+    port = settings.get("smtp_port", 587)
+    username = settings.get("smtp_username", "")
+    password = settings.get("smtp_password", "")
+    from_email = settings.get("smtp_from_email", "")
+    from_name = settings.get("smtp_from_name", "Kdc Systems")
+    use_tls = settings.get("smtp_use_tls", True)
+
     if not host or not from_email:
-        return False, "SMTP não configurado em Parâmetros"
+        return False, missing_config_message
 
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -1777,6 +1798,28 @@ def send_email_with_settings(account_id, recipients, subject, body):
     except Exception as exc:
         logger.error("Falha ao enviar e-mail: %s", exc)
         return False, _humanize_email_error(str(exc), settings)
+
+
+def send_email_with_settings(account_id, recipients, subject, body):
+    settings = _resolve_smtp_settings(get_account_settings(account_id))
+    return _send_email_with_smtp_settings(
+        recipients,
+        subject,
+        body,
+        settings,
+        "SMTP não configurado em Parâmetros",
+    )
+
+
+def send_system_email(recipients, subject, body):
+    settings = _resolve_smtp_settings({})
+    return _send_email_with_smtp_settings(
+        recipients,
+        subject,
+        body,
+        settings,
+        "SMTP global do sistema não configurado",
+    )
 
 
 def run_daily_birthday_automation(account_id):
@@ -2354,7 +2397,7 @@ def forgot_password():
         if username and email:
             conn = get_auth_connection()
             user = conn.execute(
-                "SELECT id, account_id FROM users WHERE username = %s AND email = %s AND is_active = 1",
+                "SELECT id FROM users WHERE username = %s AND email = %s AND is_active = 1",
                 (username, email)
             ).fetchone()
 
@@ -2380,8 +2423,7 @@ def forgot_password():
                     f"Se você não solicitou a redefinição, ignore este e-mail.\n\n"
                     f"— Kdc Systems ERP"
                 )
-                sent, err = send_email_with_settings(
-                    user["account_id"],
+                sent, err = send_system_email(
                     [email],
                     "Redefinição de senha — Kdc Systems ERP",
                     body,
