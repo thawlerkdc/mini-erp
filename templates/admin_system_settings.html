@@ -183,8 +183,57 @@
         </div>
       </div>
 
+      <div class="system-user-toolbar">
+        <input type="search" id="system-user-search" placeholder="Buscar por empresa, login, nome ou e-mail">
+        <select id="system-user-status-filter">
+          <option value="all">Todos os status</option>
+          <option value="active">Somente ativos</option>
+          <option value="inactive">Somente inativos</option>
+        </select>
+      </div>
+
+      <div class="system-user-creation-grid">
+        <form method="post" action="{{ url_for('admin_system_settings', _anchor='user-management') }}" class="system-user-create-card">
+          <input type="hidden" name="action" value="create_system_account">
+          <h4>Nova conta principal</h4>
+          <div class="system-user-form-grid">
+            <div>
+              <label>Empresa</label>
+              <input type="text" name="account_name" required>
+            </div>
+            <div>
+              <label>Responsável</label>
+              <input type="text" name="owner_name" required>
+            </div>
+            <div>
+              <label>Login principal</label>
+              <input type="text" name="username" required>
+            </div>
+            <div>
+              <label>Senha inicial</label>
+              <input type="password" name="password" required>
+            </div>
+            <div>
+              <label>E-mail principal</label>
+              <input type="email" name="email">
+            </div>
+          </div>
+          <div class="system-user-actions-row">
+            <button type="submit" class="btn-confirm">Criar conta principal</button>
+          </div>
+        </form>
+
+        <div class="system-user-create-card helper-card">
+          <h4>Manutenção centralizada</h4>
+          <p>Use os blocos abaixo para:</p>
+          <p>1. localizar qualquer conta ou usuário pelo campo de busca;</p>
+          <p>2. editar nome, login, e-mail, senha e status;</p>
+          <p>3. criar dependentes vinculados diretamente ao usuário principal da conta.</p>
+        </div>
+      </div>
+
       {% for group in user_groups %}
-        <div class="account-user-group">
+        <div class="account-user-group" data-account-name="{{ group.account_name|lower }}" data-account-slug="{{ group.account_slug|lower }}">
           <div class="account-user-group-header">
             <div>
               <h4>{{ group.account_name }}</h4>
@@ -195,7 +244,7 @@
 
           {% if group.owner %}
             <div class="user-role-title">Usuário principal</div>
-            <form method="post" action="{{ url_for('admin_system_settings', _anchor='user-management') }}" class="system-user-form owner-form">
+            <form method="post" action="{{ url_for('admin_system_settings', _anchor='user-management') }}" class="system-user-form owner-form user-record-card" data-user-status="{{ 'active' if group.owner.is_active else 'inactive' }}" data-user-search="{{ (group.account_name ~ ' ' ~ group.owner.name ~ ' ' ~ group.owner.username ~ ' ' ~ group.owner.email)|lower }}">
               <input type="hidden" name="action" value="update_system_user">
               <input type="hidden" name="user_id" value="{{ group.owner.id }}">
               <div class="system-user-form-grid">
@@ -233,7 +282,7 @@
           {% if group.dependents %}
             <div class="dependent-user-list">
               {% for user in group.dependents %}
-                <form method="post" action="{{ url_for('admin_system_settings', _anchor='user-management') }}" class="system-user-form">
+                <form method="post" action="{{ url_for('admin_system_settings', _anchor='user-management') }}" class="system-user-form user-record-card" data-user-status="{{ 'active' if user.is_active else 'inactive' }}" data-user-search="{{ (group.account_name ~ ' ' ~ user.name ~ ' ' ~ user.username ~ ' ' ~ user.email)|lower }}">
                   <input type="hidden" name="action" value="update_system_user">
                   <input type="hidden" name="user_id" value="{{ user.id }}">
                   <div class="system-user-form-grid">
@@ -269,10 +318,75 @@
           {% else %}
             <div class="menu-empty-hint">Esta conta não possui usuários dependentes cadastrados.</div>
           {% endif %}
+
+          <div class="user-role-title">Novo dependente</div>
+          <form method="post" action="{{ url_for('admin_system_settings', _anchor='user-management') }}" class="system-user-form create-dependent-form">
+            <input type="hidden" name="action" value="create_system_dependent">
+            <input type="hidden" name="account_id" value="{{ group.account_id }}">
+            <div class="system-user-form-grid">
+              <div>
+                <label>Nome do dependente</label>
+                <input type="text" name="name" required>
+              </div>
+              <div>
+                <label>Login do dependente</label>
+                <input type="text" name="username" required>
+              </div>
+              <div>
+                <label>E-mail</label>
+                <input type="email" name="email">
+              </div>
+              <div>
+                <label>Senha inicial</label>
+                <input type="password" name="password" required>
+              </div>
+            </div>
+            <div class="system-user-actions-row">
+              <button type="submit" class="btn-confirm">Criar dependente nesta conta</button>
+            </div>
+          </form>
         </div>
       {% endfor %}
     </section>
   </div>
+
+  <script>
+    (function () {
+      var searchInput = document.getElementById('system-user-search');
+      var statusFilter = document.getElementById('system-user-status-filter');
+      var groups = Array.from(document.querySelectorAll('.account-user-group'));
+
+      if (!searchInput || !statusFilter || !groups.length) return;
+
+      function applyFilters() {
+        var query = (searchInput.value || '').trim().toLowerCase();
+        var status = statusFilter.value;
+
+        groups.forEach(function (group) {
+          var accountTokens = ((group.getAttribute('data-account-name') || '') + ' ' + (group.getAttribute('data-account-slug') || '')).trim();
+          var userCards = Array.from(group.querySelectorAll('.user-record-card'));
+          var visibleCards = 0;
+
+          userCards.forEach(function (card) {
+            var cardStatus = card.getAttribute('data-user-status') || 'active';
+            var haystack = card.getAttribute('data-user-search') || '';
+            var statusMatch = status === 'all' || cardStatus === status;
+            var queryMatch = !query || haystack.indexOf(query) >= 0 || accountTokens.indexOf(query) >= 0;
+            var visible = statusMatch && queryMatch;
+            card.hidden = !visible;
+            if (visible) visibleCards += 1;
+          });
+
+          var accountMatch = !query || accountTokens.indexOf(query) >= 0;
+          group.hidden = !accountMatch && visibleCards === 0;
+        });
+      }
+
+      searchInput.addEventListener('input', applyFilters);
+      statusFilter.addEventListener('change', applyFilters);
+      applyFilters();
+    })();
+  </script>
 
   <style>
     .system-admin-card {
@@ -318,6 +432,47 @@
       display: flex;
       justify-content: flex-end;
       margin-top: 16px;
+    }
+
+    .system-user-toolbar,
+    .system-user-creation-grid,
+    .system-user-actions-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .system-user-toolbar {
+      margin: 16px 0 18px;
+      flex-wrap: wrap;
+    }
+
+    .system-user-toolbar input,
+    .system-user-toolbar select {
+      min-width: 220px;
+      flex: 1 1 280px;
+    }
+
+    .system-user-creation-grid {
+      flex-wrap: wrap;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .system-user-create-card {
+      flex: 1 1 420px;
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.24);
+    }
+
+    .system-user-create-card h4 {
+      margin: 0 0 12px;
+    }
+
+    .helper-card p {
+      margin: 6px 0;
+      color: #475569;
     }
 
     .system-user-section-header p,
@@ -398,6 +553,11 @@
       align-items: center;
     }
 
+    .system-user-actions-row {
+      margin-top: 12px;
+      justify-content: flex-end;
+    }
+
     .user-status-badge,
     .user-meta-pill {
       display: inline-flex;
@@ -434,7 +594,10 @@
 
     @media (max-width: 768px) {
       .account-user-group-header,
-      .system-user-meta-row {
+      .system-user-meta-row,
+      .system-user-toolbar,
+      .system-user-creation-grid,
+      .system-user-actions-row {
         flex-direction: column;
         align-items: stretch;
       }

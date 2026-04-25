@@ -1097,6 +1097,64 @@ def update_system_user_by_admin(form_data):
     return True, "Usuário atualizado com sucesso."
 
 
+def create_system_account_by_admin(form_data):
+    account_name = (form_data.get("account_name") or "").strip()
+    owner_name = (form_data.get("owner_name") or "").strip()
+    username = (form_data.get("username") or "").strip()
+    password = form_data.get("password") or ""
+    email = (form_data.get("email") or "").strip() or None
+
+    if not all([account_name, owner_name, username, password]):
+        return False, "Preencha empresa, responsável, login principal e senha."
+    if " " in username:
+        return False, "O login da conta principal não pode conter espaços."
+
+    try:
+        create_account_with_owner(account_name, owner_name, username, password, email)
+    except psycopg.IntegrityError:
+        return False, "Este login principal já está em uso."
+
+    return True, "Nova conta principal criada com sucesso."
+
+
+def create_system_dependent_user_by_admin(form_data):
+    account_id = form_data.get("account_id")
+    name = (form_data.get("name") or "").strip()
+    username = (form_data.get("username") or "").strip()
+    password = form_data.get("password") or ""
+    email = (form_data.get("email") or "").strip() or None
+
+    if not account_id:
+        return False, "Conta principal não informada."
+    if not all([name, username, password]):
+        return False, "Preencha nome, login e senha do dependente."
+    if " " in username:
+        return False, "O login do dependente não pode conter espaços."
+
+    conn = get_auth_connection()
+    owner = conn.execute(
+        "SELECT id FROM users WHERE account_id = %s AND role = 'owner' LIMIT 1",
+        (account_id,),
+    ).fetchone()
+    if not owner:
+        conn.close()
+        return False, "Conta sem usuário principal encontrado."
+
+    try:
+        conn.execute(
+            "INSERT INTO users (account_id, name, username, password, email, role, parent_user_id, is_admin, created_at) VALUES (%s, %s, %s, %s, %s, 'operator', %s, 0, %s)",
+            (account_id, name, username, password, email, owner["id"], datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        conn.commit()
+    except psycopg.IntegrityError:
+        conn.rollback()
+        conn.close()
+        return False, "Este login de dependente já está em uso."
+
+    conn.close()
+    return True, "Novo dependente criado com sucesso."
+
+
 def get_default_route_for_current_user():
     if get_current_user_role() == "owner":
         return url_for("dashboard")
@@ -2648,6 +2706,16 @@ def admin_system_settings():
             else:
                 flash(f"Falha no SMTP global: {err}", "error")
             return redirect(url_for("admin_system_settings"))
+
+        if action == "create_system_account":
+            success, message = create_system_account_by_admin(request.form)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_system_settings", _anchor="user-management"))
+
+        if action == "create_system_dependent":
+            success, message = create_system_dependent_user_by_admin(request.form)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_system_settings", _anchor="user-management"))
 
         if action == "update_system_user":
             success, message = update_system_user_by_admin(request.form)
