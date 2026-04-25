@@ -1304,6 +1304,7 @@ def get_default_route_for_current_user():
         ("compras", lambda: url_for("estoque_entrada")),
         ("relatorios", lambda: url_for("relatorios")),
         ("cadastro", lambda: url_for("cadastro", entity="clientes")),
+        ("gestao_saas", lambda: url_for("saas.gestao_saas")),
     ]
     for module_key, route_getter in route_by_module:
         if user_can_view_module(module_key):

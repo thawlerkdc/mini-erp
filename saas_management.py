@@ -1,6 +1,10 @@
 from datetime import datetime, timedelta
 import io
 import json
+import os
+from collections import defaultdict
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 from flask import Blueprint, flash, redirect, render_template, request, send_file, session, url_for
 
@@ -215,6 +219,13 @@ def _ensure_saas_defaults(conn):
         "send_billing_whatsapp": "0",
         "daily_monitor_hour": "07:30",
         "apply_new_prices_default": "novos",
+        "whatsapp_api_url": os.environ.get("SAAS_WHATSAPP_API_URL", ""),
+        "whatsapp_api_token": os.environ.get("SAAS_WHATSAPP_API_TOKEN", ""),
+        "whatsapp_timeout_seconds": os.environ.get("SAAS_WHATSAPP_TIMEOUT", "12"),
+        "whatsapp_template_overdue": "Sua assinatura no Mini ERP está em atraso. Regularize para evitar bloqueio.",
+        "whatsapp_template_blocked": "Sua conta foi bloqueada por inadimplência. Assim que houver pagamento, ela será reativada automaticamente.",
+        "whatsapp_template_reactivated": "Pagamento confirmado. Sua conta no Mini ERP foi reativada com sucesso.",
+        "whatsapp_template_low_usage": "Notamos baixa utilização da conta. Podemos ajudar com uma consultoria rápida para aumentar resultados.",
     }
     for key, value in defaults.items():
         conn.execute(
@@ -227,6 +238,52 @@ def _ensure_saas_defaults(conn):
             """,
             (key, value, _now_str()),
         )
+
+
+def _automation_settings_map(conn):
+    return {
+        row["setting_key"]: (row["setting_value"] or "")
+        for row in conn.execute("SELECT setting_key, setting_value FROM saas_automation_settings").fetchall()
+    }
+
+
+def _post_json(url, payload, token=None, timeout_seconds=12):
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib_request.Request(url=url, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    with urllib_request.urlopen(req, timeout=max(3, int(timeout_seconds))) as response:
+        return response.getcode(), response.read().decode("utf-8", errors="ignore")
+
+
+def _send_whatsapp_notification(conn, account_row, event_type, message):
+    settings = _automation_settings_map(conn)
+    if str(settings.get("send_billing_whatsapp", "0")) != "1":
+        return False, "whatsapp_disabled"
+
+    api_url = (settings.get("whatsapp_api_url") or "").strip()
+    api_token = (settings.get("whatsapp_api_token") or "").strip()
+    timeout_seconds = _safe_int(settings.get("whatsapp_timeout_seconds"), 12)
+    to_phone = (account_row.get("whatsapp") or "").strip()
+    if not api_url or not to_phone:
+        return False, "missing_api_url_or_phone"
+
+    payload = {
+        "to": to_phone,
+        "message": message,
+        "event": event_type,
+        "account_id": account_row.get("id"),
+        "account_name": account_row.get("name"),
+    }
+    try:
+        status_code, response_text = _post_json(api_url, payload, token=api_token, timeout_seconds=timeout_seconds)
+        success = 200 <= int(status_code) < 300
+        return success, f"http_{status_code}:{response_text[:180]}"
+    except urllib_error.HTTPError as exc:
+        return False, f"http_error_{exc.code}"
+    except Exception as exc:
+        return False, f"error_{exc}"
 
 
 def _collect_daily_usage_snapshot(conn, usage_date):
@@ -331,12 +388,14 @@ def _run_daily_monitor(conn, reference_date=None):
         (_now_str(), today),
     )
 
-    blocking_rules = {
-        row["setting_key"]: row["setting_value"]
-        for row in conn.execute("SELECT setting_key, setting_value FROM saas_automation_settings").fetchall()
-    }
+    blocking_rules = _automation_settings_map(conn)
     auto_block_enabled = str(blocking_rules.get("auto_block_enabled", "1")) == "1"
     default_suspension_days = _safe_int(blocking_rules.get("default_suspension_days"), 10)
+
+    account_map = {
+        row["id"]: dict(row)
+        for row in conn.execute("SELECT id, name, whatsapp, primary_email FROM accounts").fetchall()
+    }
 
     if auto_block_enabled:
         overdue_rows = conn.execute(
@@ -358,9 +417,32 @@ def _run_daily_monitor(conn, reference_date=None):
                 overdue_days = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(oldest_due, "%Y-%m-%d")).days
             except Exception:
                 continue
+            if overdue_days in {3, 7}:
+                template = (blocking_rules.get("whatsapp_template_overdue") or "").strip()
+                account_row = account_map.get(row["account_id"], {})
+                message = f"{template} (Conta: {account_row.get('name', '-')}, atraso: {overdue_days} dias)"
+                sent, note = _send_whatsapp_notification(conn, account_row, "overdue_warning", message)
+                conn.execute(
+                    """
+                    INSERT INTO saas_panel_access_logs (user_id, account_id, username, action, method, path, payload, created_at)
+                    VALUES (NULL, %s, %s, 'daily_whatsapp_overdue', 'AUTO', '/admin/saas-management', %s, %s)
+                    """,
+                    (row["account_id"], "saas_monitor", json.dumps({"sent": sent, "note": note}, ensure_ascii=False), _now_str()),
+                )
             if overdue_days >= _safe_int(row["suspension_days"], default_suspension_days):
                 conn.execute("UPDATE accounts SET status = 'bloqueada', updated_at = %s WHERE id = %s", (_now_str(), row["account_id"]))
                 conn.execute("UPDATE saas_subscriptions SET status = 'bloqueada', updated_at = %s WHERE account_id = %s", (_now_str(), row["account_id"]))
+                template = (blocking_rules.get("whatsapp_template_blocked") or "").strip()
+                account_row = account_map.get(row["account_id"], {})
+                message = f"{template} (Conta: {account_row.get('name', '-')})"
+                sent, note = _send_whatsapp_notification(conn, account_row, "account_blocked", message)
+                conn.execute(
+                    """
+                    INSERT INTO saas_panel_access_logs (user_id, account_id, username, action, method, path, payload, created_at)
+                    VALUES (NULL, %s, %s, 'daily_whatsapp_blocked', 'AUTO', '/admin/saas-management', %s, %s)
+                    """,
+                    (row["account_id"], "saas_monitor", json.dumps({"sent": sent, "note": note}, ensure_ascii=False), _now_str()),
+                )
 
     paid_ready = conn.execute(
         """
@@ -377,6 +459,17 @@ def _run_daily_monitor(conn, reference_date=None):
     for row in paid_ready:
         conn.execute("UPDATE accounts SET status = 'ativa', updated_at = %s WHERE id = %s", (_now_str(), row["account_id"]))
         conn.execute("UPDATE saas_subscriptions SET status = 'ativa', updated_at = %s WHERE account_id = %s", (_now_str(), row["account_id"]))
+        template = (blocking_rules.get("whatsapp_template_reactivated") or "").strip()
+        account_row = account_map.get(row["account_id"], {})
+        message = f"{template} (Conta: {account_row.get('name', '-')})"
+        sent, note = _send_whatsapp_notification(conn, account_row, "account_reactivated", message)
+        conn.execute(
+            """
+            INSERT INTO saas_panel_access_logs (user_id, account_id, username, action, method, path, payload, created_at)
+            VALUES (NULL, %s, %s, 'daily_whatsapp_reactivated', 'AUTO', '/admin/saas-management', %s, %s)
+            """,
+            (row["account_id"], "saas_monitor", json.dumps({"sent": sent, "note": note}, ensure_ascii=False), _now_str()),
+        )
 
     low_usage_accounts = conn.execute(
         """
@@ -401,6 +494,17 @@ def _run_daily_monitor(conn, reference_date=None):
             VALUES (%s, 'alerta', 'alta', %s, %s, %s, 0)
             """,
             (row["account_id"], title, message, today),
+        )
+        template = (blocking_rules.get("whatsapp_template_low_usage") or "").strip()
+        account_row = account_map.get(row["account_id"], {})
+        auto_message = f"{template} (Conta: {account_row.get('name', '-')})"
+        sent, note = _send_whatsapp_notification(conn, account_row, "low_usage_alert", auto_message)
+        conn.execute(
+            """
+            INSERT INTO saas_panel_access_logs (user_id, account_id, username, action, method, path, payload, created_at)
+            VALUES (NULL, %s, %s, 'daily_whatsapp_low_usage', 'AUTO', '/admin/saas-management', %s, %s)
+            """,
+            (row["account_id"], "saas_monitor", json.dumps({"sent": sent, "note": note}, ensure_ascii=False), _now_str()),
         )
 
 
@@ -807,6 +911,13 @@ def gestao_saas():
                     "send_billing_whatsapp": "1" if request.form.get("send_billing_whatsapp") else "0",
                     "daily_monitor_hour": (request.form.get("daily_monitor_hour") or "07:30").strip(),
                     "apply_new_prices_default": (request.form.get("apply_new_prices_default") or "novos").strip(),
+                    "whatsapp_api_url": (request.form.get("whatsapp_api_url") or "").strip(),
+                    "whatsapp_api_token": (request.form.get("whatsapp_api_token") or "").strip(),
+                    "whatsapp_timeout_seconds": str(_safe_int(request.form.get("whatsapp_timeout_seconds"), 12)),
+                    "whatsapp_template_overdue": (request.form.get("whatsapp_template_overdue") or "").strip(),
+                    "whatsapp_template_blocked": (request.form.get("whatsapp_template_blocked") or "").strip(),
+                    "whatsapp_template_reactivated": (request.form.get("whatsapp_template_reactivated") or "").strip(),
+                    "whatsapp_template_low_usage": (request.form.get("whatsapp_template_low_usage") or "").strip(),
                 }
                 for key, value in settings_map.items():
                     conn.execute(
@@ -919,10 +1030,7 @@ def gestao_saas():
             ((datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),),
         ).fetchall()
 
-        automation_settings = {
-            row["setting_key"]: row["setting_value"]
-            for row in conn.execute("SELECT setting_key, setting_value FROM saas_automation_settings").fetchall()
-        }
+        automation_settings = _automation_settings_map(conn)
 
         price_history = conn.execute(
             """
@@ -977,6 +1085,26 @@ def gestao_saas():
             ((datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),),
         ).fetchall()
 
+        usage_daily_rows = conn.execute(
+            """
+            SELECT usage_date, SUM(total_sessions) AS sessions, AVG(active_users) AS active_users
+            FROM saas_usage_daily
+            WHERE usage_date >= %s
+            GROUP BY usage_date
+            ORDER BY usage_date
+            """,
+            ((datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),),
+        ).fetchall()
+        usage_chart_labels = [row["usage_date"] for row in usage_daily_rows]
+        usage_chart_sessions = [int(row["sessions"] or 0) for row in usage_daily_rows]
+        usage_chart_active_users = [round(float(row["active_users"] or 0), 2) for row in usage_daily_rows]
+
+        feature_chart_labels = [str(row["top_feature"] or "-") for row in top_features]
+        feature_chart_values = [int(row["total"] or 0) for row in top_features]
+
+        account_chart_labels = [str(row["account_name"] or "-") for row in top_accounts]
+        account_chart_values = [int(row["sessions"] or 0) for row in top_accounts]
+
         selected_company = None
         if selected_account_id > 0:
             selected_company = next((row for row in companies if int(row["id"]) == selected_account_id), None)
@@ -1003,6 +1131,13 @@ def gestao_saas():
             kpi=kpi,
             selected_company=selected_company,
             selected_plan=selected_plan,
+            usage_chart_labels_json=json.dumps(usage_chart_labels, ensure_ascii=False),
+            usage_chart_sessions_json=json.dumps(usage_chart_sessions, ensure_ascii=False),
+            usage_chart_active_users_json=json.dumps(usage_chart_active_users, ensure_ascii=False),
+            feature_chart_labels_json=json.dumps(feature_chart_labels, ensure_ascii=False),
+            feature_chart_values_json=json.dumps(feature_chart_values, ensure_ascii=False),
+            account_chart_labels_json=json.dumps(account_chart_labels, ensure_ascii=False),
+            account_chart_values_json=json.dumps(account_chart_values, ensure_ascii=False),
             can_edit_saas=_can_access_saas(require_edit=True),
             can_delete_saas=_can_access_saas(require_delete=True),
         )

@@ -372,6 +372,21 @@
 
   <section class="param-section">
     <h3>Dashboard e Insights</h3>
+    <div class="saas-charts-grid">
+      <article class="saas-chart-card">
+        <h4 class="param-subtitle">Uso diario do sistema (30 dias)</h4>
+        <canvas id="saasUsageChart" height="120"></canvas>
+      </article>
+      <article class="saas-chart-card">
+        <h4 class="param-subtitle">Top funcionalidades (30 dias)</h4>
+        <canvas id="saasFeatureChart" height="120"></canvas>
+      </article>
+      <article class="saas-chart-card">
+        <h4 class="param-subtitle">Empresas mais ativas (30 dias)</h4>
+        <canvas id="saasAccountChart" height="120"></canvas>
+      </article>
+    </div>
+
     <div class="param-inline-grid">
       <div>
         <h4 class="param-subtitle">Ranking de funcionalidades mais usadas</h4>
@@ -492,6 +507,34 @@
           <option value="existentes" {% if automation_settings.get('apply_new_prices_default') == 'existentes' %}selected{% endif %}>Novos + existentes</option>
         </select>
       </div>
+      <div>
+        <label>URL da API WhatsApp (webhook)</label>
+        <input type="url" name="whatsapp_api_url" value="{{ automation_settings.get('whatsapp_api_url', '') }}" placeholder="https://api.seuprovedor.com/send" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Token da API WhatsApp</label>
+        <input type="text" name="whatsapp_api_token" value="{{ automation_settings.get('whatsapp_api_token', '') }}" placeholder="Bearer token" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Timeout da API (segundos)</label>
+        <input type="number" min="3" max="60" name="whatsapp_timeout_seconds" value="{{ automation_settings.get('whatsapp_timeout_seconds', '12') }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Template WhatsApp: aviso de atraso</label>
+        <input type="text" name="whatsapp_template_overdue" value="{{ automation_settings.get('whatsapp_template_overdue', '') }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Template WhatsApp: conta bloqueada</label>
+        <input type="text" name="whatsapp_template_blocked" value="{{ automation_settings.get('whatsapp_template_blocked', '') }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Template WhatsApp: conta reativada</label>
+        <input type="text" name="whatsapp_template_reactivated" value="{{ automation_settings.get('whatsapp_template_reactivated', '') }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Template WhatsApp: baixa utilizacao</label>
+        <input type="text" name="whatsapp_template_low_usage" value="{{ automation_settings.get('whatsapp_template_low_usage', '') }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
 
       <div class="saas-actions-full">
         <button type="submit" class="btn-add" {% if not can_edit_saas %}disabled{% endif %}>Salvar configuracoes</button>
@@ -595,6 +638,20 @@
     align-content: start;
   }
 
+  .saas-charts-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    margin-bottom: 12px;
+  }
+
+  .saas-chart-card {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 12px;
+    padding: 10px;
+    background: rgba(248, 250, 252, 0.74);
+  }
+
   .saas-ranking-list {
     list-style: none;
     margin: 0;
@@ -641,5 +698,114 @@
     background: rgba(15, 23, 42, 0.8);
     border-color: rgba(148, 163, 184, 0.2);
   }
+
+  [data-theme="dark"] .saas-chart-card {
+    background: rgba(15, 23, 42, 0.82);
+    border-color: rgba(148, 163, 184, 0.2);
+  }
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    if (!window.Chart) {
+      return;
+    }
+
+    var usageLabels = {{ usage_chart_labels_json|safe }};
+    var usageSessions = {{ usage_chart_sessions_json|safe }};
+    var usageUsers = {{ usage_chart_active_users_json|safe }};
+    var featureLabels = {{ feature_chart_labels_json|safe }};
+    var featureValues = {{ feature_chart_values_json|safe }};
+    var accountLabels = {{ account_chart_labels_json|safe }};
+    var accountValues = {{ account_chart_values_json|safe }};
+
+    var textColor = document.documentElement.getAttribute("data-theme") === "dark" ? "#e2e8f0" : "#334155";
+    var gridColor = document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(148,163,184,.25)" : "rgba(148,163,184,.22)";
+
+    var usageCanvas = document.getElementById("saasUsageChart");
+    if (usageCanvas) {
+      new Chart(usageCanvas, {
+        type: "line",
+        data: {
+          labels: usageLabels,
+          datasets: [
+            {
+              label: "Sessoes",
+              data: usageSessions,
+              borderColor: "#0b4a82",
+              backgroundColor: "rgba(11,74,130,.16)",
+              tension: 0.28,
+              fill: true
+            },
+            {
+              label: "Usuarios ativos (media)",
+              data: usageUsers,
+              borderColor: "#16a34a",
+              backgroundColor: "rgba(22,163,74,.12)",
+              tension: 0.28,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: textColor } } },
+          scales: {
+            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor }, grid: { color: gridColor } }
+          }
+        }
+      });
+    }
+
+    var featureCanvas = document.getElementById("saasFeatureChart");
+    if (featureCanvas) {
+      new Chart(featureCanvas, {
+        type: "bar",
+        data: {
+          labels: featureLabels,
+          datasets: [{
+            label: "Dias no topo",
+            data: featureValues,
+            backgroundColor: ["#0b4a82", "#1d4ed8", "#0f766e", "#334155", "#0369a1", "#15803d", "#7c3aed", "#ca8a04"]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: textColor } } },
+          scales: {
+            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    var accountCanvas = document.getElementById("saasAccountChart");
+    if (accountCanvas) {
+      new Chart(accountCanvas, {
+        type: "bar",
+        data: {
+          labels: accountLabels,
+          datasets: [{
+            label: "Sessoes",
+            data: accountValues,
+            backgroundColor: "rgba(37,99,235,.75)",
+            borderColor: "#1d4ed8",
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: textColor } } },
+          scales: {
+            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
+          }
+        }
+      });
+    }
+  })();
+</script>
 {% endblock %}
