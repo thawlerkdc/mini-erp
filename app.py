@@ -982,6 +982,121 @@ def get_global_settings():
     return settings
 
 
+def get_system_user_groups():
+    conn = get_auth_connection()
+    rows = conn.execute(
+        """
+        SELECT
+            a.id AS account_id,
+            a.name AS account_name,
+            a.slug AS account_slug,
+            u.id AS user_id,
+            u.name AS user_name,
+            u.username,
+            u.email,
+            u.role,
+            u.parent_user_id,
+            u.is_admin,
+            u.is_active,
+            u.created_at,
+            parent.username AS parent_username
+        FROM accounts a
+        LEFT JOIN users u ON u.account_id = a.id
+        LEFT JOIN users parent ON parent.id = u.parent_user_id
+        ORDER BY a.name, CASE WHEN u.role = 'owner' THEN 0 ELSE 1 END, LOWER(COALESCE(u.name, u.username, ''))
+        """
+    ).fetchall()
+    conn.close()
+
+    grouped = []
+    group_index = {}
+    for row in rows:
+        account_id = row["account_id"]
+        if account_id not in group_index:
+            group = {
+                "account_id": account_id,
+                "account_name": row["account_name"],
+                "account_slug": row["account_slug"],
+                "owner": None,
+                "dependents": [],
+            }
+            grouped.append(group)
+            group_index[account_id] = group
+
+        if not row["user_id"]:
+            continue
+
+        user_data = {
+            "id": row["user_id"],
+            "name": row["user_name"] or "",
+            "username": row["username"] or "",
+            "email": row["email"] or "",
+            "role": row["role"] or "operator",
+            "parent_user_id": row["parent_user_id"],
+            "parent_username": row["parent_username"] or "",
+            "is_admin": bool(row["is_admin"]),
+            "is_active": bool(row["is_active"]),
+            "created_at": row["created_at"] or "",
+        }
+        if user_data["role"] == "owner":
+            group_index[account_id]["owner"] = user_data
+        else:
+            group_index[account_id]["dependents"].append(user_data)
+
+    return grouped
+
+
+def update_system_user_by_admin(form_data):
+    user_id = form_data.get("user_id")
+    if not user_id:
+        return False, "Usuário não informado."
+
+    conn = get_auth_connection()
+    user = conn.execute(
+        "SELECT id, account_id, role, is_admin, is_active FROM users WHERE id = %s",
+        (user_id,),
+    ).fetchone()
+    if not user:
+        conn.close()
+        return False, "Usuário não encontrado."
+
+    name = (form_data.get("name") or "").strip()
+    username = (form_data.get("username") or "").strip()
+    email = (form_data.get("email") or "").strip()
+    password = form_data.get("password") or ""
+    is_active = 1 if form_data.get("is_active") else 0
+
+    if not name or not username:
+        conn.close()
+        return False, "Nome e login são obrigatórios."
+    if " " in username:
+        conn.close()
+        return False, "Login não pode conter espaços."
+    if int(user["id"]) == int(get_current_user_id() or 0) and not is_active:
+        conn.close()
+        return False, "Você não pode inativar o próprio usuário administrador em uso."
+
+    try:
+        if password:
+            conn.execute(
+                "UPDATE users SET name = %s, username = %s, password = %s, email = %s, is_active = %s WHERE id = %s",
+                (name, username, password, email or None, is_active, user_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE users SET name = %s, username = %s, email = %s, is_active = %s WHERE id = %s",
+                (name, username, email or None, is_active, user_id),
+            )
+        conn.commit()
+    except psycopg.IntegrityError:
+        conn.rollback()
+        conn.close()
+        return False, "Este login já está em uso por outro usuário."
+
+    conn.close()
+    return True, "Usuário atualizado com sucesso."
+
+
 def get_default_route_for_current_user():
     if get_current_user_role() == "owner":
         return url_for("dashboard")
@@ -2013,6 +2128,9 @@ def set_language(lang_code):
 def login():
     if session.get("user"):
         return redirect(get_default_route_for_current_user())
+    login_success = None
+    if request.method == "GET" and request.args.get("password_reset") == "success":
+        login_success = "Senha alterada com sucesso. Entre com seu usuário e a nova senha para continuar."
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
@@ -2030,7 +2148,7 @@ def login():
                 get_current_user_permissions()
             return redirect(get_default_route_for_current_user())
         return render_template("login.html", title=translate("login_title"), hide_page_title=True, login_error=translate("invalid_login"))
-    return render_template("login.html", title=translate("login_title"), hide_page_title=True)
+    return render_template("login.html", title=translate("login_title"), hide_page_title=True, login_success=login_success)
 
 
 @app.route("/criar-conta", methods=["POST"])
@@ -2512,7 +2630,8 @@ def admin_system_settings():
         return access_response
 
     if request.method == "POST":
-        if request.form.get("action") == "test_global_smtp":
+        action = request.form.get("action") or "save_global_settings"
+        if action == "test_global_smtp":
             test_email = (request.form.get("test_email") or "").strip()
             if not test_email:
                 flash("Informe um e-mail para testar o serviço global.", "error")
@@ -2530,6 +2649,11 @@ def admin_system_settings():
                 flash(f"Falha no SMTP global: {err}", "error")
             return redirect(url_for("admin_system_settings"))
 
+        if action == "update_system_user":
+            success, message = update_system_user_by_admin(request.form)
+            flash(message, "success" if success else "error")
+            return redirect(url_for("admin_system_settings", _anchor="user-management"))
+
         save_global_settings(request.form)
         flash("Configurações globais do sistema atualizadas com sucesso.", "success")
         return redirect(url_for("admin_system_settings"))
@@ -2540,6 +2664,7 @@ def admin_system_settings():
         title="Administração do Sistema",
         settings=settings,
         db_status=DB_STATUS,
+        user_groups=get_system_user_groups(),
     )
 
 
@@ -2641,8 +2766,7 @@ def reset_password(token):
             conn.execute("UPDATE password_reset_tokens SET used = 1 WHERE id = %s", (record["id"],))
             conn.commit()
             conn.close()
-            flash("Senha redefinida com sucesso! Faça o login.", "success")
-            return redirect(url_for("login"))
+            return redirect(url_for("login", password_reset="success"))
 
     conn.close()
     return render_template("reset_password.html", title="Nova Senha", token=token, reset_error=reset_error)

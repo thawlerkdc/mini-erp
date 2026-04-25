@@ -39,6 +39,9 @@
           <label for="password">{{ t('password_label') }}</label>
           <input id="password" name="password" type="password" required>
 
+          {% if login_success %}
+            <div class="login-success-msg">{{ login_success }}</div>
+          {% endif %}
           {% if login_error %}
             <div class="login-error-msg">{{ login_error }}</div>
           {% endif %}
@@ -510,6 +513,17 @@
       border: 1px solid rgba(220, 38, 38, 0.5);
       border-radius: 8px;
       color: #dc2626;
+      padding: 10px 14px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .login-success-msg {
+      background: rgba(22, 163, 74, 0.12);
+      border: 1px solid rgba(22, 163, 74, 0.45);
+      border-radius: 8px;
+      color: #16a34a;
       padding: 10px 14px;
       font-size: 0.92rem;
       font-weight: 600;

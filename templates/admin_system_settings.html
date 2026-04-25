@@ -174,6 +174,104 @@
         <button type="submit" class="btn-confirm">Enviar teste</button>
       </section>
     </form>
+
+    <section class="param-section system-user-section" id="user-management">
+      <div class="system-user-section-header">
+        <div>
+          <h3>Usuários cadastrados no sistema</h3>
+          <p>Gerencie todas as contas, com o usuário principal e seus dependentes agrupados. Você pode editar dados e inativar acessos daqui.</p>
+        </div>
+      </div>
+
+      {% for group in user_groups %}
+        <div class="account-user-group">
+          <div class="account-user-group-header">
+            <div>
+              <h4>{{ group.account_name }}</h4>
+              <p>Slug: {{ group.account_slug }}</p>
+            </div>
+            <span class="account-user-total">{{ 1 + (group.dependents|length) if group.owner else (group.dependents|length) }} usuário(s)</span>
+          </div>
+
+          {% if group.owner %}
+            <div class="user-role-title">Usuário principal</div>
+            <form method="post" action="{{ url_for('admin_system_settings', _anchor='user-management') }}" class="system-user-form owner-form">
+              <input type="hidden" name="action" value="update_system_user">
+              <input type="hidden" name="user_id" value="{{ group.owner.id }}">
+              <div class="system-user-form-grid">
+                <div>
+                  <label>Nome</label>
+                  <input type="text" name="name" value="{{ group.owner.name }}" required>
+                </div>
+                <div>
+                  <label>Login</label>
+                  <input type="text" name="username" value="{{ group.owner.username }}" required>
+                </div>
+                <div>
+                  <label>E-mail</label>
+                  <input type="email" name="email" value="{{ group.owner.email }}">
+                </div>
+                <div>
+                  <label>Nova senha (opcional)</label>
+                  <input type="password" name="password" placeholder="Preencha só se quiser trocar">
+                </div>
+              </div>
+              <div class="system-user-meta-row">
+                <span class="user-status-badge {{ 'active' if group.owner.is_active else 'inactive' }}">{{ 'Ativo' if group.owner.is_active else 'Inativo' }}</span>
+                <span class="user-meta-pill">Perfil: principal</span>
+                {% if group.owner.is_admin %}<span class="user-meta-pill">Admin do sistema</span>{% endif %}
+                <label class="system-user-active-toggle">
+                  <input type="checkbox" name="is_active" value="1" {% if group.owner.is_active %}checked{% endif %}>
+                  <span>Usuário ativo</span>
+                </label>
+                <button type="submit" class="btn-add">Salvar principal</button>
+              </div>
+            </form>
+          {% endif %}
+
+          <div class="user-role-title">Dependentes</div>
+          {% if group.dependents %}
+            <div class="dependent-user-list">
+              {% for user in group.dependents %}
+                <form method="post" action="{{ url_for('admin_system_settings', _anchor='user-management') }}" class="system-user-form">
+                  <input type="hidden" name="action" value="update_system_user">
+                  <input type="hidden" name="user_id" value="{{ user.id }}">
+                  <div class="system-user-form-grid">
+                    <div>
+                      <label>Nome</label>
+                      <input type="text" name="name" value="{{ user.name }}" required>
+                    </div>
+                    <div>
+                      <label>Login</label>
+                      <input type="text" name="username" value="{{ user.username }}" required>
+                    </div>
+                    <div>
+                      <label>E-mail</label>
+                      <input type="email" name="email" value="{{ user.email }}">
+                    </div>
+                    <div>
+                      <label>Nova senha (opcional)</label>
+                      <input type="password" name="password" placeholder="Preencha só se quiser trocar">
+                    </div>
+                  </div>
+                  <div class="system-user-meta-row">
+                    <span class="user-status-badge {{ 'active' if user.is_active else 'inactive' }}">{{ 'Ativo' if user.is_active else 'Inativo' }}</span>
+                    <span class="user-meta-pill">Vinculado a {{ user.parent_username or group.owner.username }}</span>
+                    <label class="system-user-active-toggle">
+                      <input type="checkbox" name="is_active" value="1" {% if user.is_active %}checked{% endif %}>
+                      <span>Usuário ativo</span>
+                    </label>
+                    <button type="submit" class="btn-add">Salvar dependente</button>
+                  </div>
+                </form>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="menu-empty-hint">Esta conta não possui usuários dependentes cadastrados.</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </section>
   </div>
 
   <style>
@@ -220,6 +318,130 @@
       display: flex;
       justify-content: flex-end;
       margin-top: 16px;
+    }
+
+    .system-user-section-header p,
+    .account-user-group-header p {
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    .account-user-group {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+    }
+
+    .account-user-group-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    .account-user-group-header h4,
+    .user-role-title {
+      margin: 0;
+    }
+
+    .account-user-total {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: rgba(15, 118, 110, 0.1);
+      color: #0f766e;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .user-role-title {
+      margin: 16px 0 10px;
+      font-size: 0.95rem;
+      color: #1e293b;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .dependent-user-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .system-user-form {
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(241, 245, 249, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .system-user-form.owner-form {
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(29, 78, 216, 0.08));
+    }
+
+    .system-user-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .system-user-meta-row {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .user-status-badge,
+    .user-meta-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .user-status-badge.active {
+      background: rgba(22, 163, 74, 0.12);
+      color: #15803d;
+    }
+
+    .user-status-badge.inactive {
+      background: rgba(220, 38, 38, 0.12);
+      color: #b91c1c;
+    }
+
+    .user-meta-pill {
+      background: rgba(59, 130, 246, 0.1);
+      color: #1d4ed8;
+    }
+
+    .system-user-active-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    @media (max-width: 768px) {
+      .account-user-group-header,
+      .system-user-meta-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .system-user-active-toggle {
+        margin-left: 0;
+      }
     }
   </style>
 {% endblock %}
