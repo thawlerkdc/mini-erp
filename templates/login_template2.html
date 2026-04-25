@@ -71,7 +71,7 @@
       align-items: center;
       justify-content: flex-start;
       gap: 12px;
-      padding: 8px 0;
+      padding: 8px 0 8px 50px;
       border-radius: 0;
       background: transparent;
       border: 0;
@@ -81,30 +81,17 @@
     body > header .brand::before {
       content: "";
       position: absolute;
-      left: 2px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-      background:
-        linear-gradient(130deg, #2d70ff 0%, #2d70ff 48%, transparent 49%) 0 0 / 50% 100% no-repeat,
-        linear-gradient(130deg, #2d70ff 0%, #4f7fff 100%) 54% 18% / 44% 28% no-repeat,
-        linear-gradient(-130deg, #2d70ff 0%, #4f7fff 100%) 54% 82% / 44% 28% no-repeat;
-      box-shadow: 0 10px 24px rgba(45, 112, 255, 0.42);
-    }
-
-    body > header .brand::after {
-      content: "";
-      position: absolute;
       left: 0;
       top: 50%;
       transform: translateY(-50%);
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      border: 1px solid rgba(76, 116, 184, 0.3);
-      background: rgba(8, 20, 45, 0.5);
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background:
+        linear-gradient(128deg, #2f70ff 0%, #3e85ff 100%) 6% 6% / 38% 88% no-repeat,
+        linear-gradient(126deg, #2f70ff 0%, #4b7bff 100%) 58% 16% / 36% 30% no-repeat,
+        linear-gradient(-126deg, #2f70ff 0%, #4b7bff 100%) 58% 54% / 36% 30% no-repeat;
+      filter: drop-shadow(0 0 10px rgba(45, 112, 255, 0.5));
     }
 
     body > header .brand-name.brand-animated {
@@ -117,10 +104,10 @@
       background: none;
       -webkit-text-fill-color: #edf3ff;
       box-shadow: none;
-      padding: 7px 14px 7px 54px;
-      border-radius: 12px;
-      border: 1px solid rgba(76, 105, 164, 0.34);
-      background: linear-gradient(180deg, rgba(12, 26, 54, 0.58), rgba(8, 20, 43, 0.52));
+      padding: 0;
+      border-radius: 0;
+      border: 0;
+      background: transparent;
       animation: none;
     }
 
@@ -238,7 +225,7 @@
       border: 1px solid rgba(95, 126, 189, 0.4);
       background: rgba(18, 31, 61, 0.78);
       color: #b8c8ee;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       text-transform: uppercase;
     }
@@ -308,6 +295,30 @@
       color: #9ec4ff;
     }
 
+    .icon-circle.stock {
+      color: #7ea4ff;
+      background: rgba(54, 77, 155, 0.42);
+      border-color: rgba(102, 139, 223, 0.45);
+    }
+
+    .icon-circle.shield {
+      color: #90e39e;
+      background: rgba(40, 94, 64, 0.4);
+      border-color: rgba(102, 189, 128, 0.42);
+    }
+
+    .icon-circle.report {
+      color: #7bc0ff;
+      background: rgba(39, 79, 131, 0.44);
+      border-color: rgba(88, 143, 221, 0.42);
+    }
+
+    .icon-circle.users {
+      color: #b496ff;
+      background: rgba(71, 55, 128, 0.42);
+      border-color: rgba(140, 118, 224, 0.44);
+    }
+
     .icon-circle svg {
       width: 17px;
       height: 17px;
@@ -340,31 +351,23 @@
       background: rgba(6, 16, 36, 0.82);
       padding: 10px 12px;
       display: grid;
-      grid-template-columns: 1.25fr repeat(4, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
-      align-items: center;
+      align-items: start;
     }
 
     .login2-metrics-copy {
+      grid-column: 1 / -1;
       color: #b0c0de;
       font-size: 14px;
+      margin-bottom: 2px;
     }
 
     .login2-metric {
       display: grid;
       gap: 5px;
       position: relative;
-      padding-left: 8px;
-    }
-
-    .login2-metric::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 4px;
-      bottom: 4px;
-      width: 1px;
-      background: rgba(106, 136, 196, 0.3);
+      padding-left: 0;
     }
 
     .login2-metric-top {
@@ -459,29 +462,42 @@
       align-content: start;
       justify-items: center;
       gap: 8px;
+      padding: 6px 4px;
+      border-radius: 12px;
+      border: 1px solid rgba(73, 103, 159, 0.3);
+      background: rgba(8, 19, 42, 0.72);
     }
 
     .app-preview-menu-dot {
       width: 22px;
       height: 22px;
-      border-radius: 50%;
-      border: 1px solid rgba(100, 133, 197, 0.33);
-      background: rgba(24, 44, 80, 0.86);
+      border-radius: 6px;
+      border: 1px solid rgba(88, 118, 178, 0.38);
+      background: rgba(18, 34, 66, 0.92);
       position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .app-preview-menu-dot::before {
-      content: "";
-      position: absolute;
-      inset: 6px;
-      border-radius: 50%;
-      border: 1px solid rgba(182, 209, 255, 0.7);
+    .app-preview-menu-dot svg {
+      width: 12px;
+      height: 12px;
+      stroke: #9db9ed;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .app-preview-menu-dot.active {
       background: linear-gradient(135deg, #3770ff, #6c4bff);
       box-shadow: 0 0 16px rgba(63, 104, 255, 0.5);
       border-color: rgba(130, 164, 236, 0.64);
+    }
+
+    .app-preview-menu-dot.active svg {
+      stroke: #e6efff;
     }
 
     .app-preview-main {
@@ -593,7 +609,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--login2-panel-soft);
+      background: linear-gradient(165deg, rgba(7, 18, 40, 0.95), rgba(8, 18, 39, 0.92));
       padding: 16px;
     }
 
@@ -602,8 +618,10 @@
       max-height: 100%;
       overflow: auto;
       border-radius: 18px;
-      border: 1px solid rgba(73, 103, 159, 0.34);
-      background: var(--login2-auth);
+      border: 1px solid rgba(86, 118, 176, 0.4);
+      background:
+        radial-gradient(circle at 96% 18%, rgba(56, 98, 187, 0.14), transparent 34%),
+        linear-gradient(165deg, rgba(26, 43, 74, 0.94), rgba(18, 32, 58, 0.95));
       padding: 20px;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
@@ -726,8 +744,9 @@
 
     .login2-signup-toggle {
       color: #dce8ff;
-      border: 1px solid rgba(94, 125, 185, 0.34);
+      border: 2px solid rgba(97, 133, 199, 0.62);
       background: rgba(14, 30, 58, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
     }
 
     .login2-create-submit {
@@ -812,13 +831,10 @@
       border-radius: 14px;
       border: 1px solid rgba(94, 125, 185, 0.34);
       background: rgba(15, 31, 60, 0.76);
-      padding: 12px;
+      padding: 14px 12px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      color: #b0c2df;
-      font-weight: 700;
-      font-size: 15px;
+      justify-content: center;
     }
 
     .login2-security svg {
@@ -975,7 +991,7 @@
     <section class="login2-stage" aria-label="Vitrine do sistema">
       <div class="login2-stage-grid">
         <div class="login2-copy">
-          <span class="login2-kicker">{{ global_settings.get('login_kicker', 'KDC SYSTEMS ERP') }}</span>
+          <span class="login2-kicker">ERP COMPLETO E INTELIGENTE</span>
           <h1 class="login2-title">
             Gestão inteligente para<br>
             vendas, compras e estoque<br>
@@ -988,28 +1004,28 @@
 
           <div class="login2-features">
             <article class="login2-feature">
-              <span class="icon-circle" aria-hidden="true">
+              <span class="icon-circle stock" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M3 5h2l2.2 10.5a1 1 0 0 0 1 .8H17a1 1 0 0 0 1-.8L20 8H7"></path><circle cx="10" cy="19" r="1.6"></circle><circle cx="17" cy="19" r="1.6"></circle></svg>
               </span>
               <h3>{{ global_settings.get('login_badge_1', 'Estoque integrado') }}</h3>
               <p>Controle em tempo real</p>
             </article>
             <article class="login2-feature">
-              <span class="icon-circle" aria-hidden="true">
+              <span class="icon-circle shield" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6l7-3Z"></path><path d="M9.5 12.5l1.8 1.8 3.5-3.8"></path></svg>
               </span>
               <h3>{{ global_settings.get('login_badge_2', 'Financeiro + XML') }}</h3>
               <p>Emissão e gestão automatizada</p>
             </article>
             <article class="login2-feature">
-              <span class="icon-circle" aria-hidden="true">
+              <span class="icon-circle report" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M5 19V9"></path><path d="M10 19V5"></path><path d="M15 19v-7"></path><path d="M20 19v-4"></path></svg>
               </span>
               <h3>{{ global_settings.get('login_badge_3', 'Relatórios inteligentes') }}</h3>
               <p>Dados que geram decisões</p>
             </article>
             <article class="login2-feature">
-              <span class="icon-circle" aria-hidden="true">
+              <span class="icon-circle users" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><path d="M20 8v6"></path><path d="M23 11h-6"></path></svg>
               </span>
               <h3>Multiusuário</h3>
@@ -1068,12 +1084,12 @@
             </div>
             <div class="app-preview-body">
               <div class="app-preview-menu">
-                <span class="app-preview-menu-dot active"></span>
-                <span class="app-preview-menu-dot"></span>
-                <span class="app-preview-menu-dot"></span>
-                <span class="app-preview-menu-dot"></span>
-                <span class="app-preview-menu-dot"></span>
-                <span class="app-preview-menu-dot"></span>
+                <span class="app-preview-menu-dot active"><svg viewBox="0 0 24 24"><path d="M5 4v16"></path><path d="M8 12 18 4"></path><path d="M8 12 18 20"></path></svg></span>
+                <span class="app-preview-menu-dot"><svg viewBox="0 0 24 24"><path d="M4 12.2 12 5l8 7.2"></path><path d="M7.5 11.5V19h9v-7.5"></path></svg></span>
+                <span class="app-preview-menu-dot"><svg viewBox="0 0 24 24"><path d="M4 12.2 12 5l8 7.2"></path><path d="M7.5 11.5V19h9v-7.5"></path></svg></span>
+                <span class="app-preview-menu-dot"><svg viewBox="0 0 24 24"><path d="M4 12.2 12 5l8 7.2"></path><path d="M7.5 11.5V19h9v-7.5"></path></svg></span>
+                <span class="app-preview-menu-dot"><svg viewBox="0 0 24 24"><path d="M4 12.2 12 5l8 7.2"></path><path d="M7.5 11.5V19h9v-7.5"></path></svg></span>
+                <span class="app-preview-menu-dot"><svg viewBox="0 0 24 24"><path d="M4 12.2 12 5l8 7.2"></path><path d="M7.5 11.5V19h9v-7.5"></path></svg></span>
               </div>
               <div class="app-preview-main">
                 <div>
@@ -1196,7 +1212,6 @@
 
         <div class="login2-security">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6l7-3Z"></path><path d="M9.5 12.5l1.8 1.8 3.5-3.8"></path></svg>
-          <span>Seus dados estão protegidos com segurança avançada.</span>
         </div>
 
         {% if global_settings.get('public_support_email') or global_settings.get('public_support_whatsapp') %}
