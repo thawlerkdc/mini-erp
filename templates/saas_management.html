@@ -74,8 +74,8 @@
       <div>
         <label>Direcao</label>
         <select name="sort_dir">
-          <option value="asc" {% if company_filters['sort_dir'] == 'asc' %}selected{% endif %}>Asc</option>
-          <option value="desc" {% if company_filters['sort_dir'] == 'desc' %}selected{% endif %}>Desc</option>
+          <option value="asc" {% if company_filters['sort_dir'] == 'asc' %}selected{% endif %}>Crescente</option>
+          <option value="desc" {% if company_filters['sort_dir'] == 'desc' %}selected{% endif %}>Decrescente</option>
         </select>
       </div>
       <div class="saas-actions-full">
@@ -113,7 +113,7 @@
               <td>{{ company['created_at_display'] }}</td>
               <td>{{ company['last_access_at_display'] }}</td>
               <td class="action-buttons saas-action-inline">
-                <a href="{{ url_for('saas.gestao_saas', edit_account_id=company['id']) }}" class="btn-edit">Editar</a>
+                <a href="{{ url_for('saas.gestao_saas', edit_account_id=company['id'], company_name=company_filters['company_name'], plan_name=company_filters['plan_name'], status_filter=company_filters['status_filter'], sort_field=company_filters['sort_field'], sort_dir=company_filters['sort_dir']) }}#company-editor" class="btn-edit">Editar</a>
                 <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form" onsubmit="return confirm('Inativar esta conta cliente?');">
                   <input type="hidden" name="action" value="inactivate_company">
                   <input type="hidden" name="account_id" value="{{ company['id'] }}">
@@ -128,7 +128,11 @@
       </table>
     </div>
 
-    <h4 class="param-subtitle" style="margin-top:16px;">Cadastro e edicao de empresa</h4>
+    <div id="company-editor" class="saas-company-editor">
+      <h4 class="param-subtitle" style="margin-top:0;">Cadastro e edicao de empresa</h4>
+      {% if selected_company %}
+        <p class="param-hint-small" style="margin-top:4px;">Editando empresa: <strong>{{ selected_company['name'] }}</strong></p>
+      {% endif %}
 
     <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-form-grid">
       <input type="hidden" name="action" value="save_company">
@@ -140,23 +144,23 @@
       </div>
       <div>
         <label>Nome fantasia</label>
-        <input type="text" name="trade_name" value="{{ selected_company['trade_name'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="text" name="trade_name" value="{{ (selected_company['trade_name'] if selected_company else '') or '' }}" {% if not can_edit_saas %}disabled{% endif %}>
       </div>
       <div>
         <label>CNPJ</label>
-        <input type="text" name="cnpj" value="{{ selected_company['cnpj'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="text" name="cnpj" value="{{ (selected_company['cnpj'] if selected_company else '') or '' }}" {% if not can_edit_saas %}disabled{% endif %}>
       </div>
       <div>
         <label>E-mail principal</label>
-        <input type="email" name="email" value="{{ selected_company['primary_email'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="email" name="email" value="{{ (selected_company['primary_email'] if selected_company else '') or '' }}" {% if not can_edit_saas %}disabled{% endif %}>
       </div>
       <div>
         <label>Telefone</label>
-        <input type="text" id="company_phone" name="phone" value="{{ selected_company['phone'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="text" id="company_phone" name="phone" value="{{ (selected_company['phone'] if selected_company else '') or '' }}" {% if not can_edit_saas %}disabled{% endif %}>
       </div>
       <div>
         <label>WhatsApp *</label>
-        <input type="text" id="company_whatsapp" name="whatsapp" required value="{{ selected_company['whatsapp'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="text" id="company_whatsapp" name="whatsapp" required value="{{ (selected_company['whatsapp'] if selected_company else '') or '' }}" {% if not can_edit_saas %}disabled{% endif %}>
       </div>
       <div>
         <label>&nbsp;</label>
@@ -167,7 +171,7 @@
       </div>
       <div>
         <label>Responsavel pela conta *</label>
-        <input type="text" name="responsible_name" required value="{{ selected_company['responsible_name'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <input type="text" name="responsible_name" required value="{{ (selected_company['responsible_name'] if selected_company else '') or '' }}" {% if not can_edit_saas %}disabled{% endif %}>
       </div>
       <div>
         <label>Status da conta</label>
@@ -193,6 +197,7 @@
         {% endif %}
       </div>
     </form>
+    </div>
   </section>
 
   <section class="param-section">
@@ -801,6 +806,31 @@
     text-align: center;
   }
 
+  .saas-action-inline .btn-edit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    background: rgba(37, 99, 235, 0.18);
+    color: #bfdbfe;
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .saas-company-editor {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(148, 163, 184, 0.28);
+  }
+
+  .saas-editor-highlight {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+    border-radius: 12px;
+    padding: 12px;
+  }
+
   .saas-section-head {
     display: flex;
     align-items: center;
@@ -901,6 +931,12 @@
     background: rgba(15, 23, 42, 0.86);
     color: #e2e8f0;
     border-color: rgba(148, 163, 184, 0.26);
+  }
+
+  [data-theme="dark"] .saas-action-inline .btn-edit {
+    background: rgba(37, 99, 235, 0.22);
+    color: #dbeafe;
+    border-color: rgba(96, 165, 250, 0.5);
   }
 
   [data-theme="dark"] .saas-chart-card {
@@ -1071,6 +1107,14 @@
       cycleField.addEventListener("change", function () { dueField.dataset.auto = "1"; refreshDueDate(); });
       startField.addEventListener("change", function () { dueField.dataset.auto = "1"; refreshDueDate(); });
       refreshDueDate();
+    }
+
+    var params = new URLSearchParams(window.location.search);
+    if (params.get("edit_account_id")) {
+      var editor = document.getElementById("company-editor");
+      if (editor) {
+        editor.classList.add("saas-editor-highlight");
+      }
     }
 
     var saasSections = document.querySelectorAll(".saas-panel-card .param-section");
