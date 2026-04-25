@@ -45,12 +45,13 @@
       background:
         radial-gradient(circle at 18% 14%, rgba(41, 79, 197, 0.23), transparent 30%),
         radial-gradient(circle at 54% 42%, rgba(92, 66, 240, 0.2), transparent 26%),
-        linear-gradient(180deg, var(--login2-bg) 0%, #07122b 100%);
+        linear-gradient(180deg, #040a1a 0%, #07122b 100%);
       overflow: hidden;
     }
 
     body > header {
-      max-width: 1220px;
+      width: calc(100vw - 24px);
+      max-width: 1480px;
       margin: 14px auto 0;
       padding: 0 18px 12px;
       border-bottom: 1px solid rgba(94, 125, 185, 0.22);
@@ -58,6 +59,8 @@
       align-items: center;
       justify-content: space-between;
       gap: 14px;
+      background: linear-gradient(180deg, rgba(14, 59, 107, 0.88), rgba(11, 52, 94, 0.9));
+      border-radius: 0;
     }
 
     body > header .brand {
@@ -163,16 +166,17 @@
     }
 
     body > main {
-      max-width: 1220px;
+      width: calc(100vw - 24px);
+      max-width: 1480px;
       margin: 0 auto;
-      padding: 12px 18px 6px;
+      padding: 12px 0 0;
       height: calc(100vh - 120px);
     }
 
     .login2-layout {
       display: grid;
       grid-template-columns: minmax(0, 1.8fr) minmax(350px, 0.86fr);
-      gap: 24px;
+      gap: 18px;
       height: 100%;
       min-height: 0;
     }
@@ -208,12 +212,9 @@
     .login2-stage-grid {
       position: relative;
       z-index: 1;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(250px, 0.48fr);
-      gap: 18px;
+      display: block;
       height: 100%;
       min-height: 0;
-      align-items: center;
     }
 
     .login2-copy {
@@ -221,6 +222,7 @@
       gap: 14px;
       align-content: start;
       min-height: 0;
+      padding-right: 300px;
     }
 
     .login2-kicker {
@@ -380,12 +382,14 @@
     }
 
     .login2-preview {
-      position: relative;
+      position: absolute;
+      right: 20px;
+      bottom: 58px;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 0;
-      height: 100%;
+      width: 320px;
+      z-index: 2;
     }
 
     .login2-preview::before {
@@ -402,7 +406,7 @@
 
     .app-preview {
       position: relative;
-      width: min(100%, 300px);
+      width: min(100%, 320px);
       border-radius: 18px;
       overflow: hidden;
       border: 1px solid rgba(84, 121, 197, 0.34);
@@ -847,13 +851,15 @@
     }
 
     body > footer {
-      max-width: 1220px;
+      width: calc(100vw - 24px);
+      max-width: 1480px;
       margin: 4px auto 10px;
       padding: 8px 18px 0;
       border-top: 1px solid rgba(94, 125, 185, 0.22);
       text-align: center;
       color: #98afd4;
       font-size: 13px;
+      background: transparent !important;
     }
 
     @media (max-width: 1160px) {
@@ -873,6 +879,10 @@
       }
 
       .login2-preview {
+        position: relative;
+        right: auto;
+        bottom: auto;
+        width: 100%;
         min-height: 300px;
       }
 
@@ -911,6 +921,10 @@
 
       .login2-description {
         font-size: 15px;
+      }
+
+      .login2-copy {
+        padding-right: 0;
       }
 
       .login2-feature {
@@ -957,11 +971,11 @@
         <div class="login2-copy">
           <span class="login2-kicker">{{ global_settings.get('login_kicker', 'KDC SYSTEMS ERP') }}</span>
           <h1 class="login2-title">
-            GestÃ£o inteligente para<br>
+            Gestão inteligente para<br>
             vendas, compras e estoque<br>
             <span class="accent">em tempo real</span>
           </h1>
-          <p class="login2-description">{{ global_settings.get('login_description', 'Controle sua operaÃ§Ã£o com fluxo integrado: compra, entrada, venda, alertas e relatÃ³rios essenciais em uma Ãºnica plataforma.') }}</p>
+          <p class="login2-description">{{ global_settings.get('login_description', 'Controle sua operação com fluxo integrado: compra, entrada, venda, alertas e relatórios essenciais em uma única plataforma.') }}</p>
           {% if global_settings.get('public_login_notice') %}
             <div class="login2-notice">{{ global_settings.get('public_login_notice') }}</div>
           {% endif %}
@@ -979,26 +993,26 @@
                 <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6l7-3Z"></path><path d="M9.5 12.5l1.8 1.8 3.5-3.8"></path></svg>
               </span>
               <h3>{{ global_settings.get('login_badge_2', 'Financeiro + XML') }}</h3>
-              <p>EmissÃ£o e gestÃ£o automatizada</p>
+              <p>Emissão e gestão automatizada</p>
             </article>
             <article class="login2-feature">
               <span class="icon-circle" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M5 19V9"></path><path d="M10 19V5"></path><path d="M15 19v-7"></path><path d="M20 19v-4"></path></svg>
               </span>
-              <h3>{{ global_settings.get('login_badge_3', 'RelatÃ³rios inteligentes') }}</h3>
-              <p>Dados que geram decisÃµes</p>
+              <h3>{{ global_settings.get('login_badge_3', 'Relatórios inteligentes') }}</h3>
+              <p>Dados que geram decisões</p>
             </article>
             <article class="login2-feature">
               <span class="icon-circle" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><path d="M20 8v6"></path><path d="M23 11h-6"></path></svg>
               </span>
-              <h3>MultiusuÃ¡rio</h3>
+              <h3>Multiusuário</h3>
               <p>Acesso seguro e personalizado</p>
             </article>
           </div>
 
           <div class="login2-metrics">
-            <div class="login2-metrics-copy">Feito para o seu negÃ³cio crescer</div>
+            <div class="login2-metrics-copy">Feito para o seu negócio crescer</div>
             <div class="login2-metric">
               <div class="login2-metric-top">
                 <span class="icon-circle" aria-hidden="true">
@@ -1015,7 +1029,7 @@
                 </span>
                 <span class="login2-metric-value">+1M</span>
               </div>
-              <span class="login2-metric-label">OperaÃ§Ãµes por dia</span>
+              <span class="login2-metric-label">Operações por dia</span>
             </div>
             <div class="login2-metric">
               <div class="login2-metric-top">
@@ -1058,7 +1072,7 @@
               <div class="app-preview-main">
                 <div>
                   <p class="app-preview-title">Resumo Geral</p>
-                  <p class="app-preview-subtitle">Acompanhe os principais indicadores do seu negÃ³cio</p>
+                  <p class="app-preview-subtitle">Acompanhe os principais indicadores do seu negócio</p>
                 </div>
                 <div class="app-preview-stats">
                   <div class="app-preview-stat">
@@ -1073,8 +1087,8 @@
                   </div>
                 </div>
                 <div class="app-preview-chart">
-                  <p class="app-preview-title">EvoluÃ§Ã£o de Vendas</p>
-                  <svg viewBox="0 0 240 60" role="img" aria-label="GrÃ¡fico de evoluÃ§Ã£o de vendas">
+                  <p class="app-preview-title">Evolução de Vendas</p>
+                  <svg viewBox="0 0 240 60" role="img" aria-label="Gráfico de evolução de vendas">
                     <defs>
                       <linearGradient id="previewLineGradient2" x1="0" x2="1" y1="0" y2="0">
                         <stop offset="0%" stop-color="#2f6bff"></stop>
@@ -1087,8 +1101,8 @@
                 </div>
                 <div class="app-preview-table">
                   <p class="app-preview-title">Estoque em Destaque</p>
-                  <div class="app-preview-row"><span>LÃ¢mpada LED</span><span>50 un.</span><span class="app-preview-chip">AtenÃ§Ã£o</span></div>
-                  <div class="app-preview-row"><span>Painel LED</span><span>40 un.</span><span class="app-preview-chip">AtenÃ§Ã£o</span></div>
+                  <div class="app-preview-row"><span>Lâmpada LED</span><span>50 un.</span><span class="app-preview-chip">Atenção</span></div>
+                  <div class="app-preview-row"><span>Painel LED</span><span>40 un.</span><span class="app-preview-chip">Atenção</span></div>
                   <div class="app-preview-row"><span>Chave de Fenda</span><span>50 un.</span><span class="app-preview-chip ok">Ok</span></div>
                   <div class="app-preview-row"><span>Capacete</span><span>45 un.</span><span class="app-preview-chip ok">Ok</span></div>
                 </div>
@@ -1109,7 +1123,7 @@
             <label for="login2-username">{{ t('username_label') }}</label>
             <div class="login2-input">
               <svg class="login2-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z"></path><path d="M4 20a8 8 0 0 1 16 0"></path></svg>
-              <input id="login2-username" name="username" type="text" placeholder="Digite seu usuÃ¡rio" required>
+              <input id="login2-username" name="username" type="text" placeholder="Digite seu usuário" required>
             </div>
           </div>
 
@@ -1153,11 +1167,11 @@
                   <input id="login2-account-name" name="account_name" type="text" placeholder="Ex: Padaria Central" required>
                 </div>
                 <div>
-                  <label for="login2-owner-name">ResponsÃ¡vel</label>
+                  <label for="login2-owner-name">Responsável</label>
                   <input id="login2-owner-name" name="owner_name" type="text" placeholder="Ex: Maria Souza" required>
                 </div>
                 <div>
-                  <label for="login2-signup-username">UsuÃ¡rio principal</label>
+                  <label for="login2-signup-username">Usuário principal</label>
                   <input id="login2-signup-username" name="username" type="text" placeholder="Ex: padaria.central" required>
                 </div>
                 <div>
@@ -1169,14 +1183,14 @@
                   <input id="login2-signup-password" name="password" type="password" required>
                 </div>
               </div>
-              <button type="submit" class="login2-create-submit">Finalizar criaÃ§Ã£o da conta</button>
+              <button type="submit" class="login2-create-submit">Finalizar criação da conta</button>
             </form>
           </div>
         {% endif %}
 
         <div class="login2-security">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6l7-3Z"></path><path d="M9.5 12.5l1.8 1.8 3.5-3.8"></path></svg>
-          <span>Seus dados estÃ£o protegidos com seguranÃ§a avanÃ§ada.</span>
+          <span>Seus dados estão protegidos com segurança avançada.</span>
         </div>
 
         {% if global_settings.get('public_support_email') or global_settings.get('public_support_whatsapp') %}
