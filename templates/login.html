@@ -8,13 +8,16 @@
   <div class="login-modern-wrap">
     <script src="/static/js/loginCarousel.js"></script>
     <section class="login-hero-panel">
-      <span class="login-kicker">Kdc Systems ERP</span>
-      <h2>Gestão inteligente para vendas, compras e estoque em tempo real</h2>
-      <p>Controle sua operação com fluxo integrado: compra, entrada, venda, alertas e relatórios essenciais em uma única plataforma.</p>
+      <span class="login-kicker">{{ global_settings.get('login_kicker', 'Kdc Systems ERP') }}</span>
+      <h2>{{ global_settings.get('login_headline', 'Gestão inteligente para vendas, compras e estoque em tempo real') }}</h2>
+      <p>{{ global_settings.get('login_description', 'Controle sua operação com fluxo integrado: compra, entrada, venda, alertas e relatórios essenciais em uma única plataforma.') }}</p>
+      {% if global_settings.get('public_login_notice') %}
+        <div class="login-system-notice">{{ global_settings.get('public_login_notice') }}</div>
+      {% endif %}
       <div class="hero-badges">
-        <span>Estoque integrado</span>
-        <span>Financeiro + XML</span>
-        <span>Relatórios de giro</span>
+        {% if global_settings.get('login_badge_1') %}<span>{{ global_settings.get('login_badge_1') }}</span>{% endif %}
+        {% if global_settings.get('login_badge_2') %}<span>{{ global_settings.get('login_badge_2') }}</span>{% endif %}
+        {% if global_settings.get('login_badge_3') %}<span>{{ global_settings.get('login_badge_3') }}</span>{% endif %}
       </div>
       <div class="login-rotary-wrap" aria-label="Prévia do sistema">
         <div class="login-rotary-shell">
@@ -41,9 +44,12 @@
           {% endif %}
 
           <button type="submit">Entrar no sistema</button>
-          <button type="button" class="login-signup-toggle" onclick="toggleSignupPanel()">Criar conta principal</button>
+          {% if global_settings.get('allow_public_account_signup') == '1' %}
+            <button type="button" class="login-signup-toggle" onclick="toggleSignupPanel()">Criar conta principal</button>
+          {% endif %}
         </form>
 
+        {% if global_settings.get('allow_public_account_signup') == '1' %}
         <div id="login-signup-panel" class="login-signup-panel hidden">
           <form method="post" action="{{ url_for('criar_conta_principal') }}" class="login-signup-form">
             <label for="account_name">Empresa</label>
@@ -64,9 +70,16 @@
             <button type="submit" class="btn-add">Finalizar criação da conta</button>
           </form>
         </div>
+        {% endif %}
 
         <div class="login-footer">
           <a href="{{ url_for('forgot_password') }}" class="forgot-password-link">{{ t('forgot_password_label') }}</a>
+          {% if global_settings.get('public_support_email') or global_settings.get('public_support_whatsapp') %}
+            <div class="login-support-inline">
+              {% if global_settings.get('public_support_email') %}<span>Suporte: {{ global_settings.get('public_support_email') }}</span>{% endif %}
+              {% if global_settings.get('public_support_whatsapp') %}<span>WhatsApp: {{ global_settings.get('public_support_whatsapp') }}</span>{% endif %}
+            </div>
+          {% endif %}
         </div>
       </div>
     </section>
@@ -193,6 +206,16 @@
       padding: 8px 14px;
       font-size: 0.85rem;
       background: rgba(255, 255, 255, 0.13);
+    }
+    .login-system-notice {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.22);
+      border: 1px solid rgba(191, 219, 254, 0.18);
+      color: rgba(255, 255, 255, 0.95);
+      font-size: 0.94rem;
+      line-height: 1.45;
     }
     .login-rotary-wrap {
       margin-top: 20px;
@@ -496,6 +519,14 @@
     .login-footer {
       text-align: right;
       margin-top: 8px;
+    }
+    .login-support-inline {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: #4b5563;
+      font-size: 0.82rem;
     }
     
     .forgot-password-link {

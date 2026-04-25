@@ -824,6 +824,8 @@ def inject_translations():
         "can_access": lambda module_key: user_can_view_module(module_key),
         "can_edit": lambda module_key: user_can_edit_module(module_key),
         "can_delete": lambda module_key: user_can_delete_module(module_key),
+        "is_system_admin": is_system_admin(),
+        "global_settings": get_global_settings(),
     }
 
 
@@ -885,6 +887,20 @@ def get_current_user_id():
 
 def get_current_user_role():
     return session.get("role")
+
+
+def is_system_admin():
+    return bool(session.get("user") and session.get("role") == "owner" and session.get("is_admin"))
+
+
+def require_system_admin_access():
+    if not session.get("user"):
+        flash("Faça login para acessar esta área.", "error")
+        return redirect(url_for("login"))
+    if not is_system_admin():
+        flash("Somente o administrador do sistema pode acessar esta área.", "error")
+        return redirect(get_default_route_for_current_user())
+    return None
 
 
 def get_current_user_permissions():
@@ -954,6 +970,16 @@ def user_can_delete_module(module_key):
         return True
     module_permissions = permissions.get(module_key) or {}
     return bool(module_permissions.get("can_delete"))
+
+
+def get_global_settings():
+    conn = get_auth_connection()
+    rows = conn.execute("SELECT setting_key, setting_value FROM global_settings").fetchall()
+    conn.close()
+    settings = dict(GLOBAL_SETTINGS_DEFAULTS)
+    for row in rows:
+        settings[row["setting_key"]] = row["setting_value"] or ""
+    return settings
 
 
 def get_default_route_for_current_user():
@@ -1140,6 +1166,34 @@ SMTP_PROVIDER_PRESETS = {
     "outlook": {"host": "smtp.office365.com", "port": "587", "use_tls": "1"},
     "yahoo": {"host": "smtp.mail.yahoo.com", "port": "587", "use_tls": "1"},
     "custom": {"host": "", "port": "587", "use_tls": "1"},
+}
+
+GLOBAL_SETTINGS_DEFAULTS = {
+    "brand_name": "Kdc Systems",
+    "brand_subtitle": "ERP",
+    "system_display_name": "Kdc Systems ERP",
+    "browser_title_suffix": "ERP",
+    "login_kicker": "Kdc Systems ERP",
+    "login_headline": "Gestão inteligente para vendas, compras e estoque em tempo real",
+    "login_description": "Controle sua operação com fluxo integrado: compra, entrada, venda, alertas e relatórios essenciais em uma única plataforma.",
+    "login_badge_1": "Estoque integrado",
+    "login_badge_2": "Financeiro + XML",
+    "login_badge_3": "Relatórios de giro",
+    "public_support_email": "",
+    "public_support_whatsapp": "",
+    "public_login_notice": "",
+    "allow_public_account_signup": "1",
+    "reset_token_expiration_hours": "1",
+    "password_reset_email_subject": "Redefinição de senha — {system_name}",
+    "password_reset_email_body": "Olá,\n\nRecebemos uma solicitação para redefinir a senha da conta '{username}'.\n\nClique no link abaixo para criar uma nova senha (válido por {expires_hours} hora(s)):\n{reset_link}\n\nSe você não solicitou a redefinição, ignore este e-mail.\n\n— {system_name}",
+    "smtp_provider": "custom",
+    "smtp_host": "",
+    "smtp_port": "587",
+    "smtp_username": "",
+    "smtp_password": "",
+    "smtp_from_email": "",
+    "smtp_from_name": "Kdc Systems",
+    "smtp_use_tls": "1",
 }
 
 DEFAULT_FINANCIAL_CATEGORIES = [
@@ -1738,6 +1792,72 @@ def set_account_setting(account_id, key, value):
     conn.close()
 
 
+def save_global_settings(form_data):
+    provider = _sanitize_provider(form_data.get("smtp_provider"))
+    preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
+
+    custom_host = (form_data.get("smtp_host") or "").strip()
+    custom_port = (form_data.get("smtp_port") or "").strip()
+    smtp_host = custom_host if provider == "custom" else (custom_host or preset["host"])
+    smtp_port = custom_port if provider == "custom" else (custom_port or preset["port"])
+    smtp_use_tls = ("1" if form_data.get("smtp_use_tls") else "0") if provider == "custom" else preset["use_tls"]
+
+    reset_hours_raw = (form_data.get("reset_token_expiration_hours") or "1").strip()
+    try:
+        reset_hours = str(max(1, min(72, int(float(reset_hours_raw)))))
+    except (TypeError, ValueError):
+        reset_hours = "1"
+
+    system_display_name = (form_data.get("system_display_name") or "").strip()
+    brand_name = (form_data.get("brand_name") or GLOBAL_SETTINGS_DEFAULTS["brand_name"]).strip()
+    brand_subtitle = (form_data.get("brand_subtitle") or GLOBAL_SETTINGS_DEFAULTS["brand_subtitle"]).strip()
+    if not system_display_name:
+        system_display_name = f"{brand_name} {brand_subtitle}".strip()
+
+    values = {
+        "brand_name": brand_name,
+        "brand_subtitle": brand_subtitle,
+        "system_display_name": system_display_name,
+        "browser_title_suffix": (form_data.get("browser_title_suffix") or GLOBAL_SETTINGS_DEFAULTS["browser_title_suffix"]).strip(),
+        "login_kicker": (form_data.get("login_kicker") or GLOBAL_SETTINGS_DEFAULTS["login_kicker"]).strip(),
+        "login_headline": (form_data.get("login_headline") or GLOBAL_SETTINGS_DEFAULTS["login_headline"]).strip(),
+        "login_description": (form_data.get("login_description") or GLOBAL_SETTINGS_DEFAULTS["login_description"]).strip(),
+        "login_badge_1": (form_data.get("login_badge_1") or "").strip(),
+        "login_badge_2": (form_data.get("login_badge_2") or "").strip(),
+        "login_badge_3": (form_data.get("login_badge_3") or "").strip(),
+        "public_support_email": (form_data.get("public_support_email") or "").strip(),
+        "public_support_whatsapp": (form_data.get("public_support_whatsapp") or "").strip(),
+        "public_login_notice": (form_data.get("public_login_notice") or "").strip(),
+        "allow_public_account_signup": "1" if form_data.get("allow_public_account_signup") else "0",
+        "reset_token_expiration_hours": reset_hours,
+        "password_reset_email_subject": (form_data.get("password_reset_email_subject") or GLOBAL_SETTINGS_DEFAULTS["password_reset_email_subject"]).strip(),
+        "password_reset_email_body": (form_data.get("password_reset_email_body") or GLOBAL_SETTINGS_DEFAULTS["password_reset_email_body"]).strip(),
+        "smtp_provider": provider,
+        "smtp_host": smtp_host,
+        "smtp_port": smtp_port or "587",
+        "smtp_username": (form_data.get("smtp_username") or "").strip(),
+        "smtp_password": (form_data.get("smtp_password") or "").strip(),
+        "smtp_from_email": (form_data.get("smtp_from_email") or "").strip(),
+        "smtp_from_name": (form_data.get("smtp_from_name") or system_display_name or GLOBAL_SETTINGS_DEFAULTS["smtp_from_name"]).strip(),
+        "smtp_use_tls": smtp_use_tls,
+    }
+
+    conn = get_auth_connection()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for key, value in values.items():
+        conn.execute(
+            """
+            INSERT INTO global_settings (setting_key, setting_value, updated_at)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (setting_key)
+            DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = EXCLUDED.updated_at
+            """,
+            (key, value, now),
+        )
+    conn.commit()
+    conn.close()
+
+
 def _resolve_smtp_settings(settings=None):
     settings = settings or {}
     provider = _sanitize_provider(settings.get("smtp_provider") or os.environ.get("SMTP_PROVIDER", "custom"))
@@ -1812,7 +1932,7 @@ def send_email_with_settings(account_id, recipients, subject, body):
 
 
 def send_system_email(recipients, subject, body):
-    settings = _resolve_smtp_settings({})
+    settings = _resolve_smtp_settings(get_global_settings())
     return _send_email_with_smtp_settings(
         recipients,
         subject,
@@ -1904,6 +2024,7 @@ def login():
             session["account_id"] = user["account_id"]
             session["account_name"] = user["account_name"]
             session["role"] = user["role"]
+            session["is_admin"] = bool(user.get("is_admin"))
             session.pop("module_permissions", None)
             if user["role"] != "owner":
                 get_current_user_permissions()
@@ -2384,6 +2505,44 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/admin/system-settings", methods=["GET", "POST"])
+def admin_system_settings():
+    access_response = require_system_admin_access()
+    if access_response:
+        return access_response
+
+    if request.method == "POST":
+        if request.form.get("action") == "test_global_smtp":
+            test_email = (request.form.get("test_email") or "").strip()
+            if not test_email:
+                flash("Informe um e-mail para testar o serviço global.", "error")
+                return redirect(url_for("admin_system_settings"))
+
+            system_name = get_global_settings().get("system_display_name") or GLOBAL_SETTINGS_DEFAULTS["system_display_name"]
+            sent, err = send_system_email(
+                [test_email],
+                f"Teste SMTP global - {system_name}",
+                "Este e-mail confirma que o serviço global do sistema está configurado corretamente.",
+            )
+            if sent:
+                flash(f"Teste SMTP global enviado para {test_email}.", "success")
+            else:
+                flash(f"Falha no SMTP global: {err}", "error")
+            return redirect(url_for("admin_system_settings"))
+
+        save_global_settings(request.form)
+        flash("Configurações globais do sistema atualizadas com sucesso.", "success")
+        return redirect(url_for("admin_system_settings"))
+
+    settings = get_global_settings()
+    return render_template(
+        "admin_system_settings.html",
+        title="Administração do Sistema",
+        settings=settings,
+        db_status=DB_STATUS,
+    )
+
+
 @app.route("/forgot_password", methods=["GET", "POST"])
 def forgot_password():
     """Envia e-mail de redefinição de senha com link seguro."""
@@ -2402,8 +2561,10 @@ def forgot_password():
             ).fetchone()
 
             if user:
+                global_settings = get_global_settings()
                 token = secrets.token_urlsafe(48)
-                expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+                expires_hours = max(1, min(72, int(float(global_settings.get("reset_token_expiration_hours") or 1))))
+                expires_at = (datetime.now() + timedelta(hours=expires_hours)).strftime("%Y-%m-%d %H:%M:%S")
                 created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                 conn.execute(
@@ -2415,17 +2576,20 @@ def forgot_password():
 
                 base_url = request.host_url.rstrip("/")
                 reset_link = f"{base_url}/reset_password/{token}"
-                body = (
-                    f"Olá,\n\n"
-                    f"Recebemos uma solicitação para redefinir a senha da conta '{username}'.\n\n"
-                    f"Clique no link abaixo para criar uma nova senha (válido por 1 hora):\n"
-                    f"{reset_link}\n\n"
-                    f"Se você não solicitou a redefinição, ignore este e-mail.\n\n"
-                    f"— Kdc Systems ERP"
-                )
+                system_name = global_settings.get("system_display_name") or GLOBAL_SETTINGS_DEFAULTS["system_display_name"]
+                subject = global_settings.get("password_reset_email_subject") or GLOBAL_SETTINGS_DEFAULTS["password_reset_email_subject"]
+                body = global_settings.get("password_reset_email_body") or GLOBAL_SETTINGS_DEFAULTS["password_reset_email_body"]
+                for old, new in {
+                    "{system_name}": system_name,
+                    "{username}": username,
+                    "{reset_link}": reset_link,
+                    "{expires_hours}": str(expires_hours),
+                }.items():
+                    subject = subject.replace(old, new)
+                    body = body.replace(old, new)
                 sent, err = send_system_email(
                     [email],
-                    "Redefinição de senha — Kdc Systems ERP",
+                    subject,
                     body,
                 )
                 if sent:

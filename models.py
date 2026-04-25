@@ -57,6 +57,13 @@ _AUTH_STATEMENTS = [
         created_at TEXT NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS global_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT,
+        updated_at TEXT NOT NULL
+    )
+    """,
 ]
 
 _TENANT_STATEMENTS = [
