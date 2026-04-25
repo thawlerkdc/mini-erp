@@ -561,16 +561,6 @@ def run_saas_daily_monitor_job(reference_date=None):
     conn = get_db_connection()
     try:
         _ensure_saas_defaults(conn)
-
-        company_name_filter = (request.args.get("company_name") or "").strip().lower()
-        plan_filter = (request.args.get("plan_name") or "").strip().lower()
-        status_filter = (request.args.get("status_filter") or "ativo").strip().lower()
-        sort_field = (request.args.get("sort_field") or "name").strip().lower()
-        sort_dir = (request.args.get("sort_dir") or "asc").strip().lower()
-        if sort_field not in {"name", "created_at", "last_access_at", "value"}:
-            sort_field = "name"
-        if sort_dir not in {"asc", "desc"}:
-            sort_dir = "asc"
         _run_daily_monitor(conn, reference_date=reference_date or _today_str())
         conn.commit()
     finally:
@@ -798,6 +788,16 @@ def gestao_saas():
     conn = get_db_connection()
     try:
         _ensure_saas_defaults(conn)
+
+        company_name_filter = (request.args.get("company_name") or "").strip().lower()
+        plan_filter = (request.args.get("plan_name") or "").strip().lower()
+        status_filter = (request.args.get("status_filter") or "ativo").strip().lower()
+        sort_field = (request.args.get("sort_field") or "name").strip().lower()
+        sort_dir = (request.args.get("sort_dir") or "asc").strip().lower()
+        if sort_field not in {"name", "created_at", "last_access_at", "value"}:
+            sort_field = "name"
+        if sort_dir not in {"asc", "desc"}:
+            sort_dir = "asc"
 
         if request.method == "POST":
             action = (request.form.get("action") or "").strip().lower()
