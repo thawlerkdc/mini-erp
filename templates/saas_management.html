@@ -724,6 +724,29 @@
     max-width: 1320px;
   }
 
+  .saas-panel-card,
+  .saas-panel-card p,
+  .saas-panel-card label,
+  .saas-panel-card td,
+  .saas-panel-card th,
+  .saas-panel-card h3,
+  .saas-panel-card h4 {
+    color: #0f2f57;
+  }
+
+  .saas-panel-card .report-table th {
+    background: #eef4fb;
+    color: #0f2f57;
+  }
+
+  .saas-panel-card .report-table tbody tr:nth-child(even) {
+    background: #f7fbff;
+  }
+
+  .saas-panel-card .report-table tbody tr:nth-child(odd) {
+    background: #ffffff;
+  }
+
   .saas-panel-card .param-section {
     margin-bottom: 24px;
   }
@@ -812,11 +835,20 @@
     justify-content: center;
     padding: 8px 14px;
     border-radius: 12px;
-    border: 1px solid rgba(59, 130, 246, 0.45);
-    background: rgba(37, 99, 235, 0.18);
-    color: #bfdbfe;
+    border: 1px solid #2563eb;
+    background: #dbeafe;
+    color: #1d4ed8;
     text-decoration: none;
     font-weight: 700;
+  }
+
+  .saas-action-inline .btn-edit:hover {
+    background: #bfdbfe;
+    color: #1e40af;
+  }
+
+  .saas-action-inline .btn-edit:visited {
+    color: #1d4ed8;
   }
 
   .saas-company-editor {
@@ -871,7 +903,7 @@
     border: 1px solid rgba(148, 163, 184, 0.22);
     border-radius: 12px;
     padding: 10px;
-    background: rgba(248, 250, 252, 0.74);
+    background: #f8fbff;
   }
 
   .saas-ranking-list {
@@ -889,7 +921,7 @@
     padding: 8px 10px;
     border-radius: 10px;
     border: 1px solid rgba(148, 163, 184, 0.22);
-    background: rgba(248, 250, 252, 0.72);
+    background: #f8fbff;
   }
 
   .saas-ranking-list strong {
@@ -899,6 +931,16 @@
   [data-theme="dark"] .saas-header p,
   [data-theme="dark"] .saas-kpi-card span {
     color: #cbd5e1;
+  }
+
+  [data-theme="dark"] .saas-panel-card,
+  [data-theme="dark"] .saas-panel-card p,
+  [data-theme="dark"] .saas-panel-card label,
+  [data-theme="dark"] .saas-panel-card td,
+  [data-theme="dark"] .saas-panel-card th,
+  [data-theme="dark"] .saas-panel-card h3,
+  [data-theme="dark"] .saas-panel-card h4 {
+    color: #e2e8f0;
   }
 
   [data-theme="dark"] .saas-kpi-card {
@@ -957,7 +999,7 @@
     var accountValues = {{ account_chart_values_json|safe }};
 
     var textColor = document.documentElement.getAttribute("data-theme") === "dark" ? "#e2e8f0" : "#334155";
-    var gridColor = document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(148,163,184,.25)" : "rgba(148,163,184,.22)";
+    var gridColor = document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(148,163,184,.25)" : "rgba(71,85,105,.22)";
 
     var usageCanvas = document.getElementById("saasUsageChart");
     if (window.Chart && usageCanvas) {
