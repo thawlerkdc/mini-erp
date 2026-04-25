@@ -86,12 +86,13 @@
       transform: translateY(-50%);
       width: 38px;
       height: 38px;
-      border-radius: 11px;
-      background:
-        linear-gradient(128deg, #2f70ff 0%, #3e85ff 100%) 6% 6% / 38% 88% no-repeat,
-        linear-gradient(126deg, #2f70ff 0%, #4b7bff 100%) 58% 16% / 36% 30% no-repeat,
-        linear-gradient(-126deg, #2f70ff 0%, #4b7bff 100%) 58% 54% / 36% 30% no-repeat;
-      filter: drop-shadow(0 0 10px rgba(45, 112, 255, 0.5));
+      border-radius: 4px;
+      background-color: #02103b;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g1' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%233b85ff'/><stop offset='1' stop-color='%232f66ff'/></linearGradient><linearGradient id='g2' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%233f8dff'/><stop offset='1' stop-color='%232f66ff'/></linearGradient></defs><path d='M10 8h12v22l11-22h14L33 33l15 23H34L22 37v19H10V8z' fill='url(%23g1)'/><path d='M39 10h14L39 26l-8-7z' fill='url(%23g2)'/></svg>");
+      background-size: 84% 84%;
+      background-repeat: no-repeat;
+      background-position: center;
+      box-shadow: 0 8px 20px rgba(28, 85, 216, 0.45);
     }
 
     body > header .brand-name.brand-animated {
@@ -609,7 +610,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(165deg, rgba(7, 18, 40, 0.95), rgba(8, 18, 39, 0.92));
+      background: linear-gradient(165deg, rgba(4, 13, 31, 0.96), rgba(5, 14, 33, 0.94));
       padding: 16px;
     }
 
@@ -618,10 +619,10 @@
       max-height: 100%;
       overflow: auto;
       border-radius: 18px;
-      border: 1px solid rgba(86, 118, 176, 0.4);
+      border: 1px solid rgba(74, 104, 158, 0.42);
       background:
-        radial-gradient(circle at 96% 18%, rgba(56, 98, 187, 0.14), transparent 34%),
-        linear-gradient(165deg, rgba(26, 43, 74, 0.94), rgba(18, 32, 58, 0.95));
+        radial-gradient(circle at 96% 18%, rgba(40, 78, 154, 0.14), transparent 34%),
+        linear-gradient(165deg, rgba(20, 35, 62, 0.95), rgba(12, 24, 47, 0.97));
       padding: 20px;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
@@ -664,8 +665,8 @@
       width: 100%;
       min-height: 48px;
       border-radius: 14px;
-      border: 1px solid rgba(94, 125, 185, 0.38);
-      background: rgba(18, 35, 66, 0.88);
+      border: 1px solid rgba(72, 103, 159, 0.46);
+      background: rgba(15, 28, 54, 0.94);
       color: #ebf2ff;
       font-size: 14px;
       padding: 0 42px;
@@ -828,20 +829,21 @@
 
     .login2-security {
       margin-top: 10px;
-      border-radius: 14px;
-      border: 1px solid rgba(94, 125, 185, 0.34);
-      background: rgba(15, 31, 60, 0.76);
-      padding: 14px 12px;
+      padding: 2px 2px 0;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
+      gap: 8px;
+      color: #b7c8e4;
+      font-size: 12px;
+      font-weight: 600;
     }
 
     .login2-security svg {
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
       color: #9fc1ff;
-      flex: 0 0 16px;
+      flex: 0 0 15px;
     }
 
     .login2-support {
@@ -1212,6 +1214,7 @@
 
         <div class="login2-security">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5c0 5-3.4 8.4-7 10-3.6-1.6-7-5-7-10V6l7-3Z"></path><path d="M9.5 12.5l1.8 1.8 3.5-3.8"></path></svg>
+          <span>Seus dados estão protegidos com segurança avançada.</span>
         </div>
 
         {% if global_settings.get('public_support_email') or global_settings.get('public_support_whatsapp') %}
