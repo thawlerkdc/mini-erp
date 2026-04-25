@@ -1,0 +1,1095 @@
+from datetime import datetime, timedelta
+import io
+import json
+
+from flask import Blueprint, flash, redirect, render_template, request, send_file, session, url_for
+
+from models import create_account_with_owner, get_db_connection
+from logs_auditoria import log_audit_event
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+except ImportError:
+    colors = None
+    A4 = None
+    getSampleStyleSheet = None
+    Paragraph = None
+    SimpleDocTemplate = None
+    Spacer = None
+    Table = None
+    TableStyle = None
+
+
+saas_bp = Blueprint("saas", __name__)
+
+
+ACCOUNT_STATUS = ["ativa", "suspensa", "bloqueada", "inativa"]
+BILLING_STATUS = ["pendente", "pago", "atrasado"]
+PLAN_CYCLES = ["mensal", "anual"]
+
+
+def _now_str():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _today_str():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def _safe_float(value, default=0.0):
+    try:
+        if value is None:
+            return default
+        text = str(value).strip().replace(",", ".")
+        if not text:
+            return default
+        return float(text)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(value, default=0):
+    try:
+        if value is None:
+            return default
+        text = str(value).strip()
+        if not text:
+            return default
+        return int(float(text))
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_json_or_text(raw_text):
+    text = (raw_text or "").strip()
+    if not text:
+        return []
+    if text.startswith("["):
+        try:
+            loaded = json.loads(text)
+            if isinstance(loaded, list):
+                return [str(item).strip() for item in loaded if str(item).strip()]
+        except Exception:
+            pass
+    lines = []
+    for line in text.splitlines():
+        clean = line.strip(" -\t")
+        if clean:
+            lines.append(clean)
+    return lines
+
+
+def _serialize_json(items):
+    return json.dumps(items or [], ensure_ascii=False)
+
+
+def _current_user_id():
+    return session.get("user_id")
+
+
+def _current_account_id():
+    return session.get("account_id")
+
+
+def _is_owner_system_admin():
+    return bool(session.get("user") and session.get("role") == "owner" and session.get("is_admin"))
+
+
+def _dependent_permission_row(conn):
+    return conn.execute(
+        """
+        SELECT up.can_view, up.can_edit, up.can_delete
+        FROM user_permissions up
+        WHERE up.account_id = %s
+          AND up.user_id = %s
+          AND up.module = 'gestao_saas'
+        LIMIT 1
+        """,
+        (_current_account_id(), _current_user_id()),
+    ).fetchone()
+
+
+def _can_access_saas(require_edit=False, require_delete=False):
+    if not session.get("user"):
+        return False
+
+    if _is_owner_system_admin():
+        return True
+
+    # Dono que nao e admin global nao pode operar o modulo central SaaS.
+    if session.get("role") == "owner":
+        return False
+
+    conn = get_db_connection()
+    try:
+        owner_admin = conn.execute(
+            """
+            SELECT 1
+            FROM users
+            WHERE account_id = %s
+              AND role = 'owner'
+              AND is_admin = 1
+            LIMIT 1
+            """,
+            (_current_account_id(),),
+        ).fetchone()
+        if not owner_admin:
+            return False
+
+        perm = _dependent_permission_row(conn)
+        if not perm:
+            return False
+        if require_delete:
+            return bool(perm["can_delete"])
+        if require_edit:
+            return bool(perm["can_edit"])
+        return bool(perm["can_view"])
+    finally:
+        conn.close()
+
+
+def _log_panel_access(action, payload=None):
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO saas_panel_access_logs (user_id, account_id, username, action, method, path, payload, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                _current_user_id(),
+                _current_account_id(),
+                session.get("user") or "",
+                action,
+                request.method,
+                request.path,
+                json.dumps(payload or {}, ensure_ascii=False),
+                _now_str(),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    log_audit_event(
+        "saas_panel_action",
+        {
+            "action": action,
+            "payload": payload or {},
+            "panel": "gestao_saas",
+        },
+        account_id=_current_account_id(),
+    )
+
+
+def _ensure_saas_defaults(conn):
+    existing_count = conn.execute("SELECT COUNT(*) AS total FROM saas_plans").fetchone()["total"]
+    if existing_count == 0:
+        now = _now_str()
+        plans = [
+            ("Basico", 129.90, 1299.00, 299.00, ["Vendas", "Estoque", "Financeiro basico"], ["2 usuarios", "1 filial"]),
+            ("Completo", 249.90, 2499.00, 199.00, ["Todos os modulos operacionais", "Relatorios avancados"], ["8 usuarios", "3 filiais"]),
+            ("Premium", 499.90, 4999.00, 0.00, ["Tudo do Completo", "Automacoes", "Insights inteligentes"], ["Usuarios ilimitados", "Filiais ilimitadas"]),
+        ]
+        for name, monthly, yearly, setup_fee, features, limits in plans:
+            conn.execute(
+                """
+                INSERT INTO saas_plans (name, price_monthly, price_yearly, setup_fee, features_json, limits_json, is_active, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s)
+                """,
+                (name, monthly, yearly, setup_fee, _serialize_json(features), _serialize_json(limits), now, now),
+            )
+
+    defaults = {
+        "auto_block_enabled": "1",
+        "default_suspension_days": "10",
+        "send_billing_email": "1",
+        "send_billing_whatsapp": "0",
+        "daily_monitor_hour": "07:30",
+        "apply_new_prices_default": "novos",
+    }
+    for key, value in defaults.items():
+        conn.execute(
+            """
+            INSERT INTO saas_automation_settings (setting_key, setting_value, updated_at)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (setting_key) DO UPDATE
+            SET setting_value = EXCLUDED.setting_value,
+                updated_at = EXCLUDED.updated_at
+            """,
+            (key, value, _now_str()),
+        )
+
+
+def _collect_daily_usage_snapshot(conn, usage_date):
+    day_start = f"{usage_date} 00:00:00"
+    day_end = f"{usage_date} 23:59:59"
+    rows = conn.execute(
+        """
+        SELECT account_id, user_id, endpoint, path, created_at
+        FROM logs
+        WHERE created_at BETWEEN %s AND %s
+        ORDER BY account_id, user_id, created_at
+        """,
+        (day_start, day_end),
+    ).fetchall()
+
+    by_account = {}
+    for row in rows:
+        account_id = row["account_id"]
+        account_data = by_account.setdefault(
+            account_id,
+            {
+                "users": set(),
+                "events": 0,
+                "path_count": {},
+                "endpoint_count": {},
+                "user_times": {},
+            },
+        )
+        account_data["events"] += 1
+        account_data["users"].add(row["user_id"])
+
+        path = (row["path"] or "-").strip() or "-"
+        endpoint = (row["endpoint"] or "-").strip() or "-"
+        account_data["path_count"][path] = account_data["path_count"].get(path, 0) + 1
+        account_data["endpoint_count"][endpoint] = account_data["endpoint_count"].get(endpoint, 0) + 1
+
+        user_key = row["user_id"] or 0
+        user_track = account_data["user_times"].setdefault(user_key, {"min": row["created_at"], "max": row["created_at"]})
+        if row["created_at"] < user_track["min"]:
+            user_track["min"] = row["created_at"]
+        if row["created_at"] > user_track["max"]:
+            user_track["max"] = row["created_at"]
+
+    now = _now_str()
+    for account_id, data in by_account.items():
+        total_minutes = 0.0
+        tracked_users = 0
+        for timer in data["user_times"].values():
+            try:
+                dt_min = datetime.strptime(timer["min"], "%Y-%m-%d %H:%M:%S")
+                dt_max = datetime.strptime(timer["max"], "%Y-%m-%d %H:%M:%S")
+                diff_minutes = max(1.0, min(480.0, (dt_max - dt_min).total_seconds() / 60.0))
+                total_minutes += diff_minutes
+                tracked_users += 1
+            except Exception:
+                continue
+
+        avg_session_minutes = round((total_minutes / tracked_users), 2) if tracked_users else 0.0
+        top_screen = max(data["path_count"], key=data["path_count"].get) if data["path_count"] else "-"
+        top_feature = max(data["endpoint_count"], key=data["endpoint_count"].get) if data["endpoint_count"] else "-"
+
+        conn.execute(
+            """
+            INSERT INTO saas_usage_daily (
+                account_id, usage_date, active_users, total_sessions, avg_session_minutes,
+                top_screen, top_feature, created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (account_id, usage_date) DO UPDATE SET
+                active_users = EXCLUDED.active_users,
+                total_sessions = EXCLUDED.total_sessions,
+                avg_session_minutes = EXCLUDED.avg_session_minutes,
+                top_screen = EXCLUDED.top_screen,
+                top_feature = EXCLUDED.top_feature,
+                created_at = EXCLUDED.created_at
+            """,
+            (
+                account_id,
+                usage_date,
+                len(data["users"]),
+                data["events"],
+                avg_session_minutes,
+                top_screen,
+                top_feature,
+                now,
+            ),
+        )
+
+
+def _run_daily_monitor(conn, reference_date=None):
+    today = reference_date or _today_str()
+    yesterday = (datetime.strptime(today, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    _collect_daily_usage_snapshot(conn, yesterday)
+
+    conn.execute(
+        """
+        UPDATE saas_billing_events
+        SET status = 'atrasado', updated_at = %s
+        WHERE status = 'pendente' AND due_date < %s
+        """,
+        (_now_str(), today),
+    )
+
+    blocking_rules = {
+        row["setting_key"]: row["setting_value"]
+        for row in conn.execute("SELECT setting_key, setting_value FROM saas_automation_settings").fetchall()
+    }
+    auto_block_enabled = str(blocking_rules.get("auto_block_enabled", "1")) == "1"
+    default_suspension_days = _safe_int(blocking_rules.get("default_suspension_days"), 10)
+
+    if auto_block_enabled:
+        overdue_rows = conn.execute(
+            """
+            SELECT s.account_id, COALESCE(s.suspension_days, %s) AS suspension_days, MIN(b.due_date) AS oldest_due
+            FROM saas_subscriptions s
+            JOIN saas_billing_events b ON b.account_id = s.account_id
+            WHERE b.status = 'atrasado' AND s.status IN ('ativa', 'suspensa')
+            GROUP BY s.account_id, s.suspension_days
+            """,
+            (default_suspension_days,),
+        ).fetchall()
+
+        for row in overdue_rows:
+            oldest_due = row["oldest_due"]
+            if not oldest_due:
+                continue
+            try:
+                overdue_days = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(oldest_due, "%Y-%m-%d")).days
+            except Exception:
+                continue
+            if overdue_days >= _safe_int(row["suspension_days"], default_suspension_days):
+                conn.execute("UPDATE accounts SET status = 'bloqueada', updated_at = %s WHERE id = %s", (_now_str(), row["account_id"]))
+                conn.execute("UPDATE saas_subscriptions SET status = 'bloqueada', updated_at = %s WHERE account_id = %s", (_now_str(), row["account_id"]))
+
+    paid_ready = conn.execute(
+        """
+        SELECT s.account_id
+        FROM saas_subscriptions s
+        WHERE s.status = 'bloqueada'
+          AND NOT EXISTS (
+            SELECT 1 FROM saas_billing_events b
+            WHERE b.account_id = s.account_id
+              AND b.status IN ('pendente', 'atrasado')
+          )
+        """
+    ).fetchall()
+    for row in paid_ready:
+        conn.execute("UPDATE accounts SET status = 'ativa', updated_at = %s WHERE id = %s", (_now_str(), row["account_id"]))
+        conn.execute("UPDATE saas_subscriptions SET status = 'ativa', updated_at = %s WHERE account_id = %s", (_now_str(), row["account_id"]))
+
+    low_usage_accounts = conn.execute(
+        """
+        SELECT u.account_id, a.name, u.active_users, u.avg_session_minutes
+        FROM saas_usage_daily u
+        JOIN accounts a ON a.id = u.account_id
+        WHERE u.usage_date = %s
+          AND (u.active_users <= 1 OR u.avg_session_minutes < 8)
+        """,
+        (yesterday,),
+    ).fetchall()
+
+    for row in low_usage_accounts:
+        title = "Risco de churn por baixa utilização"
+        message = (
+            f"A conta {row['name']} apresentou baixa atividade em {yesterday}. "
+            f"Usuários ativos: {row['active_users']}, média de sessão: {row['avg_session_minutes']} min."
+        )
+        conn.execute(
+            """
+            INSERT INTO saas_insights (account_id, insight_type, severity, title, message, generated_on, resolved)
+            VALUES (%s, 'alerta', 'alta', %s, %s, %s, 0)
+            """,
+            (row["account_id"], title, message, today),
+        )
+
+
+def run_saas_daily_monitor_job(reference_date=None):
+    conn = get_db_connection()
+    try:
+        _ensure_saas_defaults(conn)
+        _run_daily_monitor(conn, reference_date=reference_date or _today_str())
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _upsert_subscription(conn, form_data):
+    account_id = _safe_int(form_data.get("account_id"), 0)
+    plan_id = _safe_int(form_data.get("plan_id"), 0)
+    if account_id <= 0 or plan_id <= 0:
+        return False, "Conta e plano sao obrigatorios para assinatura."
+
+    cycle = (form_data.get("billing_cycle") or "mensal").strip().lower()
+    if cycle not in PLAN_CYCLES:
+        cycle = "mensal"
+
+    amount = _safe_float(form_data.get("amount"), 0.0)
+    setup_fee_amount = _safe_float(form_data.get("setup_fee_amount"), 0.0)
+    starts_at = (form_data.get("starts_at") or _today_str()).strip()
+    next_due_date = (form_data.get("next_due_date") or _today_str()).strip()
+    status = (form_data.get("subscription_status") or "ativa").strip().lower()
+    if status not in ACCOUNT_STATUS:
+        status = "ativa"
+
+    suspension_days = _safe_int(form_data.get("suspension_days"), 10)
+    auto_block_enabled = 1 if form_data.get("auto_block_enabled") else 0
+    apply_new_prices_to_existing = 1 if form_data.get("apply_new_prices_to_existing") else 0
+
+    now = _now_str()
+    conn.execute(
+        """
+        INSERT INTO saas_subscriptions (
+            account_id, plan_id, billing_cycle, amount, setup_fee_amount, starts_at, next_due_date,
+            status, suspension_days, auto_block_enabled, apply_new_prices_to_existing, updated_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (account_id) DO UPDATE SET
+            plan_id = EXCLUDED.plan_id,
+            billing_cycle = EXCLUDED.billing_cycle,
+            amount = EXCLUDED.amount,
+            setup_fee_amount = EXCLUDED.setup_fee_amount,
+            starts_at = EXCLUDED.starts_at,
+            next_due_date = EXCLUDED.next_due_date,
+            status = EXCLUDED.status,
+            suspension_days = EXCLUDED.suspension_days,
+            auto_block_enabled = EXCLUDED.auto_block_enabled,
+            apply_new_prices_to_existing = EXCLUDED.apply_new_prices_to_existing,
+            updated_at = EXCLUDED.updated_at
+        """,
+        (
+            account_id,
+            plan_id,
+            cycle,
+            amount,
+            setup_fee_amount,
+            starts_at,
+            next_due_date,
+            status,
+            suspension_days,
+            auto_block_enabled,
+            apply_new_prices_to_existing,
+            now,
+        ),
+    )
+    return True, "Assinatura atualizada com sucesso."
+
+
+def _build_report_rows(conn, report_type, start_date, end_date):
+    if report_type == "financeiro":
+        return conn.execute(
+            """
+            SELECT a.name AS empresa, b.charge_type AS tipo_cobranca, b.reference_period AS referencia,
+                   b.due_date AS vencimento, b.amount AS valor, b.status AS status, COALESCE(b.paid_at, '-') AS pago_em
+            FROM saas_billing_events b
+            JOIN accounts a ON a.id = b.account_id
+            WHERE b.due_date BETWEEN %s AND %s
+            ORDER BY b.due_date DESC, a.name
+            """,
+            (start_date, end_date),
+        ).fetchall()
+
+    if report_type == "uso_cliente":
+        return conn.execute(
+            """
+            SELECT a.name AS empresa, u.usage_date AS data, u.active_users AS usuarios_ativos,
+                   u.total_sessions AS sessoes, u.avg_session_minutes AS media_minutos,
+                   u.top_screen AS tela_principal, u.top_feature AS funcionalidade_principal
+            FROM saas_usage_daily u
+            JOIN accounts a ON a.id = u.account_id
+            WHERE u.usage_date BETWEEN %s AND %s
+            ORDER BY u.usage_date DESC, a.name
+            """,
+            (start_date, end_date),
+        ).fetchall()
+
+    if report_type == "uso_funcionalidade":
+        return conn.execute(
+            """
+            SELECT u.top_feature AS funcionalidade, COUNT(*) AS dias_no_topo,
+                   SUM(u.total_sessions) AS total_sessoes
+            FROM saas_usage_daily u
+            WHERE u.usage_date BETWEEN %s AND %s
+            GROUP BY u.top_feature
+            ORDER BY total_sessoes DESC
+            """,
+            (start_date, end_date),
+        ).fetchall()
+
+    return conn.execute(
+        """
+        SELECT a.name AS empresa,
+               COUNT(DISTINCT l.user_id) AS usuarios_ativos,
+               COUNT(*) AS eventos,
+               MIN(l.created_at) AS primeiro_evento,
+               MAX(l.created_at) AS ultimo_evento
+        FROM logs l
+        JOIN accounts a ON a.id = l.account_id
+        WHERE SUBSTRING(l.created_at, 1, 10) BETWEEN %s AND %s
+        GROUP BY a.name
+        ORDER BY eventos DESC
+        """,
+        (start_date, end_date),
+    ).fetchall()
+
+
+@saas_bp.before_request
+def _guard_saas_module():
+    if not _can_access_saas():
+        flash("Acesso restrito ao modulo de Gestao SaaS.", "error")
+        return redirect(url_for("dashboard"))
+
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not _can_access_saas(require_edit=True):
+        flash("Seu usuario possui acesso somente leitura no modulo de Gestao SaaS.", "error")
+        return redirect(url_for("saas.gestao_saas"))
+
+    if request.method == "POST":
+        action = (request.form.get("action") or "acao_nao_informada").strip().lower()
+        if action in {"delete_company", "delete_plan", "delete_charge"} and not _can_access_saas(require_delete=True):
+            flash("Voce nao possui permissao de exclusao no modulo de Gestao SaaS.", "error")
+            return redirect(url_for("saas.gestao_saas"))
+
+
+@saas_bp.route("/admin/saas-management", methods=["GET", "POST"], endpoint="gestao_saas")
+def gestao_saas():
+    conn = get_db_connection()
+    try:
+        _ensure_saas_defaults(conn)
+
+        if request.method == "POST":
+            action = (request.form.get("action") or "").strip().lower()
+            now = _now_str()
+
+            if action == "save_company":
+                account_id = _safe_int(request.form.get("account_id"), 0)
+                legal_name = (request.form.get("legal_name") or "").strip()
+                trade_name = (request.form.get("trade_name") or "").strip()
+                cnpj = (request.form.get("cnpj") or "").strip()
+                email = (request.form.get("email") or "").strip() or None
+                phone = (request.form.get("phone") or "").strip() or None
+                whatsapp = (request.form.get("whatsapp") or "").strip()
+                responsible_name = (request.form.get("responsible_name") or "").strip()
+                status = (request.form.get("account_status") or "ativa").strip().lower()
+                owner_username = (request.form.get("owner_username") or "").strip()
+                owner_password = request.form.get("owner_password") or ""
+
+                if status not in ACCOUNT_STATUS:
+                    status = "ativa"
+
+                if not legal_name or not whatsapp:
+                    flash("Razao social e WhatsApp sao obrigatorios.", "error")
+                    return redirect(url_for("saas.gestao_saas"))
+
+                if account_id > 0:
+                    conn.execute(
+                        """
+                        UPDATE accounts
+                        SET name = %s,
+                            trade_name = %s,
+                            cnpj = %s,
+                            primary_email = %s,
+                            phone = %s,
+                            whatsapp = %s,
+                            responsible_name = %s,
+                            status = %s,
+                            updated_at = %s
+                        WHERE id = %s
+                        """,
+                        (legal_name, trade_name or legal_name, cnpj, email, phone, whatsapp, responsible_name, status, now, account_id),
+                    )
+                    conn.commit()
+                    _log_panel_access("update_company", {"account_id": account_id, "status": status})
+                    flash("Empresa atualizada com sucesso.", "success")
+                else:
+                    if not all([responsible_name, owner_username, owner_password]):
+                        flash("Para nova empresa informe responsavel, login principal e senha.", "error")
+                        return redirect(url_for("saas.gestao_saas"))
+
+                    new_account_id = create_account_with_owner(
+                        account_name=legal_name,
+                        owner_name=responsible_name,
+                        username=owner_username,
+                        password=owner_password,
+                        email=email,
+                    )
+                    conn.execute(
+                        """
+                        UPDATE accounts
+                        SET trade_name = %s,
+                            cnpj = %s,
+                            primary_email = %s,
+                            phone = %s,
+                            whatsapp = %s,
+                            responsible_name = %s,
+                            status = %s,
+                            updated_at = %s
+                        WHERE id = %s
+                        """,
+                        (trade_name or legal_name, cnpj, email, phone, whatsapp, responsible_name, status, now, new_account_id),
+                    )
+                    conn.commit()
+                    _log_panel_access("create_company", {"account_id": new_account_id})
+                    flash("Empresa criada com sucesso.", "success")
+
+                return redirect(url_for("saas.gestao_saas"))
+
+            if action == "inactivate_company":
+                account_id = _safe_int(request.form.get("account_id"), 0)
+                if account_id > 0:
+                    conn.execute(
+                        "UPDATE accounts SET status = 'inativa', updated_at = %s WHERE id = %s",
+                        (now, account_id),
+                    )
+                    conn.commit()
+                    _log_panel_access("inactivate_company", {"account_id": account_id})
+                    flash("Empresa inativada com sucesso.", "success")
+                return redirect(url_for("saas.gestao_saas"))
+
+            if action == "save_plan":
+                plan_id = _safe_int(request.form.get("plan_id"), 0)
+                name = (request.form.get("plan_name") or "").strip()
+                monthly = _safe_float(request.form.get("price_monthly"), 0.0)
+                yearly = _safe_float(request.form.get("price_yearly"), 0.0)
+                setup_fee = _safe_float(request.form.get("setup_fee"), 0.0)
+                features = _parse_json_or_text(request.form.get("plan_features"))
+                limits = _parse_json_or_text(request.form.get("plan_limits"))
+                apply_scope = (request.form.get("apply_price_scope") or "novos").strip().lower()
+
+                if not name:
+                    flash("Nome do plano e obrigatorio.", "error")
+                    return redirect(url_for("saas.gestao_saas"))
+
+                if plan_id > 0:
+                    old = conn.execute(
+                        "SELECT price_monthly, price_yearly FROM saas_plans WHERE id = %s",
+                        (plan_id,),
+                    ).fetchone()
+                    conn.execute(
+                        """
+                        UPDATE saas_plans
+                        SET name = %s,
+                            price_monthly = %s,
+                            price_yearly = %s,
+                            setup_fee = %s,
+                            features_json = %s,
+                            limits_json = %s,
+                            updated_at = %s
+                        WHERE id = %s
+                        """,
+                        (name, monthly, yearly, setup_fee, _serialize_json(features), _serialize_json(limits), now, plan_id),
+                    )
+                    conn.execute(
+                        """
+                        INSERT INTO saas_plan_price_history (
+                            plan_id, old_monthly, old_yearly, new_monthly, new_yearly,
+                            apply_scope, changed_by_user_id, changed_by_user_name, changed_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            plan_id,
+                            _safe_float(old["price_monthly"] if old else 0),
+                            _safe_float(old["price_yearly"] if old else 0),
+                            monthly,
+                            yearly,
+                            apply_scope,
+                            _current_user_id(),
+                            session.get("user_name") or session.get("user"),
+                            now,
+                        ),
+                    )
+                    if apply_scope == "existentes":
+                        conn.execute(
+                            """
+                            UPDATE saas_subscriptions
+                            SET amount = CASE WHEN billing_cycle = 'anual' THEN %s ELSE %s END,
+                                updated_at = %s
+                            WHERE plan_id = %s
+                            """,
+                            (yearly, monthly, now, plan_id),
+                        )
+                    flash("Plano atualizado com sucesso.", "success")
+                    _log_panel_access("update_plan", {"plan_id": plan_id, "apply_scope": apply_scope})
+                else:
+                    conn.execute(
+                        """
+                        INSERT INTO saas_plans (
+                            name, price_monthly, price_yearly, setup_fee, features_json,
+                            limits_json, is_active, created_at, updated_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s)
+                        """,
+                        (name, monthly, yearly, setup_fee, _serialize_json(features), _serialize_json(limits), now, now),
+                    )
+                    flash("Plano criado com sucesso.", "success")
+                    _log_panel_access("create_plan", {"name": name})
+
+                conn.commit()
+                return redirect(url_for("saas.gestao_saas"))
+
+            if action == "delete_plan":
+                plan_id = _safe_int(request.form.get("plan_id"), 0)
+                if plan_id > 0:
+                    conn.execute("UPDATE saas_plans SET is_active = 0, updated_at = %s WHERE id = %s", (now, plan_id))
+                    conn.commit()
+                    _log_panel_access("inactivate_plan", {"plan_id": plan_id})
+                    flash("Plano inativado.", "success")
+                return redirect(url_for("saas.gestao_saas"))
+
+            if action == "assign_subscription":
+                ok, message = _upsert_subscription(conn, request.form)
+                if ok:
+                    conn.commit()
+                    _log_panel_access("assign_subscription", {"account_id": _safe_int(request.form.get("account_id"), 0)})
+                    flash(message, "success")
+                else:
+                    flash(message, "error")
+                return redirect(url_for("saas.gestao_saas"))
+
+            if action == "save_charge":
+                account_id = _safe_int(request.form.get("account_id"), 0)
+                charge_type = (request.form.get("charge_type") or "mensalidade").strip().lower()
+                reference_period = (request.form.get("reference_period") or "").strip() or _today_str()[:7]
+                due_date = (request.form.get("due_date") or _today_str()).strip()
+                amount = _safe_float(request.form.get("amount"), 0.0)
+                notes = (request.form.get("notes") or "").strip() or None
+                subscription = conn.execute("SELECT id FROM saas_subscriptions WHERE account_id = %s", (account_id,)).fetchone()
+
+                if account_id <= 0 or amount <= 0:
+                    flash("Conta e valor sao obrigatorios para cobranca.", "error")
+                    return redirect(url_for("saas.gestao_saas"))
+
+                conn.execute(
+                    """
+                    INSERT INTO saas_billing_events (
+                        account_id, subscription_id, charge_type, reference_period,
+                        due_date, amount, status, notes, created_at, updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, 'pendente', %s, %s, %s)
+                    """,
+                    (account_id, subscription["id"] if subscription else None, charge_type, reference_period, due_date, amount, notes, now, now),
+                )
+                conn.commit()
+                _log_panel_access("create_charge", {"account_id": account_id, "amount": amount})
+                flash("Cobranca registrada com sucesso.", "success")
+                return redirect(url_for("saas.gestao_saas"))
+
+            if action in {"mark_paid", "mark_pending"}:
+                billing_id = _safe_int(request.form.get("billing_id"), 0)
+                if billing_id > 0:
+                    if action == "mark_paid":
+                        conn.execute(
+                            "UPDATE saas_billing_events SET status = 'pago', paid_at = %s, updated_at = %s WHERE id = %s",
+                            (now, now, billing_id),
+                        )
+                    else:
+                        conn.execute(
+                            "UPDATE saas_billing_events SET status = 'pendente', paid_at = NULL, updated_at = %s WHERE id = %s",
+                            (now, billing_id),
+                        )
+                    conn.commit()
+                    _log_panel_access(action, {"billing_id": billing_id})
+                    flash("Status da cobranca atualizado.", "success")
+                return redirect(url_for("saas.gestao_saas"))
+
+            if action == "run_daily_monitor":
+                _run_daily_monitor(conn, reference_date=_today_str())
+                conn.commit()
+                _log_panel_access("run_daily_monitor", {})
+                flash("Monitoramento diario executado com sucesso.", "success")
+                return redirect(url_for("saas.gestao_saas"))
+
+            if action == "save_automation":
+                settings_map = {
+                    "auto_block_enabled": "1" if request.form.get("auto_block_enabled") else "0",
+                    "default_suspension_days": str(_safe_int(request.form.get("default_suspension_days"), 10)),
+                    "send_billing_email": "1" if request.form.get("send_billing_email") else "0",
+                    "send_billing_whatsapp": "1" if request.form.get("send_billing_whatsapp") else "0",
+                    "daily_monitor_hour": (request.form.get("daily_monitor_hour") or "07:30").strip(),
+                    "apply_new_prices_default": (request.form.get("apply_new_prices_default") or "novos").strip(),
+                }
+                for key, value in settings_map.items():
+                    conn.execute(
+                        """
+                        INSERT INTO saas_automation_settings (setting_key, setting_value, updated_at)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (setting_key) DO UPDATE
+                        SET setting_value = EXCLUDED.setting_value,
+                            updated_at = EXCLUDED.updated_at
+                        """,
+                        (key, value, now),
+                    )
+                conn.commit()
+                _log_panel_access("save_automation", settings_map)
+                flash("Configuracoes avancadas salvas.", "success")
+                return redirect(url_for("saas.gestao_saas"))
+
+        _run_daily_monitor(conn, reference_date=_today_str())
+        conn.commit()
+
+        selected_account_id = _safe_int(request.args.get("edit_account_id"), 0)
+        selected_plan_id = _safe_int(request.args.get("edit_plan_id"), 0)
+
+        companies = conn.execute(
+            """
+            SELECT a.id, a.name, a.slug, a.trade_name, a.cnpj, a.primary_email, a.phone, a.whatsapp,
+                   a.responsible_name, COALESCE(a.status, 'ativa') AS status, a.created_at,
+                   COALESCE(a.last_access_at, '-') AS last_access_at,
+                   o.username AS owner_username,
+                   s.status AS subscription_status,
+                   p.name AS plan_name,
+                   COALESCE(s.amount, 0) AS subscription_amount,
+                   COALESCE(s.billing_cycle, '-') AS billing_cycle
+            FROM accounts a
+            LEFT JOIN users o ON o.account_id = a.id AND o.role = 'owner'
+            LEFT JOIN saas_subscriptions s ON s.account_id = a.id
+            LEFT JOIN saas_plans p ON p.id = s.plan_id
+            ORDER BY a.created_at DESC
+            """
+        ).fetchall()
+
+        plans = conn.execute(
+            """
+            SELECT id, name, price_monthly, price_yearly, setup_fee, features_json, limits_json, is_active, updated_at
+            FROM saas_plans
+            ORDER BY is_active DESC, name
+            """
+        ).fetchall()
+        plans = [
+            {
+                **dict(row),
+                "features_text": "\n".join(_parse_json_or_text(row["features_json"])),
+                "limits_text": "\n".join(_parse_json_or_text(row["limits_json"])),
+            }
+            for row in plans
+        ]
+
+        subscriptions = conn.execute(
+            """
+            SELECT s.id, s.account_id, a.name AS account_name, p.name AS plan_name, s.billing_cycle,
+                   s.amount, s.setup_fee_amount, s.status, s.starts_at, s.next_due_date,
+                   s.suspension_days, s.auto_block_enabled, s.apply_new_prices_to_existing
+            FROM saas_subscriptions s
+            JOIN accounts a ON a.id = s.account_id
+            JOIN saas_plans p ON p.id = s.plan_id
+            ORDER BY a.name
+            """
+        ).fetchall()
+
+        billings = conn.execute(
+            """
+            SELECT b.id, b.account_id, a.name AS account_name, b.charge_type, b.reference_period,
+                   b.due_date, b.amount, b.status, COALESCE(b.paid_at, '-') AS paid_at
+            FROM saas_billing_events b
+            JOIN accounts a ON a.id = b.account_id
+            ORDER BY b.id DESC
+            LIMIT 250
+            """
+        ).fetchall()
+
+        insights = conn.execute(
+            """
+            SELECT i.id, i.account_id, a.name AS account_name, i.insight_type, i.severity, i.title,
+                   i.message, i.generated_on, i.resolved
+            FROM saas_insights i
+            JOIN accounts a ON a.id = i.account_id
+            ORDER BY i.id DESC
+            LIMIT 120
+            """
+        ).fetchall()
+
+        access_logs = conn.execute(
+            """
+            SELECT id, username, action, method, path, created_at
+            FROM saas_panel_access_logs
+            ORDER BY id DESC
+            LIMIT 200
+            """
+        ).fetchall()
+
+        usage_last_30 = conn.execute(
+            """
+            SELECT u.account_id, a.name AS account_name, u.usage_date, u.active_users,
+                   u.total_sessions, u.avg_session_minutes, u.top_feature
+            FROM saas_usage_daily u
+            JOIN accounts a ON a.id = u.account_id
+            WHERE u.usage_date >= %s
+            ORDER BY u.usage_date DESC
+            """,
+            ((datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),),
+        ).fetchall()
+
+        automation_settings = {
+            row["setting_key"]: row["setting_value"]
+            for row in conn.execute("SELECT setting_key, setting_value FROM saas_automation_settings").fetchall()
+        }
+
+        price_history = conn.execute(
+            """
+            SELECT h.id, p.name AS plan_name, h.old_monthly, h.old_yearly, h.new_monthly, h.new_yearly,
+                   h.apply_scope, h.changed_by_user_name, h.changed_at
+            FROM saas_plan_price_history h
+            JOIN saas_plans p ON p.id = h.plan_id
+            ORDER BY h.id DESC
+            LIMIT 120
+            """
+        ).fetchall()
+
+        kpi = conn.execute(
+            """
+            SELECT
+              (SELECT COUNT(*) FROM accounts WHERE COALESCE(status, 'ativa') = 'ativa') AS active_accounts,
+              (SELECT COUNT(*) FROM accounts WHERE COALESCE(status, 'ativa') <> 'ativa') AS inactive_accounts,
+              (SELECT COUNT(*) FROM saas_billing_events WHERE status IN ('pendente', 'atrasado')) AS delinquent_count,
+              (SELECT COALESCE(SUM(amount), 0) FROM saas_billing_events WHERE status = 'pago' AND due_date >= %s) AS monthly_revenue,
+              (SELECT COALESCE(SUM(amount), 0) FROM saas_billing_events WHERE status = 'pago' AND due_date >= %s) AS annual_revenue,
+              (SELECT COALESCE(AVG(avg_session_minutes), 0) FROM saas_usage_daily WHERE usage_date >= %s) AS avg_usage_minutes
+            """,
+            (
+                datetime.now().replace(day=1).strftime("%Y-%m-%d"),
+                datetime.now().replace(month=1, day=1).strftime("%Y-%m-%d"),
+                (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),
+            ),
+        ).fetchone()
+
+        top_features = conn.execute(
+            """
+            SELECT top_feature, COUNT(*) AS total
+            FROM saas_usage_daily
+            WHERE usage_date >= %s
+            GROUP BY top_feature
+            ORDER BY total DESC
+            LIMIT 8
+            """,
+            ((datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),),
+        ).fetchall()
+
+        top_accounts = conn.execute(
+            """
+            SELECT a.name AS account_name, COALESCE(SUM(u.total_sessions), 0) AS sessions
+            FROM saas_usage_daily u
+            JOIN accounts a ON a.id = u.account_id
+            WHERE u.usage_date >= %s
+            GROUP BY a.name
+            ORDER BY sessions DESC
+            LIMIT 8
+            """,
+            ((datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),),
+        ).fetchall()
+
+        selected_company = None
+        if selected_account_id > 0:
+            selected_company = next((row for row in companies if int(row["id"]) == selected_account_id), None)
+
+        selected_plan = None
+        if selected_plan_id > 0:
+            selected_plan = next((row for row in plans if int(row["id"]) == selected_plan_id), None)
+
+        _log_panel_access("view_dashboard", {"selected_account_id": selected_account_id})
+        return render_template(
+            "saas_management.html",
+            title="Gestao SaaS Multiempresa",
+            companies=companies,
+            plans=plans,
+            subscriptions=subscriptions,
+            billings=billings,
+            insights=insights,
+            usage_last_30=usage_last_30,
+            top_features=top_features,
+            top_accounts=top_accounts,
+            access_logs=access_logs,
+            automation_settings=automation_settings,
+            price_history=price_history,
+            kpi=kpi,
+            selected_company=selected_company,
+            selected_plan=selected_plan,
+            can_edit_saas=_can_access_saas(require_edit=True),
+            can_delete_saas=_can_access_saas(require_delete=True),
+        )
+    finally:
+        conn.close()
+
+
+@saas_bp.route("/admin/saas-management/export", methods=["GET"], endpoint="export_saas_report")
+def export_saas_report():
+    if not _can_access_saas():
+        flash("Acesso negado.", "error")
+        return redirect(url_for("dashboard"))
+
+    report_type = (request.args.get("report_type") or "financeiro").strip().lower()
+    report_format = (request.args.get("format") or "excel").strip().lower()
+    start_date = (request.args.get("start_date") or (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")).strip()
+    end_date = (request.args.get("end_date") or _today_str()).strip()
+
+    conn = get_db_connection()
+    try:
+        rows = _build_report_rows(conn, report_type, start_date, end_date)
+    finally:
+        conn.close()
+
+    data = [dict(r) for r in rows]
+    filename_base = f"relatorio_saas_{report_type}_{start_date}_{end_date}".replace("/", "-")
+
+    if report_format == "excel":
+        if pd is None:
+            flash("Dependencia pandas nao disponivel para exportacao Excel.", "error")
+            return redirect(url_for("saas.gestao_saas"))
+
+        df = pd.DataFrame(data)
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="Relatorio")
+        buffer.seek(0)
+        _log_panel_access("export_report", {"type": report_type, "format": "excel"})
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"{filename_base}.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    if report_format == "pdf":
+        if SimpleDocTemplate is None:
+            flash("Dependencia reportlab nao disponivel para exportacao PDF.", "error")
+            return redirect(url_for("saas.gestao_saas"))
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        elements = [
+            Paragraph("Relatorio SaaS", styles["Title"]),
+            Paragraph(f"Tipo: {report_type} | Periodo: {start_date} a {end_date}", styles["Normal"]),
+            Spacer(1, 12),
+        ]
+
+        if data:
+            headers = list(data[0].keys())
+            table_data = [headers] + [[str(item.get(h, "")) for h in headers] for item in data[:80]]
+            table = Table(table_data, repeatRows=1)
+            table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b4a82")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ]
+                )
+            )
+            elements.append(table)
+        else:
+            elements.append(Paragraph("Sem dados para o periodo selecionado.", styles["Normal"]))
+
+        doc.build(elements)
+        buffer.seek(0)
+        _log_panel_access("export_report", {"type": report_type, "format": "pdf"})
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"{filename_base}.pdf",
+            mimetype="application/pdf",
+        )
+
+    flash("Formato de exportacao invalido.", "error")
+    return redirect(url_for("saas.gestao_saas"))

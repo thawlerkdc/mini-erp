@@ -1,0 +1,645 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-card saas-panel-card">
+  <div class="saas-header">
+    <h2>Gestao de Clientes SaaS (Multiempresa)</h2>
+    <p>Painel central para administrar empresas, planos, assinaturas, cobrancas, uso e insights estrategicos.</p>
+  </div>
+
+  <section class="saas-kpi-grid">
+    <article class="saas-kpi-card">
+      <span>Receita mensal</span>
+      <strong>R$ {{ '%.2f'|format(kpi['monthly_revenue'] or 0) }}</strong>
+    </article>
+    <article class="saas-kpi-card">
+      <span>Receita anual</span>
+      <strong>R$ {{ '%.2f'|format(kpi['annual_revenue'] or 0) }}</strong>
+    </article>
+    <article class="saas-kpi-card">
+      <span>Clientes ativos</span>
+      <strong>{{ kpi['active_accounts'] or 0 }}</strong>
+    </article>
+    <article class="saas-kpi-card">
+      <span>Clientes inativos</span>
+      <strong>{{ kpi['inactive_accounts'] or 0 }}</strong>
+    </article>
+    <article class="saas-kpi-card warning">
+      <span>Inadimplentes</span>
+      <strong>{{ kpi['delinquent_count'] or 0 }}</strong>
+    </article>
+    <article class="saas-kpi-card">
+      <span>Uso medio (min/sessao)</span>
+      <strong>{{ '%.2f'|format(kpi['avg_usage_minutes'] or 0) }}</strong>
+    </article>
+  </section>
+
+  <div class="saas-toolbar">
+    <form method="post" action="{{ url_for('saas.gestao_saas') }}">
+      <input type="hidden" name="action" value="run_daily_monitor">
+      <button type="submit" class="btn-confirm" {% if not can_edit_saas %}disabled{% endif %}>Executar monitor diario</button>
+    </form>
+  </div>
+
+  <section class="param-section">
+    <h3>Gestao de Empresas</h3>
+    <p class="param-hint-small">CRUD completo das contas clientes, com status operacional e dados de contato.</p>
+
+    <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-form-grid">
+      <input type="hidden" name="action" value="save_company">
+      <input type="hidden" name="account_id" value="{{ selected_company['id'] if selected_company else '' }}">
+
+      <div>
+        <label>Razao social *</label>
+        <input type="text" name="legal_name" required value="{{ selected_company['name'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Nome fantasia</label>
+        <input type="text" name="trade_name" value="{{ selected_company['trade_name'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>CNPJ</label>
+        <input type="text" name="cnpj" value="{{ selected_company['cnpj'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>E-mail principal</label>
+        <input type="email" name="email" value="{{ selected_company['primary_email'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Telefone</label>
+        <input type="text" name="phone" value="{{ selected_company['phone'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>WhatsApp *</label>
+        <input type="text" name="whatsapp" required value="{{ selected_company['whatsapp'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Responsavel pela conta *</label>
+        <input type="text" name="responsible_name" required value="{{ selected_company['responsible_name'] if selected_company else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Status da conta</label>
+        <select name="account_status" {% if not can_edit_saas %}disabled{% endif %}>
+          {% for status in ['ativa', 'suspensa', 'bloqueada', 'inativa'] %}
+            <option value="{{ status }}" {% if selected_company and selected_company['status'] == status %}selected{% endif %}>{{ status|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Login principal (novo cadastro)</label>
+        <input type="text" name="owner_username" placeholder="Obrigatorio para nova conta" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Senha principal (novo cadastro)</label>
+        <input type="password" name="owner_password" placeholder="Obrigatorio para nova conta" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+
+      <div class="saas-actions-full">
+        <button type="submit" class="btn-add" {% if not can_edit_saas %}disabled{% endif %}>Salvar empresa</button>
+        {% if selected_company %}
+          <a href="{{ url_for('saas.gestao_saas') }}" class="outline-button">Limpar edicao</a>
+        {% endif %}
+      </div>
+    </form>
+
+    <div class="report-table-wrap" style="margin-top:14px;">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>CNPJ</th>
+            <th>WhatsApp</th>
+            <th>Status</th>
+            <th>Plano</th>
+            <th>Ciclo</th>
+            <th>Valor</th>
+            <th>Cadastro</th>
+            <th>Ultimo acesso</th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for company in companies %}
+            <tr>
+              <td>{{ company['name'] }}</td>
+              <td>{{ company['cnpj'] or '-' }}</td>
+              <td>{{ company['whatsapp'] or '-' }}</td>
+              <td><span class="status-pill {{ 'status-vencido' if company['status'] in ['bloqueada','suspensa'] else 'status-pago' if company['status'] == 'ativa' else 'status-pendente' }}">{{ company['status']|capitalize }}</span></td>
+              <td>{{ company['plan_name'] or '-' }}</td>
+              <td>{{ company['billing_cycle'] or '-' }}</td>
+              <td>R$ {{ '%.2f'|format(company['subscription_amount'] or 0) }}</td>
+              <td>{{ company['created_at'] }}</td>
+              <td>{{ company['last_access_at'] }}</td>
+              <td class="action-buttons">
+                <a href="{{ url_for('saas.gestao_saas', edit_account_id=company['id']) }}" class="btn-edit">Editar</a>
+                <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form" onsubmit="return confirm('Inativar esta conta cliente?');">
+                  <input type="hidden" name="action" value="inactivate_company">
+                  <input type="hidden" name="account_id" value="{{ company['id'] }}">
+                  <button type="submit" class="btn-delete" {% if not can_delete_saas %}disabled{% endif %}>Inativar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="10">Nenhuma empresa cadastrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="param-section">
+    <h3>Planos e Assinaturas</h3>
+    <div class="param-inline-grid">
+      <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-subform">
+        <input type="hidden" name="action" value="save_plan">
+        <input type="hidden" name="plan_id" value="{{ selected_plan['id'] if selected_plan else '' }}">
+
+        <label>Nome do plano</label>
+        <input type="text" name="plan_name" required value="{{ selected_plan['name'] if selected_plan else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+
+        <label>Valor mensal</label>
+        <input type="number" step="0.01" min="0" name="price_monthly" value="{{ selected_plan['price_monthly'] if selected_plan else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+
+        <label>Valor anual</label>
+        <input type="number" step="0.01" min="0" name="price_yearly" value="{{ selected_plan['price_yearly'] if selected_plan else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+
+        <label>Taxa de adesao</label>
+        <input type="number" step="0.01" min="0" name="setup_fee" value="{{ selected_plan['setup_fee'] if selected_plan else '' }}" {% if not can_edit_saas %}disabled{% endif %}>
+
+        <label>Recursos (1 por linha)</label>
+        <textarea name="plan_features" rows="4" {% if not can_edit_saas %}disabled{% endif %}>{{ selected_plan['features_text'] if selected_plan else '' }}</textarea>
+
+        <label>Limites (1 por linha)</label>
+        <textarea name="plan_limits" rows="4" {% if not can_edit_saas %}disabled{% endif %}>{{ selected_plan['limits_text'] if selected_plan else '' }}</textarea>
+
+        <label>Aplicacao de novo preco</label>
+        <select name="apply_price_scope" {% if not can_edit_saas %}disabled{% endif %}>
+          <option value="novos">Somente novos clientes</option>
+          <option value="existentes">Aplicar tambem aos existentes</option>
+        </select>
+
+        <div class="saas-actions-full">
+          <button type="submit" class="btn-add" {% if not can_edit_saas %}disabled{% endif %}>Salvar plano</button>
+          {% if selected_plan %}
+            <a href="{{ url_for('saas.gestao_saas') }}" class="outline-button">Limpar</a>
+          {% endif %}
+        </div>
+      </form>
+
+      <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-subform">
+        <input type="hidden" name="action" value="assign_subscription">
+        <label>Empresa</label>
+        <select name="account_id" required {% if not can_edit_saas %}disabled{% endif %}>
+          <option value="">Selecione...</option>
+          {% for company in companies %}
+            <option value="{{ company['id'] }}">{{ company['name'] }}</option>
+          {% endfor %}
+        </select>
+
+        <label>Plano</label>
+        <select name="plan_id" required {% if not can_edit_saas %}disabled{% endif %}>
+          <option value="">Selecione...</option>
+          {% for plan in plans %}
+            {% if plan['is_active'] %}
+              <option value="{{ plan['id'] }}">{{ plan['name'] }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+
+        <label>Ciclo</label>
+        <select name="billing_cycle" {% if not can_edit_saas %}disabled{% endif %}>
+          <option value="mensal">Mensal</option>
+          <option value="anual">Anual</option>
+        </select>
+
+        <label>Valor contratado</label>
+        <input type="number" step="0.01" min="0" name="amount" required {% if not can_edit_saas %}disabled{% endif %}>
+
+        <label>Taxa de adesao</label>
+        <input type="number" step="0.01" min="0" name="setup_fee_amount" value="0" {% if not can_edit_saas %}disabled{% endif %}>
+
+        <label>Inicio</label>
+        <input type="date" name="starts_at" {% if not can_edit_saas %}disabled{% endif %}>
+
+        <label>Proximo vencimento</label>
+        <input type="date" name="next_due_date" {% if not can_edit_saas %}disabled{% endif %}>
+
+        <label>Status assinatura</label>
+        <select name="subscription_status" {% if not can_edit_saas %}disabled{% endif %}>
+          <option value="ativa">Ativa</option>
+          <option value="suspensa">Suspensa</option>
+          <option value="bloqueada">Bloqueada</option>
+          <option value="inativa">Inativa</option>
+        </select>
+
+        <label>Dias para suspensao</label>
+        <input type="number" min="1" max="90" name="suspension_days" value="10" {% if not can_edit_saas %}disabled{% endif %}>
+
+        <div class="param-check-row">
+          <input type="checkbox" name="auto_block_enabled" id="auto_block_enabled" checked {% if not can_edit_saas %}disabled{% endif %}>
+          <label for="auto_block_enabled">Bloqueio automatico por inadimplencia</label>
+        </div>
+        <div class="param-check-row">
+          <input type="checkbox" name="apply_new_prices_to_existing" id="apply_new_prices_to_existing" {% if not can_edit_saas %}disabled{% endif %}>
+          <label for="apply_new_prices_to_existing">Aceita reajuste automatico do plano</label>
+        </div>
+
+        <button type="submit" class="btn-add" {% if not can_edit_saas %}disabled{% endif %}>Salvar assinatura</button>
+      </form>
+    </div>
+
+    <div class="report-table-wrap" style="margin-top:14px;">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Plano</th>
+            <th>Ciclo</th>
+            <th>Valor</th>
+            <th>Setup</th>
+            <th>Status</th>
+            <th>Inicio</th>
+            <th>Prox. vencimento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sub in subscriptions %}
+            <tr>
+              <td>{{ sub['account_name'] }}</td>
+              <td>{{ sub['plan_name'] }}</td>
+              <td>{{ sub['billing_cycle']|capitalize }}</td>
+              <td>R$ {{ '%.2f'|format(sub['amount'] or 0) }}</td>
+              <td>R$ {{ '%.2f'|format(sub['setup_fee_amount'] or 0) }}</td>
+              <td>{{ sub['status']|capitalize }}</td>
+              <td>{{ sub['starts_at'] }}</td>
+              <td>{{ sub['next_due_date'] }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8">Nenhuma assinatura cadastrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="param-section">
+    <h3>Financeiro e Cobrancas</h3>
+
+    <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-form-grid">
+      <input type="hidden" name="action" value="save_charge">
+      <div>
+        <label>Empresa</label>
+        <select name="account_id" required {% if not can_edit_saas %}disabled{% endif %}>
+          <option value="">Selecione...</option>
+          {% for company in companies %}
+            <option value="{{ company['id'] }}">{{ company['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Tipo de cobranca</label>
+        <select name="charge_type" {% if not can_edit_saas %}disabled{% endif %}>
+          <option value="mensalidade">Mensalidade</option>
+          <option value="anuidade">Anuidade</option>
+          <option value="adesao">Taxa de adesao</option>
+        </select>
+      </div>
+      <div>
+        <label>Referencia</label>
+        <input type="text" name="reference_period" placeholder="2026-04" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Vencimento</label>
+        <input type="date" name="due_date" required {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Valor</label>
+        <input type="number" min="0" step="0.01" name="amount" required {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Observacao</label>
+        <input type="text" name="notes" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div class="saas-actions-full">
+        <button type="submit" class="btn-add" {% if not can_edit_saas %}disabled{% endif %}>Registrar cobranca</button>
+      </div>
+    </form>
+
+    <div class="report-table-wrap" style="margin-top:14px;">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Tipo</th>
+            <th>Referencia</th>
+            <th>Vencimento</th>
+            <th>Valor</th>
+            <th>Status</th>
+            <th>Pago em</th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bill in billings %}
+            <tr>
+              <td>{{ bill['account_name'] }}</td>
+              <td>{{ bill['charge_type']|capitalize }}</td>
+              <td>{{ bill['reference_period'] }}</td>
+              <td>{{ bill['due_date'] }}</td>
+              <td>R$ {{ '%.2f'|format(bill['amount'] or 0) }}</td>
+              <td><span class="status-pill {{ 'status-pago' if bill['status']=='pago' else 'status-vencido' if bill['status']=='atrasado' else 'status-pendente' }}">{{ bill['status']|capitalize }}</span></td>
+              <td>{{ bill['paid_at'] }}</td>
+              <td class="action-buttons">
+                <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form">
+                  <input type="hidden" name="action" value="mark_paid">
+                  <input type="hidden" name="billing_id" value="{{ bill['id'] }}">
+                  <button type="submit" class="btn-confirm" {% if not can_edit_saas %}disabled{% endif %}>Pago</button>
+                </form>
+                <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form">
+                  <input type="hidden" name="action" value="mark_pending">
+                  <input type="hidden" name="billing_id" value="{{ bill['id'] }}">
+                  <button type="submit" class="btn-delete" {% if not can_edit_saas %}disabled{% endif %}>Pendente</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8">Sem cobrancas registradas.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="param-section">
+    <h3>Dashboard e Insights</h3>
+    <div class="param-inline-grid">
+      <div>
+        <h4 class="param-subtitle">Ranking de funcionalidades mais usadas</h4>
+        <ul class="saas-ranking-list">
+          {% for feat in top_features %}
+            <li><span>{{ feat['top_feature'] or '-' }}</span><strong>{{ feat['total'] }}</strong></li>
+          {% else %}
+            <li><span>Sem dados</span><strong>0</strong></li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div>
+        <h4 class="param-subtitle">Ranking de empresas mais ativas</h4>
+        <ul class="saas-ranking-list">
+          {% for acc in top_accounts %}
+            <li><span>{{ acc['account_name'] }}</span><strong>{{ acc['sessions'] }}</strong></li>
+          {% else %}
+            <li><span>Sem dados</span><strong>0</strong></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <h4 class="param-subtitle">Alertas e sugestoes inteligentes</h4>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Tipo</th>
+            <th>Severidade</th>
+            <th>Titulo</th>
+            <th>Mensagem</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in insights %}
+            <tr>
+              <td>{{ item['account_name'] }}</td>
+              <td>{{ item['insight_type']|capitalize }}</td>
+              <td>{{ item['severity']|capitalize }}</td>
+              <td>{{ item['title'] }}</td>
+              <td>{{ item['message'] }}</td>
+              <td>{{ item['generated_on'] }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6">Sem insights no momento.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="param-section">
+    <h3>Relatorios Personalizados</h3>
+    <form method="get" action="{{ url_for('saas.export_saas_report') }}" class="saas-form-grid">
+      <div>
+        <label>Tipo de relatorio</label>
+        <select name="report_type">
+          <option value="financeiro">Financeiro</option>
+          <option value="uso_cliente">Uso por cliente</option>
+          <option value="uso_funcionalidade">Uso por funcionalidade</option>
+          <option value="engajamento">Engajamento de usuarios</option>
+        </select>
+      </div>
+      <div>
+        <label>Formato</label>
+        <select name="format">
+          <option value="excel">Excel</option>
+          <option value="pdf">PDF</option>
+        </select>
+      </div>
+      <div>
+        <label>Data inicial</label>
+        <input type="date" name="start_date">
+      </div>
+      <div>
+        <label>Data final</label>
+        <input type="date" name="end_date">
+      </div>
+      <div class="saas-actions-full">
+        <button type="submit" class="btn-add">Exportar relatorio</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="param-section">
+    <h3>Configuracoes Avancadas e Automacao</h3>
+    <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-form-grid">
+      <input type="hidden" name="action" value="save_automation">
+
+      <div class="param-check-row">
+        <input type="checkbox" id="auto_block_enabled_cfg" name="auto_block_enabled" {% if automation_settings.get('auto_block_enabled', '1') == '1' %}checked{% endif %} {% if not can_edit_saas %}disabled{% endif %}>
+        <label for="auto_block_enabled_cfg">Ativar bloqueio automatico por inadimplencia</label>
+      </div>
+      <div class="param-check-row">
+        <input type="checkbox" id="send_billing_email_cfg" name="send_billing_email" {% if automation_settings.get('send_billing_email', '1') == '1' %}checked{% endif %} {% if not can_edit_saas %}disabled{% endif %}>
+        <label for="send_billing_email_cfg">Enviar e-mail automatico de cobranca</label>
+      </div>
+      <div class="param-check-row">
+        <input type="checkbox" id="send_billing_whatsapp_cfg" name="send_billing_whatsapp" {% if automation_settings.get('send_billing_whatsapp', '0') == '1' %}checked{% endif %} {% if not can_edit_saas %}disabled{% endif %}>
+        <label for="send_billing_whatsapp_cfg">Enviar WhatsApp automatico (API)</label>
+      </div>
+
+      <div>
+        <label>Dias para suspensao por atraso</label>
+        <input type="number" min="1" max="90" name="default_suspension_days" value="{{ automation_settings.get('default_suspension_days', '10') }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Horario do monitor diario</label>
+        <input type="time" name="daily_monitor_hour" value="{{ automation_settings.get('daily_monitor_hour', '07:30') }}" {% if not can_edit_saas %}disabled{% endif %}>
+      </div>
+      <div>
+        <label>Padrao para reajuste de preco</label>
+        <select name="apply_new_prices_default" {% if not can_edit_saas %}disabled{% endif %}>
+          <option value="novos" {% if automation_settings.get('apply_new_prices_default', 'novos') == 'novos' %}selected{% endif %}>Somente novos clientes</option>
+          <option value="existentes" {% if automation_settings.get('apply_new_prices_default') == 'existentes' %}selected{% endif %}>Novos + existentes</option>
+        </select>
+      </div>
+
+      <div class="saas-actions-full">
+        <button type="submit" class="btn-add" {% if not can_edit_saas %}disabled{% endif %}>Salvar configuracoes</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="param-section">
+    <h3>Logs de acesso ao painel de gestao</h3>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Acao</th>
+            <th>Metodo</th>
+            <th>Rota</th>
+            <th>Data/Hora</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in access_logs %}
+            <tr>
+              <td>{{ item['username'] }}</td>
+              <td>{{ item['action'] }}</td>
+              <td>{{ item['method'] }}</td>
+              <td>{{ item['path'] }}</td>
+              <td>{{ item['created_at'] }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5">Sem logs de uso.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<style>
+  .saas-panel-card {
+    max-width: 1320px;
+  }
+
+  .saas-header p {
+    margin-top: 6px;
+    color: #64748b;
+  }
+
+  .saas-kpi-grid {
+    margin: 14px 0 18px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .saas-kpi-card {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 12px;
+    padding: 12px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.96));
+  }
+
+  .saas-kpi-card.warning {
+    background: linear-gradient(180deg, rgba(255, 251, 235, 0.92), rgba(254, 243, 199, 0.92));
+    border-color: rgba(245, 158, 11, 0.32);
+  }
+
+  .saas-kpi-card span {
+    display: block;
+    color: #64748b;
+    font-size: 0.84rem;
+    margin-bottom: 5px;
+  }
+
+  .saas-kpi-card strong {
+    font-size: 1.24rem;
+    color: #0f172a;
+  }
+
+  .saas-toolbar {
+    margin-bottom: 12px;
+  }
+
+  .saas-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px 12px;
+    align-items: end;
+  }
+
+  .saas-actions-full {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .saas-subform {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+  }
+
+  .saas-ranking-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 7px;
+  }
+
+  .saas-ranking-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(248, 250, 252, 0.72);
+  }
+
+  .saas-ranking-list strong {
+    color: #0b4a82;
+  }
+
+  [data-theme="dark"] .saas-header p,
+  [data-theme="dark"] .saas-kpi-card span {
+    color: #cbd5e1;
+  }
+
+  [data-theme="dark"] .saas-kpi-card {
+    background: rgba(15, 23, 42, 0.82);
+    border-color: rgba(148, 163, 184, 0.22);
+  }
+
+  [data-theme="dark"] .saas-kpi-card.warning {
+    background: rgba(120, 53, 15, 0.34);
+    border-color: rgba(251, 191, 36, 0.28);
+  }
+
+  [data-theme="dark"] .saas-kpi-card strong,
+  [data-theme="dark"] .saas-ranking-list strong {
+    color: #e2e8f0;
+  }
+
+  [data-theme="dark"] .saas-ranking-list li {
+    background: rgba(15, 23, 42, 0.8);
+    border-color: rgba(148, 163, 184, 0.2);
+  }
+</style>
+{% endblock %}

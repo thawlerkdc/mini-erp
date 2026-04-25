@@ -48,6 +48,12 @@ except ImportError:
     import_excel_bp = None
     print("⚠️  import_excel não disponível (requer pandas)")
 
+try:
+    from saas_management import saas_bp
+except ImportError:
+    saas_bp = None
+    print("⚠️  saas_management não disponível")
+
 from access_control import access_bp
 from logs_auditoria import auditoria_bp, log_audit_event, get_recent_audit_logs
 from datetime import datetime, timedelta
@@ -83,6 +89,8 @@ if import_excel_bp:
     app.register_blueprint(import_excel_bp)
 app.register_blueprint(access_bp)
 app.register_blueprint(auditoria_bp)
+if saas_bp:
+    app.register_blueprint(saas_bp)
 
 LANGUAGES = {
     "pt": "Português",
@@ -825,6 +833,7 @@ def inject_translations():
         "can_edit": lambda module_key: user_can_edit_module(module_key),
         "can_delete": lambda module_key: user_can_delete_module(module_key),
         "is_system_admin": is_system_admin(),
+        "can_manage_saas": can_manage_saas_module(),
         "global_settings": get_global_settings(),
     }
 
@@ -891,6 +900,37 @@ def get_current_user_role():
 
 def is_system_admin():
     return bool(session.get("user") and session.get("role") == "owner" and session.get("is_admin"))
+
+
+def can_manage_saas_module():
+    if not session.get("user"):
+        return False
+    if is_system_admin():
+        return True
+    if get_current_user_role() == "owner":
+        return False
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        owner_admin = conn.execute(
+            "SELECT 1 FROM users WHERE account_id = %s AND role = 'owner' AND is_admin = 1 LIMIT 1",
+            (get_current_account_id(),),
+        ).fetchone()
+        if not owner_admin:
+            return False
+
+        permission = conn.execute(
+            "SELECT can_view FROM user_permissions WHERE account_id = %s AND user_id = %s AND module = 'gestao_saas' LIMIT 1",
+            (get_current_account_id(), get_current_user_id()),
+        ).fetchone()
+        return bool(permission and permission["can_view"])
+    except Exception as exc:
+        logger.exception("Falha ao validar acesso ao módulo SaaS: %s", exc)
+        return False
+    finally:
+        if conn:
+            conn.close()
 
 
 def require_system_admin_access():
@@ -1296,6 +1336,8 @@ ENDPOINT_MODULE_MAP = {
     "import_excel.importar_dados": "cadastro",
     "access.controle_acesso": "usuarios",
     "auditoria.auditoria": "auditoria",
+    "saas.gestao_saas": "gestao_saas",
+    "saas.export_saas_report": "gestao_saas",
 }
 
 
@@ -2338,6 +2380,31 @@ def login():
         password = request.form.get("password")
         user = authenticate_user(username, password)
         if user:
+            account_status = (user.get("account_status") or "ativa").strip().lower()
+            if account_status in {"suspensa", "bloqueada", "inativa"}:
+                return render_template(
+                    active_login_template,
+                    title=translate("login_title"),
+                    hide_page_title=True,
+                    login_error=f"Esta conta está {account_status}. Procure o suporte para regularização.",
+                )
+
+            conn = None
+            try:
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                conn = get_db_connection()
+                conn.execute(
+                    "UPDATE accounts SET last_access_at = %s, updated_at = %s WHERE id = %s",
+                    (now, now, user["account_id"]),
+                )
+                conn.commit()
+            except Exception:
+                if conn:
+                    conn.rollback()
+            finally:
+                if conn:
+                    conn.close()
+
             session["user"] = user["username"]
             session["user_id"] = user["id"]
             session["user_name"] = user["name"] or user["username"]

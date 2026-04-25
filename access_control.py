@@ -15,6 +15,7 @@ MODULES = [
     {'key': 'parametros', 'label': 'Parâmetros'},
     {'key': 'usuarios', 'label': 'Usuários'},
     {'key': 'auditoria', 'label': 'Logs e Auditoria'},
+    {'key': 'gestao_saas', 'label': 'Gestão SaaS Multiempresa'},
 ]
 
 @access_bp.route('/controle_acesso', methods=['GET', 'POST'], endpoint='controle_acesso')

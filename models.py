@@ -307,6 +307,30 @@ _TENANT_MIGRATIONS = [
     "CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), user_id INTEGER REFERENCES users(id), endpoint TEXT, method TEXT, path TEXT, data TEXT, created_at TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS user_permissions (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), user_id INTEGER NOT NULL REFERENCES users(id), module TEXT NOT NULL, can_view INTEGER DEFAULT 1, can_edit INTEGER DEFAULT 0, can_delete INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_permissions_unique ON user_permissions (account_id, user_id, module)",
+    "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS trade_name TEXT",
+    "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS cnpj TEXT",
+    "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS primary_email TEXT",
+    "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS phone TEXT",
+    "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS whatsapp TEXT",
+    "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS responsible_name TEXT",
+    "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ativa'",
+    "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS last_access_at TEXT",
+    "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS updated_at TEXT",
+    "UPDATE accounts SET status = 'ativa' WHERE status IS NULL OR BTRIM(status) = ''",
+    "CREATE TABLE IF NOT EXISTS saas_plans (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, price_monthly DOUBLE PRECISION DEFAULT 0, price_yearly DOUBLE PRECISION DEFAULT 0, setup_fee DOUBLE PRECISION DEFAULT 0, features_json TEXT, limits_json TEXT, is_active INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS saas_plan_price_history (id SERIAL PRIMARY KEY, plan_id INTEGER NOT NULL REFERENCES saas_plans(id), old_monthly DOUBLE PRECISION DEFAULT 0, old_yearly DOUBLE PRECISION DEFAULT 0, new_monthly DOUBLE PRECISION DEFAULT 0, new_yearly DOUBLE PRECISION DEFAULT 0, apply_scope TEXT DEFAULT 'novos', changed_by_user_id INTEGER, changed_by_user_name TEXT, changed_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS saas_subscriptions (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), plan_id INTEGER NOT NULL REFERENCES saas_plans(id), billing_cycle TEXT NOT NULL DEFAULT 'mensal', amount DOUBLE PRECISION DEFAULT 0, setup_fee_amount DOUBLE PRECISION DEFAULT 0, starts_at TEXT, next_due_date TEXT, status TEXT DEFAULT 'ativa', suspension_days INTEGER DEFAULT 10, auto_block_enabled INTEGER DEFAULT 1, apply_new_prices_to_existing INTEGER DEFAULT 0, updated_at TEXT NOT NULL)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_subscriptions_account_unique ON saas_subscriptions (account_id)",
+    "CREATE TABLE IF NOT EXISTS saas_billing_events (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), subscription_id INTEGER REFERENCES saas_subscriptions(id), charge_type TEXT NOT NULL DEFAULT 'mensalidade', reference_period TEXT, due_date TEXT NOT NULL, amount DOUBLE PRECISION NOT NULL, status TEXT NOT NULL DEFAULT 'pendente', paid_at TEXT, notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS idx_saas_billing_account_status ON saas_billing_events (account_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_saas_billing_due_date ON saas_billing_events (due_date)",
+    "CREATE TABLE IF NOT EXISTS saas_usage_daily (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), usage_date TEXT NOT NULL, active_users INTEGER DEFAULT 0, total_sessions INTEGER DEFAULT 0, avg_session_minutes DOUBLE PRECISION DEFAULT 0, top_screen TEXT, top_feature TEXT, created_at TEXT NOT NULL)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_usage_account_date_unique ON saas_usage_daily (account_id, usage_date)",
+    "CREATE TABLE IF NOT EXISTS saas_insights (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), insight_type TEXT NOT NULL, severity TEXT DEFAULT 'media', title TEXT NOT NULL, message TEXT NOT NULL, generated_on TEXT NOT NULL, resolved INTEGER DEFAULT 0)",
+    "CREATE INDEX IF NOT EXISTS idx_saas_insights_account ON saas_insights (account_id, generated_on)",
+    "CREATE TABLE IF NOT EXISTS saas_automation_settings (id SERIAL PRIMARY KEY, setting_key TEXT UNIQUE NOT NULL, setting_value TEXT, updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS saas_panel_access_logs (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), account_id INTEGER REFERENCES accounts(id), username TEXT, action TEXT NOT NULL, method TEXT, path TEXT, payload TEXT, created_at TEXT NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS idx_saas_panel_access_logs_created_at ON saas_panel_access_logs (created_at)",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'nao_informar'",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS email TEXT",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_date TEXT",
@@ -655,7 +679,7 @@ def seed_admin(db_path=None):
 def authenticate_user(username: str, password: str):
     conn = get_db_connection()
     row = conn.execute(
-        "SELECT u.*, a.name AS account_name, a.slug AS account_slug "
+        "SELECT u.*, a.name AS account_name, a.slug AS account_slug, COALESCE(a.status, 'ativa') AS account_status "
         "FROM users u JOIN accounts a ON a.id = u.account_id "
         "WHERE u.username = %s AND u.password = %s AND u.is_active = 1",
         (username, password),
