@@ -2,20 +2,20 @@
 
 {% block content %}
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Orbitron:wght@600;700;800&display=swap');
 
     :root {
-      --login2-bg: #030a19;
-      --login2-bg-2: #071225;
-      --login2-panel: rgba(4, 13, 31, 0.93);
-      --login2-panel-soft: rgba(10, 23, 49, 0.92);
-      --login2-auth: rgba(19, 34, 64, 0.86);
+      --login2-bg: #020714;
+      --login2-bg-2: #040d1f;
+      --login2-panel: rgba(2, 10, 26, 0.95);
+      --login2-panel-soft: rgba(7, 18, 40, 0.93);
+      --login2-auth: rgba(15, 29, 56, 0.88);
       --login2-border: rgba(60, 88, 141, 0.34);
       --login2-text: #e7eefc;
       --login2-muted: #9aafd1;
       --login2-primary: #2f6bff;
       --login2-secondary: #5b41ff;
-      --login2-glow: rgba(83, 83, 208, 0.26);
+      --login2-glow: rgba(66, 65, 186, 0.24);
       --login2-shadow: 0 26px 60px rgba(1, 6, 18, 0.7);
     }
 
@@ -43,9 +43,9 @@
       font-family: 'Manrope', sans-serif;
       color: var(--login2-text);
       background:
-        radial-gradient(circle at 18% 14%, rgba(20, 52, 128, 0.22), transparent 30%),
-        radial-gradient(circle at 54% 42%, rgba(62, 48, 168, 0.17), transparent 26%),
-        linear-gradient(180deg, #020713 0%, #050d1e 100%);
+        radial-gradient(circle at 18% 14%, rgba(16, 44, 110, 0.2), transparent 30%),
+        radial-gradient(circle at 54% 42%, rgba(52, 42, 146, 0.15), transparent 26%),
+        linear-gradient(180deg, #01050f 0%, #040b1a 100%);
       overflow: hidden;
     }
 
@@ -54,12 +54,12 @@
       max-width: 1480px;
       margin: 14px auto 0;
       padding: 0 18px 12px;
-      border-bottom: 1px solid rgba(72, 96, 146, 0.2);
+      border-bottom: 1px solid rgba(60, 81, 127, 0.2);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 14px;
-      background: linear-gradient(180deg, rgba(6, 14, 32, 0.93), rgba(4, 11, 26, 0.95));
+      background: linear-gradient(180deg, rgba(2, 9, 23, 0.95), rgba(2, 8, 20, 0.96));
       border-radius: 0;
     }
 
@@ -70,57 +70,63 @@
       display: inline-flex;
       align-items: center;
       justify-content: flex-start;
-      gap: 10px;
-      padding: 10px 14px 10px 52px;
-      border-radius: 12px;
-      background: rgba(19, 35, 66, 0.62);
-      border: 1px solid rgba(76, 105, 164, 0.38);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      gap: 12px;
+      padding: 8px 0;
+      border-radius: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
     }
 
     body > header .brand::before {
       content: "";
       position: absolute;
-      left: 15px;
+      left: 2px;
       top: 50%;
       transform: translateY(-50%);
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      background: linear-gradient(145deg, #3070ff 0%, #5d54ff 100%);
-      box-shadow: 0 8px 20px rgba(38, 94, 255, 0.5);
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background:
+        linear-gradient(130deg, #2d70ff 0%, #2d70ff 48%, transparent 49%) 0 0 / 50% 100% no-repeat,
+        linear-gradient(130deg, #2d70ff 0%, #4f7fff 100%) 54% 18% / 44% 28% no-repeat,
+        linear-gradient(-130deg, #2d70ff 0%, #4f7fff 100%) 54% 82% / 44% 28% no-repeat;
+      box-shadow: 0 10px 24px rgba(45, 112, 255, 0.42);
     }
 
     body > header .brand::after {
-      content: "K";
+      content: "";
       position: absolute;
-      left: 22px;
+      left: 0;
       top: 50%;
-      transform: translateY(-54%);
-      font-size: 20px;
-      line-height: 1;
-      font-weight: 900;
-      color: #8dc1ff;
-      letter-spacing: -0.06em;
-      text-shadow: 0 0 10px rgba(95, 150, 255, 0.58);
+      transform: translateY(-50%);
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(76, 116, 184, 0.3);
+      background: rgba(8, 20, 45, 0.5);
     }
 
     body > header .brand-name.brand-animated {
-      font-size: 22px;
+      font-family: 'Orbitron', 'Manrope', sans-serif;
+      font-size: 21px;
       font-weight: 800;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
       color: #edf3ff;
       background: none;
       -webkit-text-fill-color: #edf3ff;
       box-shadow: none;
-      padding: 0;
+      padding: 7px 14px 7px 54px;
+      border-radius: 12px;
+      border: 1px solid rgba(76, 105, 164, 0.34);
+      background: linear-gradient(180deg, rgba(12, 26, 54, 0.58), rgba(8, 20, 43, 0.52));
       animation: none;
     }
 
     body > header .brand-subtitle {
-      color: #4f86ff;
-      font-size: 16px;
+      color: #3f7bff;
+      font-size: 14px;
       text-transform: uppercase;
       font-weight: 800;
       letter-spacing: 0.18em;
@@ -222,7 +228,7 @@
       gap: 14px;
       align-content: start;
       min-height: 0;
-      padding-right: 300px;
+      padding-right: 340px;
     }
 
     .login2-kicker {
@@ -239,11 +245,11 @@
 
     .login2-title {
       margin: 0;
-      font-size: clamp(40px, 4.1vw, 62px);
+      font-size: clamp(36px, 3.65vw, 54px);
       line-height: 0.98;
       letter-spacing: -0.055em;
       color: #e8effd;
-      max-width: 640px;
+      max-width: 580px;
     }
 
     .login2-title .accent {
@@ -283,7 +289,7 @@
       border: 1px solid rgba(68, 96, 149, 0.32);
       background: rgba(8, 20, 43, 0.8);
       padding: 12px;
-      min-height: 126px;
+      min-height: 118px;
       display: grid;
       align-content: start;
       gap: 10px;
@@ -383,12 +389,12 @@
 
     .login2-preview {
       position: absolute;
-      right: 20px;
-      bottom: 58px;
+      right: 8px;
+      bottom: 132px;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 320px;
+      width: 292px;
       z-index: 2;
     }
 
@@ -406,12 +412,12 @@
 
     .app-preview {
       position: relative;
-      width: min(100%, 320px);
+      width: min(100%, 292px);
       border-radius: 18px;
       overflow: hidden;
       border: 1px solid rgba(73, 103, 159, 0.34);
       background: linear-gradient(180deg, rgba(7, 18, 40, 0.98), rgba(8, 17, 37, 0.97));
-      box-shadow: 0 24px 48px rgba(1, 6, 18, 0.58), 0 0 44px rgba(84, 68, 209, 0.2);
+      box-shadow: 0 24px 48px rgba(1, 6, 18, 0.62), 0 0 44px rgba(84, 68, 209, 0.16);
       transform: perspective(1200px) rotateY(-10deg) rotateX(4deg);
     }
 
@@ -983,7 +989,7 @@
           <div class="login2-features">
             <article class="login2-feature">
               <span class="icon-circle" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M4 6h16"></path><path d="M7 6l1-2h8l1 2"></path><path d="M5 6l1 12h12l1-12"></path><path d="M9 11h6"></path></svg>
+                <svg viewBox="0 0 24 24"><path d="M3 5h2l2.2 10.5a1 1 0 0 0 1 .8H17a1 1 0 0 0 1-.8L20 8H7"></path><circle cx="10" cy="19" r="1.6"></circle><circle cx="17" cy="19" r="1.6"></circle></svg>
               </span>
               <h3>{{ global_settings.get('login_badge_1', 'Estoque integrado') }}</h3>
               <p>Controle em tempo real</p>
