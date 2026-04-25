@@ -3265,6 +3265,23 @@ body.theme-dark .btn-icon-del:hover {
   background: #fafbfd;
 }
 
+.param-section > label,
+.param-section .param-inline-grid > div > label,
+.param-section .field-group > label,
+.param-section details label {
+  display: block;
+  line-height: 1.35;
+  margin-bottom: 0.4rem;
+}
+
+.param-section > input + label,
+.param-section > select + label,
+.param-section > textarea + label,
+.param-section .param-inline-grid + label,
+.param-section .param-hint-small + label {
+  margin-top: 0.65rem;
+}
+
 .param-section-email {
   background: #fff;
 }

@@ -556,6 +556,10 @@
     }
 
     .status-pill {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
       padding: 14px 16px;
       border-radius: 14px;
       background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(29, 78, 216, 0.10));
@@ -569,6 +573,14 @@
       text-transform: uppercase;
       color: #64748b;
       margin-bottom: 6px;
+    }
+
+    .status-pill strong {
+      display: block;
+      line-height: 1.2;
+      font-size: 0.98rem;
+      color: #0f172a;
+      word-break: break-word;
     }
 
     .system-admin-form,
