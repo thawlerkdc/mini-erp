@@ -47,6 +47,12 @@
       <section class="param-section">
         <h3>Login público e suporte</h3>
 
+        <label>Template ativo da tela de login</label>
+        <select name="login_template">
+          <option value="templateLogin1" {% if settings.get('login_template', 'templateLogin1') == 'templateLogin1' %}selected{% endif %}>templateLogin1 - carrossel atual</option>
+          <option value="templateLogin2" {% if settings.get('login_template') == 'templateLogin2' %}selected{% endif %}>templateLogin2 - layout premium novo</option>
+        </select>
+
         <label>Texto superior da vitrine</label>
         <input type="text" name="login_kicker" value="{{ settings.get('login_kicker', '') }}">
 

@@ -982,6 +982,16 @@ def get_global_settings():
     return settings
 
 
+def get_login_template_name(settings=None):
+    settings = settings or get_global_settings()
+    template_key = (settings.get("login_template") or GLOBAL_SETTINGS_DEFAULTS["login_template"]).strip()
+    template_map = {
+        "templateLogin1": "login.html",
+        "templateLogin2": "login_template2.html",
+    }
+    return template_map.get(template_key, "login.html")
+
+
 def get_system_user_groups():
     conn = get_auth_connection()
     rows = conn.execute(
@@ -1429,6 +1439,7 @@ GLOBAL_SETTINGS_DEFAULTS = {
     "brand_subtitle": "ERP",
     "system_display_name": "Kdc Systems ERP",
     "browser_title_suffix": "ERP",
+    "login_template": "templateLogin1",
     "login_kicker": "Kdc Systems ERP",
     "login_headline": "Gestão inteligente para vendas, compras e estoque em tempo real",
     "login_description": "Controle sua operação com fluxo integrado: compra, entrada, venda, alertas e relatórios essenciais em uma única plataforma.",
@@ -2068,6 +2079,9 @@ def save_global_settings(form_data):
     system_display_name = (form_data.get("system_display_name") or "").strip()
     brand_name = (form_data.get("brand_name") or GLOBAL_SETTINGS_DEFAULTS["brand_name"]).strip()
     brand_subtitle = (form_data.get("brand_subtitle") or GLOBAL_SETTINGS_DEFAULTS["brand_subtitle"]).strip()
+    login_template = (form_data.get("login_template") or GLOBAL_SETTINGS_DEFAULTS["login_template"]).strip()
+    if login_template not in {"templateLogin1", "templateLogin2"}:
+        login_template = GLOBAL_SETTINGS_DEFAULTS["login_template"]
     if not system_display_name:
         system_display_name = f"{brand_name} {brand_subtitle}".strip()
 
@@ -2076,6 +2090,7 @@ def save_global_settings(form_data):
         "brand_subtitle": brand_subtitle,
         "system_display_name": system_display_name,
         "browser_title_suffix": (form_data.get("browser_title_suffix") or GLOBAL_SETTINGS_DEFAULTS["browser_title_suffix"]).strip(),
+        "login_template": login_template,
         "login_kicker": (form_data.get("login_kicker") or GLOBAL_SETTINGS_DEFAULTS["login_kicker"]).strip(),
         "login_headline": (form_data.get("login_headline") or GLOBAL_SETTINGS_DEFAULTS["login_headline"]).strip(),
         "login_description": (form_data.get("login_description") or GLOBAL_SETTINGS_DEFAULTS["login_description"]).strip(),
@@ -2314,6 +2329,7 @@ def set_language(lang_code):
 def login():
     if session.get("user"):
         return redirect(get_default_route_for_current_user())
+    active_login_template = get_login_template_name()
     login_success = None
     if request.method == "GET" and request.args.get("password_reset") == "success":
         login_success = "Senha alterada com sucesso. Entre com seu usuário e a nova senha para continuar."
@@ -2333,8 +2349,8 @@ def login():
             if user["role"] != "owner":
                 get_current_user_permissions()
             return redirect(get_default_route_for_current_user())
-        return render_template("login.html", title=translate("login_title"), hide_page_title=True, login_error=translate("invalid_login"))
-    return render_template("login.html", title=translate("login_title"), hide_page_title=True, login_success=login_success)
+        return render_template(active_login_template, title=translate("login_title"), hide_page_title=True, login_error=translate("invalid_login"))
+    return render_template(active_login_template, title=translate("login_title"), hide_page_title=True, login_success=login_success)
 
 
 @app.route("/criar-conta", methods=["POST"])
