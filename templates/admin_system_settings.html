@@ -243,7 +243,7 @@
           <div class="account-user-group-header">
             <div>
               <h4>{{ group.account_name }}</h4>
-              <p>Slug: {{ group.account_slug }}</p>
+              <p>Identificador da conta: {{ group.account_slug }}</p>
             </div>
             <span class="account-user-total">{{ 1 + (group.dependents|length) if group.owner else (group.dependents|length) }} usuário(s)</span>
           </div>
