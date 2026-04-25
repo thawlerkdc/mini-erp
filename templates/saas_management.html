@@ -990,6 +990,13 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
   (function () {
+    var isDarkTheme = document.documentElement.getAttribute("data-theme") === "dark";
+    if (window.Chart) {
+      Chart.defaults.color = isDarkTheme ? "#e2e8f0" : "#0f2f57";
+      Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+      Chart.defaults.font.size = 13;
+    }
+
     var usageLabels = {{ usage_chart_labels_json|safe }};
     var usageSessions = {{ usage_chart_sessions_json|safe }};
     var usageUsers = {{ usage_chart_active_users_json|safe }};
@@ -998,8 +1005,9 @@
     var accountLabels = {{ account_chart_labels_json|safe }};
     var accountValues = {{ account_chart_values_json|safe }};
 
-    var textColor = document.documentElement.getAttribute("data-theme") === "dark" ? "#e2e8f0" : "#334155";
-    var gridColor = document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(148,163,184,.25)" : "rgba(71,85,105,.22)";
+    var textColor = isDarkTheme ? "#e2e8f0" : "#0f2f57";
+    var secondaryTextColor = isDarkTheme ? "#cbd5e1" : "#1e3a5f";
+    var gridColor = isDarkTheme ? "rgba(148,163,184,.25)" : "rgba(15,47,87,.20)";
 
     var usageCanvas = document.getElementById("saasUsageChart");
     if (window.Chart && usageCanvas) {
@@ -1028,10 +1036,17 @@
         },
         options: {
           responsive: true,
-          plugins: { legend: { labels: { color: textColor } } },
+          plugins: {
+            legend: {
+              labels: {
+                color: textColor,
+                font: { size: 14, weight: "700" },
+              }
+            }
+          },
           scales: {
-            x: { ticks: { color: textColor }, grid: { color: gridColor } },
-            y: { ticks: { color: textColor }, grid: { color: gridColor } }
+            x: { ticks: { color: secondaryTextColor, font: { size: 13, weight: "600" } }, grid: { color: gridColor } },
+            y: { ticks: { color: secondaryTextColor, font: { size: 13, weight: "600" } }, grid: { color: gridColor } }
           }
         }
       });
@@ -1051,10 +1066,17 @@
         },
         options: {
           responsive: true,
-          plugins: { legend: { labels: { color: textColor } } },
+          plugins: {
+            legend: {
+              labels: {
+                color: textColor,
+                font: { size: 14, weight: "700" },
+              }
+            }
+          },
           scales: {
-            x: { ticks: { color: textColor }, grid: { color: gridColor } },
-            y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
+            x: { ticks: { color: secondaryTextColor, font: { size: 13, weight: "600" } }, grid: { color: gridColor } },
+            y: { ticks: { color: secondaryTextColor, font: { size: 13, weight: "600" } }, grid: { color: gridColor }, beginAtZero: true }
           }
         }
       });
@@ -1076,10 +1098,17 @@
         },
         options: {
           responsive: true,
-          plugins: { legend: { labels: { color: textColor } } },
+          plugins: {
+            legend: {
+              labels: {
+                color: textColor,
+                font: { size: 14, weight: "700" },
+              }
+            }
+          },
           scales: {
-            x: { ticks: { color: textColor }, grid: { color: gridColor } },
-            y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
+            x: { ticks: { color: secondaryTextColor, font: { size: 13, weight: "600" } }, grid: { color: gridColor } },
+            y: { ticks: { color: secondaryTextColor, font: { size: 13, weight: "600" } }, grid: { color: gridColor }, beginAtZero: true }
           }
         }
       });
