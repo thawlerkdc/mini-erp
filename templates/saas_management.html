@@ -84,6 +84,52 @@
       </div>
     </form>
 
+    <div class="report-table-wrap" style="margin-top:14px;">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>CNPJ</th>
+            <th>WhatsApp</th>
+            <th>Status</th>
+            <th>Plano</th>
+            <th>Ciclo</th>
+            <th>Valor</th>
+            <th>Cadastro</th>
+            <th>Ultimo acesso</th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for company in companies %}
+            <tr>
+              <td>{{ company['name'] }}</td>
+              <td>{{ company['cnpj'] or '-' }}</td>
+              <td>{{ company['whatsapp'] or '-' }}</td>
+              <td><span class="status-pill {{ 'status-vencido' if company['status'] in ['bloqueada','suspensa'] else 'status-pago' if company['status'] == 'ativa' else 'status-pendente' }}">{{ company['status']|capitalize }}</span></td>
+              <td>{{ company['plan_name'] or '-' }}</td>
+              <td>{{ company['billing_cycle'] or '-' }}</td>
+              <td>R$ {{ '%.2f'|format(company['subscription_amount'] or 0) }}</td>
+              <td>{{ company['created_at_display'] }}</td>
+              <td>{{ company['last_access_at_display'] }}</td>
+              <td class="action-buttons saas-action-inline">
+                <a href="{{ url_for('saas.gestao_saas', edit_account_id=company['id']) }}" class="btn-edit">Editar</a>
+                <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form" onsubmit="return confirm('Inativar esta conta cliente?');">
+                  <input type="hidden" name="action" value="inactivate_company">
+                  <input type="hidden" name="account_id" value="{{ company['id'] }}">
+                  <button type="submit" class="btn-delete" {% if not can_delete_saas %}disabled{% endif %}>Inativar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="10">Nenhuma empresa cadastrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="param-subtitle" style="margin-top:16px;">Cadastro e edicao de empresa</h4>
+
     <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-form-grid">
       <input type="hidden" name="action" value="save_company">
       <input type="hidden" name="account_id" value="{{ selected_company['id'] if selected_company else '' }}">
@@ -147,54 +193,10 @@
         {% endif %}
       </div>
     </form>
-
-    <div class="report-table-wrap" style="margin-top:14px;">
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th>Empresa</th>
-            <th>CNPJ</th>
-            <th>WhatsApp</th>
-            <th>Status</th>
-            <th>Plano</th>
-            <th>Ciclo</th>
-            <th>Valor</th>
-            <th>Cadastro</th>
-            <th>Ultimo acesso</th>
-            <th>Acoes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for company in companies %}
-            <tr>
-              <td>{{ company['name'] }}</td>
-              <td>{{ company['cnpj'] or '-' }}</td>
-              <td>{{ company['whatsapp'] or '-' }}</td>
-              <td><span class="status-pill {{ 'status-vencido' if company['status'] in ['bloqueada','suspensa'] else 'status-pago' if company['status'] == 'ativa' else 'status-pendente' }}">{{ company['status']|capitalize }}</span></td>
-              <td>{{ company['plan_name'] or '-' }}</td>
-              <td>{{ company['billing_cycle'] or '-' }}</td>
-              <td>R$ {{ '%.2f'|format(company['subscription_amount'] or 0) }}</td>
-              <td>{{ company['created_at_display'] }}</td>
-              <td>{{ company['last_access_at_display'] }}</td>
-              <td class="action-buttons saas-action-inline">
-                <a href="{{ url_for('saas.gestao_saas', edit_account_id=company['id']) }}" class="btn-edit">Editar</a>
-                <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form" onsubmit="return confirm('Inativar esta conta cliente?');">
-                  <input type="hidden" name="action" value="inactivate_company">
-                  <input type="hidden" name="account_id" value="{{ company['id'] }}">
-                  <button type="submit" class="btn-delete" {% if not can_delete_saas %}disabled{% endif %}>Inativar</button>
-                </form>
-              </td>
-            </tr>
-          {% else %}
-            <tr><td colspan="10">Nenhuma empresa cadastrada.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
   </section>
 
   <section class="param-section">
-    <h3>Planos e Assinaturas</h3>
+    <h3>Catalogo de Planos</h3>
     <div class="param-inline-grid">
       <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-subform">
         <h4 class="param-subtitle" style="margin-top:0;">Cadastro de planos</h4>
@@ -232,10 +234,52 @@
           {% endif %}
         </div>
       </form>
+    </div>
 
-      <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-subform">
-        <h4 class="param-subtitle" style="margin-top:0;">Vincular empresa ao plano</h4>
-        <input type="hidden" name="action" value="assign_subscription">
+    <div class="report-table-wrap" style="margin-top:14px;">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Plano</th>
+            <th>Mensal</th>
+            <th>Anual</th>
+            <th>Taxa adesao</th>
+            <th>Status</th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for plan in plans %}
+            <tr>
+              <td>{{ plan['name'] }}</td>
+              <td>R$ {{ '%.2f'|format(plan['price_monthly'] or 0) }}</td>
+              <td>R$ {{ '%.2f'|format(plan['price_yearly'] or 0) }}</td>
+              <td>R$ {{ '%.2f'|format(plan['setup_fee'] or 0) }}</td>
+              <td>{{ 'Ativo' if plan['is_active'] else 'Inativo' }}</td>
+              <td class="action-buttons saas-action-inline">
+                <a href="{{ url_for('saas.gestao_saas', edit_plan_id=plan['id']) }}" class="btn-edit">Editar</a>
+                <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form" onsubmit="return confirm('Inativar este plano?');">
+                  <input type="hidden" name="action" value="delete_plan">
+                  <input type="hidden" name="plan_id" value="{{ plan['id'] }}">
+                  <button type="submit" class="btn-delete" {% if not can_delete_saas %}disabled{% endif %}>Inativar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6">Nenhum plano cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="param-section">
+    <h3>Associacao de Planos por Empresa</h3>
+    <p class="param-hint-small">Fluxo sugerido: 1) cadastrar plano, 2) cadastrar empresa, 3) associar empresa ao plano.</p>
+
+    <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="saas-form-grid">
+      <input type="hidden" name="action" value="assign_subscription">
+      <div>
         <label>Empresa</label>
         <select name="account_id" required {% if not can_edit_saas %}disabled{% endif %}>
           <option value="">Selecione...</option>
@@ -243,7 +287,8 @@
             <option value="{{ company['id'] }}">{{ company['name'] }}</option>
           {% endfor %}
         </select>
-
+      </div>
+      <div>
         <label>Plano</label>
         <select name="plan_id" required {% if not can_edit_saas %}disabled{% endif %}>
           <option value="">Selecione...</option>
@@ -253,22 +298,27 @@
             {% endif %}
           {% endfor %}
         </select>
-
+      </div>
+      <div>
         <label>Ciclo</label>
         <select id="subscription_cycle" name="billing_cycle" {% if not can_edit_saas %}disabled{% endif %}>
           <option value="mensal">Mensal</option>
           <option value="anual">Anual</option>
         </select>
-
+      </div>
+      <div>
         <label>Valor contratado</label>
         <input type="number" step="0.01" min="0" name="amount" required {% if not can_edit_saas %}disabled{% endif %}>
-
+      </div>
+      <div>
         <label>Inicio</label>
         <input type="date" id="subscription_starts_at" name="starts_at" {% if not can_edit_saas %}disabled{% endif %}>
-
+      </div>
+      <div>
         <label>Proximo vencimento</label>
         <input type="date" id="subscription_next_due_date" name="next_due_date" {% if not can_edit_saas %}disabled{% endif %}>
-
+      </div>
+      <div>
         <label>Status assinatura</label>
         <select name="subscription_status" {% if not can_edit_saas %}disabled{% endif %}>
           <option value="ativa">Ativa</option>
@@ -276,22 +326,23 @@
           <option value="bloqueada">Bloqueada</option>
           <option value="inativa">Inativa</option>
         </select>
-
+      </div>
+      <div>
         <label>Dias para suspensao</label>
         <input type="number" min="1" max="90" name="suspension_days" value="10" {% if not can_edit_saas %}disabled{% endif %}>
-
-        <div class="param-check-row">
-          <input type="checkbox" name="auto_block_enabled" id="auto_block_enabled" checked {% if not can_edit_saas %}disabled{% endif %}>
-          <label for="auto_block_enabled">Bloqueio automatico por inadimplencia</label>
-        </div>
-        <div class="param-check-row">
-          <input type="checkbox" name="apply_new_prices_to_existing" id="apply_new_prices_to_existing" {% if not can_edit_saas %}disabled{% endif %}>
-          <label for="apply_new_prices_to_existing">Aceita reajuste automatico do plano</label>
-        </div>
-
+      </div>
+      <div class="param-check-row">
+        <input type="checkbox" name="auto_block_enabled" id="auto_block_enabled" checked {% if not can_edit_saas %}disabled{% endif %}>
+        <label for="auto_block_enabled">Bloqueio automatico por inadimplencia</label>
+      </div>
+      <div class="param-check-row">
+        <input type="checkbox" name="apply_new_prices_to_existing" id="apply_new_prices_to_existing" {% if not can_edit_saas %}disabled{% endif %}>
+        <label for="apply_new_prices_to_existing">Aceita reajuste automatico do plano</label>
+      </div>
+      <div class="saas-actions-full">
         <button type="submit" class="btn-add" {% if not can_edit_saas %}disabled{% endif %}>Salvar assinatura</button>
-      </form>
-    </div>
+      </div>
+    </form>
 
     <div class="report-table-wrap" style="margin-top:14px;">
       <table class="report-table">
@@ -301,7 +352,7 @@
             <th>Plano</th>
             <th>Ciclo</th>
             <th>Valor</th>
-            <th>Setup</th>
+            <th>Taxa adesao</th>
             <th>Status</th>
             <th>Inicio</th>
             <th>Prox. vencimento</th>
@@ -316,8 +367,8 @@
               <td>R$ {{ '%.2f'|format(sub['amount'] or 0) }}</td>
               <td>R$ {{ '%.2f'|format(sub['setup_fee_amount'] or 0) }}</td>
               <td>{{ sub['status']|capitalize }}</td>
-              <td>{{ sub['starts_at'] }}</td>
-              <td>{{ sub['next_due_date'] }}</td>
+              <td>{{ sub['starts_at_display'] }}</td>
+              <td>{{ sub['next_due_date_display'] }}</td>
             </tr>
           {% else %}
             <tr><td colspan="8">Nenhuma assinatura cadastrada.</td></tr>
@@ -389,11 +440,11 @@
             <tr>
               <td>{{ bill['account_name'] }}</td>
               <td>{{ bill['charge_type']|capitalize }}</td>
-              <td>{{ bill['reference_period'] }}</td>
-              <td>{{ bill['due_date'] }}</td>
+              <td>{{ bill['reference_period_display'] }}</td>
+              <td>{{ bill['due_date_display'] }}</td>
               <td>R$ {{ '%.2f'|format(bill['amount'] or 0) }}</td>
               <td><span class="status-pill {{ 'status-pago' if bill['status']=='pago' else 'status-vencido' if bill['status']=='atrasado' else 'status-pendente' }}">{{ bill['status']|capitalize }}</span></td>
-              <td>{{ bill['paid_at'] }}</td>
+              <td>{{ bill['paid_at_display'] }}</td>
               <td class="action-buttons saas-action-inline">
                 <form method="post" action="{{ url_for('saas.gestao_saas') }}" class="inline-form">
                   <input type="hidden" name="action" value="mark_paid">
@@ -456,6 +507,51 @@
     </div>
 
     <h4 class="param-subtitle">Alertas e sugestoes inteligentes</h4>
+    <form method="get" action="{{ url_for('saas.gestao_saas') }}" class="saas-form-grid" style="margin:10px 0 12px;">
+      <div>
+        <label>Empresa</label>
+        <input type="text" name="insight_company" value="{{ insight_filters['insight_company'] }}" placeholder="Nome da empresa">
+      </div>
+      <div>
+        <label>Tipo</label>
+        <select name="insight_type">
+          <option value="todos" {% if insight_filters['insight_type'] == 'todos' %}selected{% endif %}>Todos</option>
+          <option value="alerta" {% if insight_filters['insight_type'] == 'alerta' %}selected{% endif %}>Alerta</option>
+          <option value="oportunidade" {% if insight_filters['insight_type'] == 'oportunidade' %}selected{% endif %}>Oportunidade</option>
+        </select>
+      </div>
+      <div>
+        <label>Severidade</label>
+        <select name="insight_severity">
+          <option value="todas" {% if insight_filters['insight_severity'] == 'todas' %}selected{% endif %}>Todas</option>
+          <option value="alta" {% if insight_filters['insight_severity'] == 'alta' %}selected{% endif %}>Alta</option>
+          <option value="media" {% if insight_filters['insight_severity'] == 'media' %}selected{% endif %}>Media</option>
+          <option value="baixa" {% if insight_filters['insight_severity'] == 'baixa' %}selected{% endif %}>Baixa</option>
+        </select>
+      </div>
+      <div>
+        <label>Buscar no texto</label>
+        <input type="text" name="insight_term" value="{{ insight_filters['insight_term'] }}" placeholder="Titulo ou mensagem">
+      </div>
+      <div>
+        <label>Data inicial</label>
+        <input type="date" name="insight_start_date" value="{{ insight_filters['insight_start_date'] }}">
+      </div>
+      <div>
+        <label>Data final</label>
+        <input type="date" name="insight_end_date" value="{{ insight_filters['insight_end_date'] }}">
+      </div>
+      <input type="hidden" name="company_name" value="{{ company_filters['company_name'] }}">
+      <input type="hidden" name="plan_name" value="{{ company_filters['plan_name'] }}">
+      <input type="hidden" name="status_filter" value="{{ company_filters['status_filter'] }}">
+      <input type="hidden" name="sort_field" value="{{ company_filters['sort_field'] }}">
+      <input type="hidden" name="sort_dir" value="{{ company_filters['sort_dir'] }}">
+      <div class="saas-actions-full">
+        <button type="submit" class="btn-confirm">Filtrar alertas</button>
+        <a href="{{ url_for('saas.gestao_saas') }}" class="outline-button">Limpar</a>
+      </div>
+    </form>
+
     <div class="report-table-wrap">
       <table class="report-table">
         <thead>
@@ -566,19 +662,19 @@
       </div>
       <div>
         <label>Template WhatsApp: aviso de atraso</label>
-        <input type="text" name="whatsapp_template_overdue" value="{{ automation_settings.get('whatsapp_template_overdue', '') }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <textarea name="whatsapp_template_overdue" rows="2" class="saas-template-field" {% if not can_edit_saas %}disabled{% endif %}>{{ automation_settings.get('whatsapp_template_overdue', '') }}</textarea>
       </div>
       <div>
         <label>Template WhatsApp: conta bloqueada</label>
-        <input type="text" name="whatsapp_template_blocked" value="{{ automation_settings.get('whatsapp_template_blocked', '') }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <textarea name="whatsapp_template_blocked" rows="2" class="saas-template-field" {% if not can_edit_saas %}disabled{% endif %}>{{ automation_settings.get('whatsapp_template_blocked', '') }}</textarea>
       </div>
       <div>
         <label>Template WhatsApp: conta reativada</label>
-        <input type="text" name="whatsapp_template_reactivated" value="{{ automation_settings.get('whatsapp_template_reactivated', '') }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <textarea name="whatsapp_template_reactivated" rows="2" class="saas-template-field" {% if not can_edit_saas %}disabled{% endif %}>{{ automation_settings.get('whatsapp_template_reactivated', '') }}</textarea>
       </div>
       <div>
         <label>Template WhatsApp: baixa utilizacao</label>
-        <input type="text" name="whatsapp_template_low_usage" value="{{ automation_settings.get('whatsapp_template_low_usage', '') }}" {% if not can_edit_saas %}disabled{% endif %}>
+        <textarea name="whatsapp_template_low_usage" rows="2" class="saas-template-field" {% if not can_edit_saas %}disabled{% endif %}>{{ automation_settings.get('whatsapp_template_low_usage', '') }}</textarea>
       </div>
 
       <div class="saas-actions-full">
@@ -711,6 +807,7 @@
     justify-content: space-between;
     gap: 10px;
     margin-bottom: 6px;
+    cursor: pointer;
   }
 
   .saas-collapse-btn {
@@ -725,6 +822,12 @@
 
   .saas-section-collapsed .saas-section-body {
     display: none;
+  }
+
+  .saas-template-field {
+    min-height: 84px;
+    resize: vertical;
+    line-height: 1.35;
   }
 
   .saas-charts-grid {
@@ -995,9 +1098,23 @@
       }
       section.appendChild(body);
 
-      button.addEventListener("click", function () {
+      function toggleSection() {
         section.classList.toggle("saas-section-collapsed");
         button.textContent = section.classList.contains("saas-section-collapsed") ? "Expandir" : "Recolher";
+      }
+
+      head.addEventListener("click", function (event) {
+        var target = event.target;
+        if (target.closest("a, input, select, textarea")) {
+          return;
+        }
+        toggleSection();
+      });
+
+      button.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleSection();
       });
     });
   })();

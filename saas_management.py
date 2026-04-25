@@ -97,6 +97,18 @@ def _format_date_br(value):
     return dt.strftime("%d/%m/%Y")
 
 
+def _format_reference_period(value):
+    text = (value or "").strip()
+    if not text or text == "-":
+        return "-"
+    if len(text) == 7 and text[4] == "-":
+        return f"{text[5:7]}/{text[:4]}"
+    dt = _parse_datetime(text)
+    if dt:
+        return dt.strftime("%d/%m/%Y")
+    return text
+
+
 def _add_cycle_date(start_date, cycle):
     base = _parse_datetime(start_date) or datetime.now()
     if cycle == "anual":
@@ -350,6 +362,12 @@ def _collect_daily_usage_snapshot(conn, usage_date):
 
     by_account = {}
     for row in rows:
+        endpoint = (row["endpoint"] or "-").strip() or "-"
+        path = (row["path"] or "-").strip() or "-"
+        # Ignore static asset loads to keep usage analytics focused on feature interactions.
+        if endpoint.lower() == "static" or path.lower().startswith("/static/"):
+            continue
+
         account_id = row["account_id"]
         account_data = by_account.setdefault(
             account_id,
@@ -364,8 +382,6 @@ def _collect_daily_usage_snapshot(conn, usage_date):
         account_data["events"] += 1
         account_data["users"].add(row["user_id"])
 
-        path = (row["path"] or "-").strip() or "-"
-        endpoint = (row["endpoint"] or "-").strip() or "-"
         account_data["path_count"][path] = account_data["path_count"].get(path, 0) + 1
         account_data["endpoint_count"][endpoint] = account_data["endpoint_count"].get(endpoint, 0) + 1
 
@@ -537,6 +553,21 @@ def _run_daily_monitor(conn, reference_date=None):
             f"A conta {row['name']} apresentou baixa atividade em {yesterday}. "
             f"Usuários ativos: {row['active_users']}, média de sessão: {row['avg_session_minutes']} min."
         )
+        already_exists = conn.execute(
+            """
+            SELECT id
+            FROM saas_insights
+            WHERE account_id = %s
+              AND insight_type = 'alerta'
+              AND title = %s
+              AND generated_on = %s
+            LIMIT 1
+            """,
+            (row["account_id"], title, today),
+        ).fetchone()
+        if already_exists:
+            continue
+
         conn.execute(
             """
             INSERT INTO saas_insights (account_id, insight_type, severity, title, message, generated_on, resolved)
@@ -1080,6 +1111,13 @@ def gestao_saas():
         selected_account_id = _safe_int(request.args.get("edit_account_id"), 0)
         selected_plan_id = _safe_int(request.args.get("edit_plan_id"), 0)
 
+        insight_company_filter = (request.args.get("insight_company") or "").strip().lower()
+        insight_type_filter = (request.args.get("insight_type") or "").strip().lower()
+        insight_severity_filter = (request.args.get("insight_severity") or "").strip().lower()
+        insight_term_filter = (request.args.get("insight_term") or "").strip().lower()
+        insight_start_date = (request.args.get("insight_start_date") or "").strip()
+        insight_end_date = (request.args.get("insight_end_date") or "").strip()
+
         companies = conn.execute(
             """
             SELECT a.id, a.name, a.slug, a.trade_name, a.cnpj, a.primary_email, a.phone, a.whatsapp,
@@ -1159,6 +1197,14 @@ def gestao_saas():
             ORDER BY a.name
             """
         ).fetchall()
+        subscriptions = [
+            {
+                **dict(row),
+                "starts_at_display": _format_date_br(row["starts_at"]),
+                "next_due_date_display": _format_date_br(row["next_due_date"]),
+            }
+            for row in subscriptions
+        ]
 
         billings = conn.execute(
             """
@@ -1170,17 +1216,51 @@ def gestao_saas():
             LIMIT 250
             """
         ).fetchall()
+        billings = [
+            {
+                **dict(row),
+                "due_date_display": _format_date_br(row["due_date"]),
+                "paid_at_display": _format_datetime_br(row["paid_at"]),
+                "reference_period_display": _format_reference_period(row["reference_period"]),
+            }
+            for row in billings
+        ]
 
-        insights = conn.execute(
+        insight_where = []
+        insight_params = []
+        if insight_company_filter:
+            insight_where.append("LOWER(a.name) LIKE %s")
+            insight_params.append(f"%{insight_company_filter}%")
+        if insight_type_filter and insight_type_filter != "todos":
+            insight_where.append("LOWER(i.insight_type) = %s")
+            insight_params.append(insight_type_filter)
+        if insight_severity_filter and insight_severity_filter != "todas":
+            insight_where.append("LOWER(i.severity) = %s")
+            insight_params.append(insight_severity_filter)
+        if insight_term_filter:
+            insight_where.append("(LOWER(i.title) LIKE %s OR LOWER(i.message) LIKE %s)")
+            insight_params.append(f"%{insight_term_filter}%")
+            insight_params.append(f"%{insight_term_filter}%")
+        if insight_start_date:
+            insight_where.append("i.generated_on >= %s")
+            insight_params.append(insight_start_date)
+        if insight_end_date:
+            insight_where.append("i.generated_on <= %s")
+            insight_params.append(insight_end_date)
+
+        insight_sql = (
             """
             SELECT i.id, i.account_id, a.name AS account_name, i.insight_type, i.severity, i.title,
                    i.message, i.generated_on, i.resolved
             FROM saas_insights i
             JOIN accounts a ON a.id = i.account_id
-            ORDER BY i.id DESC
-            LIMIT 120
             """
-        ).fetchall()
+        )
+        if insight_where:
+            insight_sql += " WHERE " + " AND ".join(insight_where)
+        insight_sql += " ORDER BY i.id DESC LIMIT 300"
+
+        insights = conn.execute(insight_sql, tuple(insight_params)).fetchall()
         insights = [{**dict(row), "generated_on_display": _format_date_br(row["generated_on"])} for row in insights]
 
         access_logs = conn.execute(
@@ -1240,6 +1320,9 @@ def gestao_saas():
             SELECT top_feature, COUNT(*) AS total
             FROM saas_usage_daily
             WHERE usage_date >= %s
+              AND top_feature IS NOT NULL
+              AND top_feature <> '-'
+              AND LOWER(top_feature) <> 'static'
             GROUP BY top_feature
             ORDER BY total DESC
             LIMIT 8
@@ -1321,6 +1404,14 @@ def gestao_saas():
                 "status_filter": status_filter,
                 "sort_field": sort_field,
                 "sort_dir": sort_dir,
+            },
+            insight_filters={
+                "insight_company": request.args.get("insight_company") or "",
+                "insight_type": request.args.get("insight_type") or "todos",
+                "insight_severity": request.args.get("insight_severity") or "todas",
+                "insight_term": request.args.get("insight_term") or "",
+                "insight_start_date": request.args.get("insight_start_date") or "",
+                "insight_end_date": request.args.get("insight_end_date") or "",
             },
         )
     finally:
