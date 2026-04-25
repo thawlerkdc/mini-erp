@@ -55,6 +55,7 @@ from calendar import monthrange
 import re
 import json
 import logging
+import secrets
 import smtplib
 import unicodedata
 import xml.etree.ElementTree as ET
@@ -1036,7 +1037,7 @@ def enforce_module_permissions():
     endpoint = request.endpoint or ""
     if endpoint.startswith("static"):
         return None
-    if endpoint in {"login", "logout", "set_language", "forgot_password", "criar_conta_principal"}:
+    if endpoint in {"login", "logout", "set_language", "forgot_password", "reset_password", "criar_conta_principal"}:
         return None
 
     module_key = _resolve_module_for_request(endpoint)
@@ -1864,7 +1865,7 @@ def login():
             if user["role"] != "owner":
                 get_current_user_permissions()
             return redirect(get_default_route_for_current_user())
-        flash(translate("invalid_login"), "error")
+        return render_template("login.html", title=translate("login_title"), hide_page_title=True, login_error=translate("invalid_login"))
     return render_template("login.html", title=translate("login_title"), hide_page_title=True)
 
 
@@ -2342,34 +2343,103 @@ def logout():
 
 @app.route("/forgot_password", methods=["GET", "POST"])
 def forgot_password():
-    """Página para recuperação de senha - admin reseta manualmente"""
+    """Envia e-mail de redefinição de senha com link seguro."""
+    forgot_error = None
+    forgot_success = None
+
     if request.method == "POST":
-        username = request.form.get("username")
-        email = request.form.get("email")
-        
+        username = (request.form.get("username") or "").strip()
+        email = (request.form.get("email") or "").strip()
+
         if username and email:
             conn = get_auth_connection()
             user = conn.execute(
-                "SELECT id, name FROM users WHERE username = %s AND email = %s",
+                "SELECT id, account_id FROM users WHERE username = %s AND email = %s AND is_active = 1",
                 (username, email)
             ).fetchone()
-            conn.close()
-            
+
             if user:
-                flash(
-                    f"Usuário '{username}' encontrado. Entre em contato com o administrador para resetar sua senha.",
-                    "info"
+                token = secrets.token_urlsafe(48)
+                expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                conn.execute(
+                    "INSERT INTO password_reset_tokens (user_id, token, expires_at, used, created_at) VALUES (%s, %s, %s, 0, %s)",
+                    (user["id"], token, expires_at, created_at)
                 )
-                return redirect(url_for("login"))
+                conn.commit()
+                conn.close()
+
+                base_url = request.host_url.rstrip("/")
+                reset_link = f"{base_url}/reset_password/{token}"
+                body = (
+                    f"Olá,\n\n"
+                    f"Recebemos uma solicitação para redefinir a senha da conta '{username}'.\n\n"
+                    f"Clique no link abaixo para criar uma nova senha (válido por 1 hora):\n"
+                    f"{reset_link}\n\n"
+                    f"Se você não solicitou a redefinição, ignore este e-mail.\n\n"
+                    f"— Kdc Systems ERP"
+                )
+                sent, err = send_email_with_settings(
+                    user["account_id"],
+                    [email],
+                    "Redefinição de senha — Kdc Systems ERP",
+                    body,
+                )
+                if sent:
+                    forgot_success = f"E-mail de redefinição enviado para {email}. Verifique sua caixa de entrada."
+                else:
+                    logger.error("Erro ao enviar e-mail de reset: %s", err)
+                    forgot_error = f"Não foi possível enviar o e-mail: {err}"
             else:
-                flash("Usuário ou e-mail não encontrados", "error")
+                conn.close()
+                # Mensagem genérica para não revelar quais usuários existem
+                forgot_success = f"Se os dados informados estiverem corretos, você receberá um e-mail em breve."
         else:
-            flash("Preencha todos os campos", "error")
-    
+            forgot_error = "Preencha todos os campos."
+
     return render_template(
-        "forgot_password.html", 
-        title="Recuperar Senha"
+        "forgot_password.html",
+        title="Recuperar Senha",
+        forgot_error=forgot_error,
+        forgot_success=forgot_success,
     )
+
+
+@app.route("/reset_password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    """Página para definir nova senha usando o token recebido por e-mail."""
+    conn = get_auth_connection()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    record = conn.execute(
+        "SELECT id, user_id, expires_at, used FROM password_reset_tokens WHERE token = %s",
+        (token,)
+    ).fetchone()
+
+    if not record or record["used"] == 1 or record["expires_at"] < now:
+        conn.close()
+        flash("Link de redefinição inválido ou expirado. Solicite um novo.", "error")
+        return redirect(url_for("forgot_password"))
+
+    reset_error = None
+    if request.method == "POST":
+        new_password = request.form.get("new_password") or ""
+        confirm_password = request.form.get("confirm_password") or ""
+
+        if len(new_password) < 6:
+            reset_error = "A senha deve ter ao menos 6 caracteres."
+        elif new_password != confirm_password:
+            reset_error = "As senhas não conferem."
+        else:
+            conn.execute("UPDATE users SET password = %s WHERE id = %s", (new_password, record["user_id"]))
+            conn.execute("UPDATE password_reset_tokens SET used = 1 WHERE id = %s", (record["id"],))
+            conn.commit()
+            conn.close()
+            flash("Senha redefinida com sucesso! Faça o login.", "success")
+            return redirect(url_for("login"))
+
+    conn.close()
+    return render_template("reset_password.html", title="Nova Senha", token=token, reset_error=reset_error)
 
 
 def get_entity_title(entity):
