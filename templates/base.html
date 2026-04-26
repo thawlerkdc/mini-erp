@@ -122,6 +122,20 @@
               </nav>
             </div>
 
+            <!-- GESTÃO DE CONTAS -->
+            {% if can_manage_saas or is_system_admin %}
+            <div class="menu-section" data-section="gestao_contas">
+              <button class="menu-section-header" type="button" aria-haspopup="true">
+                <span class="section-icon" aria-hidden="true">&#128188;</span>
+                <span class="section-title">Gestão de Contas</span>
+              </button>
+              <nav class="sidebar-nav menu-section-body" hidden>
+                {% if can_manage_saas %}<a href="{{ url_for('saas.gestao_saas') }}" data-menu-key="gestao_saas" class="nav-link {% if request.endpoint in ['saas.gestao_saas', 'saas.export_saas_report'] %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128200;</span><span>Gestão SaaS</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if is_system_admin %}<a href="{{ url_for('admin_system_settings') }}" data-menu-key="admin_system_settings" class="nav-link {% if request.endpoint == 'admin_system_settings' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9881;</span><span>Admin Sistema</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+              </nav>
+            </div>
+            {% endif %}
+
             <!-- CONFIGURAÇÕES -->
             <div class="menu-section" data-section="configuracoes">
               <button class="menu-section-header" type="button" aria-haspopup="true">
@@ -132,8 +146,6 @@
                 {% if can_access('parametros') %}<a href="{{ url_for('parametros') }}" data-menu-key="parametros" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127981;</span><span>Empresa</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('usuarios') %}<a href="{{ url_for('cadastro', entity='usuarios') }}" data-menu-key="usuarios" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'usuarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>Usuários</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('usuarios') %}<a href="{{ url_for('access.controle_acesso') }}" data-menu-key="controle_acesso" class="nav-link {% if request.endpoint == 'access.controle_acesso' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128273;</span><span>Permissões</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
-                {% if is_system_admin %}<a href="{{ url_for('admin_system_settings') }}" data-menu-key="admin_system_settings" class="nav-link {% if request.endpoint == 'admin_system_settings' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9881;</span><span>Admin Sistema</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
-                {% if can_manage_saas %}<a href="{{ url_for('saas.gestao_saas') }}" data-menu-key="gestao_saas" class="nav-link {% if request.endpoint in ['saas.gestao_saas', 'saas.export_saas_report'] %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128200;</span><span>Gestão SaaS</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='unidades') }}" data-menu-key="unidades" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'unidades' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9878;</span><span>Unidades de Medida</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('cadastro') %}<a href="{{ url_for('import_excel.importar_dados') }}" data-menu-key="importar_dados" class="nav-link {% if request.endpoint == 'import_excel.importar_dados' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128190;</span><span>Importar Dados</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('auditoria') %}<a href="{{ url_for('auditoria.auditoria') }}" data-menu-key="auditoria" class="nav-link {% if request.endpoint == 'auditoria.auditoria' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128221;</span><span>Logs e Auditoria</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
