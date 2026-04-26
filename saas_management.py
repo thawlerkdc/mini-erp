@@ -260,9 +260,9 @@ def _ensure_saas_defaults(conn):
     if existing_count == 0:
         now = _now_str()
         plans = [
-            ("Basico", 129.90, 1299.00, 299.00, ["Vendas", "Estoque", "Financeiro basico"], ["2 usuarios", "1 filial"]),
-            ("Completo", 249.90, 2499.00, 199.00, ["Todos os modulos operacionais", "Relatorios avancados"], ["8 usuarios", "3 filiais"]),
-            ("Premium", 499.90, 4999.00, 0.00, ["Tudo do Completo", "Automacoes", "Insights inteligentes"], ["Usuarios ilimitados", "Filiais ilimitadas"]),
+            ("Básico", 129.90, 1299.00, 299.00, ["Vendas", "Estoque", "Financeiro básico"], ["2 usuários", "1 filial"]),
+            ("Completo", 249.90, 2499.00, 199.00, ["Todos os módulos operacionais", "Relatórios avançados"], ["8 usuários", "3 filiais"]),
+            ("Premium", 499.90, 4999.00, 0.00, ["Tudo do Completo", "Automações", "Insights inteligentes"], ["Usuários ilimitados", "Filiais ilimitadas"]),
         ]
         for name, monthly, yearly, setup_fee, features, limits in plans:
             conn.execute(
@@ -602,7 +602,7 @@ def _upsert_subscription(conn, form_data):
     account_id = _safe_int(form_data.get("account_id"), 0)
     plan_id = _safe_int(form_data.get("plan_id"), 0)
     if account_id <= 0 or plan_id <= 0:
-        return False, "Conta e plano sao obrigatorios para assinatura."
+        return False, "Conta e plano são obrigatórios para assinatura."
 
     cycle = (form_data.get("billing_cycle") or "mensal").strip().lower()
     if cycle not in PLAN_CYCLES:
@@ -613,7 +613,7 @@ def _upsert_subscription(conn, form_data):
         (plan_id,),
     ).fetchone()
     if not plan_row:
-        return False, "Plano selecionado nao foi encontrado."
+        return False, "Plano selecionado não foi encontrado."
 
     default_amount = _safe_float(plan_row["price_yearly"] if cycle == "anual" else plan_row["price_monthly"], 0.0)
     amount = _safe_float(form_data.get("amount"), default_amount)
@@ -695,7 +695,7 @@ def _upsert_subscription(conn, form_data):
                 starts_at[:7],
                 starts_at,
                 setup_fee_amount,
-                f"Taxa de adesao do plano {plan_row['name']}",
+                f"Taxa de adesão do plano {plan_row['name']}",
                 now,
                 now,
             ),
@@ -730,7 +730,7 @@ def _upsert_subscription(conn, form_data):
                 reference_period,
                 next_due_date,
                 amount,
-                f"Cobranca automatica de {charge_type} ({plan_row['name']})",
+                f"Cobrança automática de {charge_type} ({plan_row['name']})",
                 now,
                 now,
             ),
@@ -800,17 +800,17 @@ def _build_report_rows(conn, report_type, start_date, end_date):
 @saas_bp.before_request
 def _guard_saas_module():
     if not _can_access_saas():
-        flash("Acesso restrito ao modulo de Gestao SaaS.", "error")
+        flash("Acesso restrito ao módulo de Gestão SaaS.", "error")
         return redirect(url_for("dashboard"))
 
     if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not _can_access_saas(require_edit=True):
-        flash("Seu usuario possui acesso somente leitura no modulo de Gestao SaaS.", "error")
+        flash("Seu usuário possui acesso somente leitura no módulo de Gestão SaaS.", "error")
         return redirect(url_for("saas.gestao_saas"))
 
     if request.method == "POST":
         action = (request.form.get("action") or "acao_nao_informada").strip().lower()
         if action in {"delete_company", "delete_plan", "delete_charge"} and not _can_access_saas(require_delete=True):
-            flash("Voce nao possui permissao de exclusao no modulo de Gestao SaaS.", "error")
+            flash("Você não possui permissão de exclusão no módulo de Gestão SaaS.", "error")
             return redirect(url_for("saas.gestao_saas"))
 
 
@@ -851,7 +851,7 @@ def gestao_saas():
                     status = "ativa"
 
                 if not legal_name or not whatsapp:
-                    flash("Razao social e WhatsApp sao obrigatorios.", "error")
+                    flash("Razão social e WhatsApp são obrigatórios.", "error")
                     return redirect(url_for("saas.gestao_saas"))
 
                 if account_id > 0:
@@ -876,7 +876,7 @@ def gestao_saas():
                     flash("Empresa atualizada com sucesso.", "success")
                 else:
                     if not all([responsible_name, owner_username, owner_password]):
-                        flash("Para nova empresa informe responsavel, login principal e senha.", "error")
+                        flash("Para nova empresa informe responsável, login principal e senha.", "error")
                         return redirect(url_for("saas.gestao_saas"))
 
                     new_account_id = create_account_with_owner(
@@ -1030,7 +1030,7 @@ def gestao_saas():
                 subscription = conn.execute("SELECT id FROM saas_subscriptions WHERE account_id = %s", (account_id,)).fetchone()
 
                 if account_id <= 0 or amount <= 0:
-                    flash("Conta e valor sao obrigatorios para cobranca.", "error")
+                    flash("Conta e valor são obrigatórios para cobrança.", "error")
                     return redirect(url_for("saas.gestao_saas"))
 
                 conn.execute(
@@ -1045,7 +1045,7 @@ def gestao_saas():
                 )
                 conn.commit()
                 _log_panel_access("create_charge", {"account_id": account_id, "amount": amount})
-                flash("Cobranca registrada com sucesso.", "success")
+                flash("Cobrança registrada com sucesso.", "success")
                 return redirect(url_for("saas.gestao_saas"))
 
             if action in {"mark_paid", "mark_pending"}:
@@ -1063,14 +1063,14 @@ def gestao_saas():
                         )
                     conn.commit()
                     _log_panel_access(action, {"billing_id": billing_id})
-                    flash("Status da cobranca atualizado.", "success")
+                    flash("Status da cobrança atualizado.", "success")
                 return redirect(url_for("saas.gestao_saas"))
 
             if action == "run_daily_monitor":
                 _run_daily_monitor(conn, reference_date=_today_str())
                 conn.commit()
                 _log_panel_access("run_daily_monitor", {})
-                flash("Monitoramento diario executado com sucesso.", "success")
+                flash("Monitoramento diário executado com sucesso.", "success")
                 return redirect(url_for("saas.gestao_saas"))
 
             if action == "save_automation":
@@ -1102,7 +1102,7 @@ def gestao_saas():
                     )
                 conn.commit()
                 _log_panel_access("save_automation", settings_map)
-                flash("Configuracoes avancadas salvas.", "success")
+                flash("Configurações avançadas salvas.", "success")
                 return redirect(url_for("saas.gestao_saas"))
 
         _run_daily_monitor(conn, reference_date=_today_str())
@@ -1374,7 +1374,7 @@ def gestao_saas():
         _log_panel_access("view_dashboard", {"selected_account_id": selected_account_id})
         return render_template(
             "saas_management.html",
-            title="Gestao SaaS Multiempresa",
+            title="Gestão SaaS Multiempresa",
             companies=companies,
             plans=plans,
             subscriptions=subscriptions,
@@ -1440,13 +1440,13 @@ def export_saas_report():
 
     if report_format == "excel":
         if pd is None:
-            flash("Dependencia pandas nao disponivel para exportacao Excel.", "error")
+            flash("Dependência pandas não disponível para exportação Excel.", "error")
             return redirect(url_for("saas.gestao_saas"))
 
         df = pd.DataFrame(data)
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            df.to_excel(writer, index=False, sheet_name="Relatorio")
+            df.to_excel(writer, index=False, sheet_name="Relatório")
         buffer.seek(0)
         _log_panel_access("export_report", {"type": report_type, "format": "excel"})
         return send_file(
@@ -1458,15 +1458,15 @@ def export_saas_report():
 
     if report_format == "pdf":
         if SimpleDocTemplate is None:
-            flash("Dependencia reportlab nao disponivel para exportacao PDF.", "error")
+            flash("Dependência reportlab não disponível para exportação PDF.", "error")
             return redirect(url_for("saas.gestao_saas"))
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
         styles = getSampleStyleSheet()
         elements = [
-            Paragraph("Relatorio SaaS", styles["Title"]),
-            Paragraph(f"Tipo: {report_type} | Periodo: {start_date} a {end_date}", styles["Normal"]),
+            Paragraph("Relatório SaaS", styles["Title"]),
+            Paragraph(f"Tipo: {report_type} | Período: {start_date} a {end_date}", styles["Normal"]),
             Spacer(1, 12),
         ]
 
@@ -1487,7 +1487,7 @@ def export_saas_report():
             )
             elements.append(table)
         else:
-            elements.append(Paragraph("Sem dados para o periodo selecionado.", styles["Normal"]))
+            elements.append(Paragraph("Sem dados para o período selecionado.", styles["Normal"]))
 
         doc.build(elements)
         buffer.seek(0)
