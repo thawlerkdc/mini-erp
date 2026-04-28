@@ -39,18 +39,21 @@
       min-width: 260px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      min-height: 46px;
+      gap: 14px;
+      min-height: 56px;
       border-radius: 14px;
       border: 1px solid rgba(148, 163, 184, 0.22);
       background: rgba(15, 23, 42, 0.76);
-      padding: 0 8px 0 12px;
+      padding: 8px 16px;
     }
     .sales-search-icon {
-      font-size: 0.98rem;
+      font-size: 1.15rem;
       color: #93c5fd;
-      opacity: 0.9;
+      opacity: 0.85;
       flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .sales-search-wrap .product-select-wrapper {
       flex: 1;
@@ -62,10 +65,9 @@
     .sales-search-wrap .ts-control {
       border: none !important;
       background: transparent !important;
-      min-height: 44px !important;
+      min-height: 40px !important;
       box-shadow: none !important;
-      padding-left: 0 !important;
-      padding-right: 0 !important;
+      padding: 4px 8px !important;
       border-radius: 0 !important;
     }
     /* Higher specificity to beat .product-select-wrapper .ts-control */
@@ -83,7 +85,8 @@
     }
     .sales-search-wrap .ts-control input {
       color: #e2e8f0 !important;
-      font-size: 1.02rem;
+      font-size: 1.08rem !important;
+      padding: 4px 0 !important;
     }
     .sales-search-wrap .ts-dropdown {
       border-radius: 12px !important;
