@@ -1,135 +1,640 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="form-card sale-card">
-    <div class="sale-header">
-      <h2 class="sale-title">Nova Venda</h2>
-      <div class="sale-header-actions">
-        <a href="{{ url_for('relatorios', section='vendas_periodo') }}" class="outline-button sale-report-btn">Ir para Relatório de Vendas</a>
-        <button type="button" class="btn-add sale-add-btn" onclick="addSaleRow()">+ {{ t('add_item') }}</button>
-        <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()"><span class="sale-clear-icon" aria-hidden="true">&#128465;</span><span>Limpar venda</span></button>
-      </div>
+  <style>
+    .sales-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .sales-shell .sale-card {
+      padding: 0;
+      overflow: hidden;
+      border: none;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 26%),
+        radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 28%),
+        linear-gradient(135deg, #0f172a, #162033 48%, #1e293b);
+      box-shadow: 0 28px 65px rgba(15, 23, 42, 0.24);
+    }
+    .sales-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.9fr);
+      gap: 22px;
+      padding: 24px;
+      color: #dbe7f5;
+    }
+    .sales-left-panel,
+    .sales-right-panel {
+      min-width: 0;
+    }
+    .sales-hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+    .sales-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.36);
+      color: #93c5fd;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .sales-kicker::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.16);
+    }
+    .sales-hero h2 {
+      margin: 14px 0 8px;
+      font-size: 2rem;
+      line-height: 1.1;
+      color: #f8fafc;
+    }
+    .sales-hero p {
+      margin: 0;
+      max-width: 640px;
+      color: rgba(226, 232, 240, 0.82);
+    }
+    .sales-header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .sales-header-actions .outline-button,
+    .sales-header-actions .btn-add,
+    .sales-header-actions .sale-clear-btn {
+      min-height: 44px;
+    }
+    .sales-header-actions .outline-button,
+    .sales-header-actions .btn-add {
+      border-radius: 14px;
+    }
+    .sales-header-actions .sale-report-btn {
+      border-color: rgba(125, 211, 252, 0.35);
+      color: #dbeafe;
+      background: rgba(15, 23, 42, 0.28);
+    }
+    .sales-header-actions .sale-report-btn:hover {
+      background: rgba(59, 130, 246, 0.18);
+    }
+    .sales-panel {
+      background: rgba(15, 23, 42, 0.46);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 22px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(18px);
+    }
+    .sales-items-panel {
+      padding: 20px;
+    }
+    .sales-items-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .sales-items-header h3,
+    .sales-summary-card h3,
+    .sales-summary-card h4,
+    .multi-payment-header h4 {
+      margin: 0;
+      color: #f8fafc;
+    }
+    .sales-items-header p,
+    .sales-summary-card p,
+    .multi-payment-block p,
+    .sales-mini-stat span {
+      color: rgba(226, 232, 240, 0.74);
+    }
+    .sales-mini-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .sales-mini-stat {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.34);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .sales-mini-stat strong {
+      display: block;
+      margin-top: 6px;
+      color: #f8fafc;
+      font-size: 1.15rem;
+    }
+    .sale-items {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .sale-row {
+      margin: 0;
+      padding: 16px;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.52);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+    .sale-row-main {
+      display: grid;
+      grid-template-columns: 124px minmax(0, 1fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+    .sale-product-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(30, 41, 59, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+    .sale-product-image {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(51, 65, 85, 0.95));
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+    .sale-product-badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.14);
+      color: #86efac;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .sale-row-product-name {
+      display: block;
+      color: #f8fafc;
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+    .sale-row-product-stock {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.88rem;
+      color: rgba(191, 219, 254, 0.82);
+    }
+    .sale-row-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .sale-field-product label,
+    .sale-row-controls label,
+    .sales-summary-card label {
+      color: #cbd5e1;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .sale-row-controls {
+      display: grid;
+      grid-template-columns: minmax(90px, 0.85fr) minmax(120px, 1fr) minmax(120px, 1fr) 48px;
+      gap: 12px;
+      align-items: end;
+    }
+    .sale-row input,
+    .sale-row select,
+    .sales-summary-card input,
+    .sales-summary-card select,
+    .payment-row input,
+    .payment-row select {
+      min-height: 46px;
+      border-radius: 14px !important;
+      background: rgba(15, 23, 42, 0.74) !important;
+      border: 1px solid rgba(148, 163, 184, 0.24) !important;
+      color: #f8fafc !important;
+      box-shadow: none !important;
+    }
+    .sale-row input[readonly] {
+      background: rgba(30, 41, 59, 0.9) !important;
+      color: #bfdbfe !important;
+      font-weight: 700;
+    }
+    .product-select-wrapper .ts-control,
+    .sales-summary-card .ts-control {
+      min-height: 46px !important;
+      border-radius: 14px !important;
+      background: rgba(15, 23, 42, 0.74) !important;
+      border: 1px solid rgba(148, 163, 184, 0.24) !important;
+      box-shadow: none !important;
+    }
+    .product-select-wrapper .ts-control input,
+    .sales-summary-card .ts-control input {
+      color: #f8fafc !important;
+    }
+    .sales-right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sales-summary-card {
+      padding: 18px;
+    }
+    .sales-summary-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .sales-summary-grid.two-columns {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .sales-payment-methods {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .sales-method-chip {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.52);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      color: #e2e8f0;
+    }
+    .sales-method-chip strong {
+      font-size: 0.96rem;
+      color: #f8fafc;
+    }
+    .sales-method-chip span {
+      font-size: 0.78rem;
+      color: rgba(191, 219, 254, 0.74);
+    }
+    .sales-summary-totals {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .sales-summary-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: rgba(226, 232, 240, 0.86);
+      font-weight: 600;
+    }
+    .sales-summary-line.total {
+      margin-top: 6px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(148, 163, 184, 0.14);
+      color: #f8fafc;
+      font-size: 1.08rem;
+    }
+    .sales-summary-line.total strong,
+    .sales-summary-line.change strong {
+      font-size: 1.5rem;
+      color: #bbf7d0;
+      line-height: 1;
+    }
+    .sales-summary-line.change strong {
+      color: #bfdbfe;
+    }
+    .multi-payment-block {
+      margin-top: 4px;
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.42);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .multi-payment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .payment-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 0.9fr) minmax(0, 1.1fr) minmax(110px, 0.8fr) 42px;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .payment-amount-wrap {
+      display: flex;
+      align-items: center;
+    }
+    .sales-actions-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .btn-confirm-sale {
+      width: 100%;
+      margin-top: 0;
+      min-height: 54px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border: none;
+      box-shadow: 0 18px 30px rgba(34, 197, 94, 0.24);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+    .btn-confirm-sale:hover {
+      background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+    .sales-actions-stack .sale-clear-btn,
+    .sales-actions-stack .sale-report-btn,
+    .sales-actions-stack .btn-close-cash {
+      width: 100%;
+      justify-content: center;
+    }
+    .pix-modal-content {
+      background: linear-gradient(135deg, #f8fafc, #eef4ff);
+    }
+    @media (max-width: 1180px) {
+      .sales-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 900px) {
+      .sales-hero {
+        flex-direction: column;
+      }
+      .sales-header-actions {
+        justify-content: flex-start;
+      }
+      .sale-row-main {
+        grid-template-columns: 1fr;
+      }
+      .sale-product-preview {
+        flex-direction: row;
+        align-items: center;
+      }
+      .sale-product-image {
+        width: 84px;
+        flex: 0 0 84px;
+      }
+      .sale-row-controls,
+      .payment-row,
+      .sales-summary-grid.two-columns,
+      .sales-mini-stats,
+      .sales-payment-methods {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 640px) {
+      .sales-layout {
+        padding: 16px;
+      }
+      .sale-row-controls,
+      .payment-row,
+      .sales-summary-grid.two-columns,
+      .sales-mini-stats,
+      .sales-payment-methods {
+        grid-template-columns: 1fr;
+      }
+      .sales-header-actions {
+        width: 100%;
+      }
+      .sales-header-actions > * {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+
+  <div class="sales-shell">
+    <div class="form-card sale-card">
+      <form method="post" action="{{ url_for('vendas') }}" id="sale-form" class="sales-layout">
+        <input type="hidden" name="pix_confirmed" id="pix-confirmed" value="0">
+
+        <section class="sales-left-panel">
+          <div class="sales-hero">
+            <div>
+              <span class="sales-kicker">Ponto de venda</span>
+              <h2>Fechamento rápido e visual</h2>
+              <p>Monte a venda em uma área central de itens e acompanhe o resumo financeiro ao lado, sem alterar a lógica atual de Pix, troco, juros e multipagamento.</p>
+            </div>
+            <div class="sales-header-actions">
+              <a href="{{ url_for('relatorios', section='vendas_periodo') }}" class="outline-button sale-report-btn">Relatório de vendas</a>
+              <button type="button" class="btn-add sale-add-btn" onclick="addSaleRow()">+ {{ t('add_item') }}</button>
+              <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()"><span class="sale-clear-icon" aria-hidden="true">&#128465;</span><span>Limpar venda</span></button>
+            </div>
+          </div>
+
+          <div class="sales-panel sales-items-panel">
+            <div class="sales-items-header">
+              <div>
+                <h3>Itens da venda</h3>
+                <p>Selecione os produtos, ajuste a quantidade e acompanhe a composição do pedido.</p>
+              </div>
+            </div>
+
+            <div class="sales-mini-stats">
+              <div class="sales-mini-stat">
+                <span>Itens selecionados</span>
+                <strong id="order-items-count">0</strong>
+              </div>
+              <div class="sales-mini-stat">
+                <span>Subtotal</span>
+                <strong id="order-subtotal">R$ 0,00</strong>
+              </div>
+              <div class="sales-mini-stat">
+                <span>Acréscimos</span>
+                <strong id="order-surcharge-summary">R$ 0,00</strong>
+              </div>
+            </div>
+
+            <div class="sale-items" id="sale-items">
+              <div class="sale-row">
+                <div class="sale-row-main">
+                  <div class="sale-product-preview">
+                    <img class="sale-product-image" src="" alt="Produto selecionado">
+                    <div class="sale-product-meta">
+                      <span class="sale-product-badge">Produto</span>
+                      <strong class="sale-row-product-name">Selecione um produto</strong>
+                      <span class="sale-row-product-stock">O estoque disponível será exibido aqui.</span>
+                    </div>
+                  </div>
+                  <div class="sale-row-fields">
+                    <div class="field-group sale-field-product">
+                      <label>{{ t('product_label') }}</label>
+                      <div class="product-select-wrapper">
+                        <select name="product_id[]" class="product-select" required onchange="updatePrice(this)">
+                          <option value="">{{ t('select_product') }}</option>
+                          <optgroup label="Mais vendidos">
+                            {% for product in products if product['top_seller'] %}
+                              <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
+                            {% endfor %}
+                          </optgroup>
+                          <optgroup label="Demais produtos">
+                            {% for product in products if not product['top_seller'] %}
+                              <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
+                            {% endfor %}
+                          </optgroup>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="sale-row-controls">
+                  <div class="field-group sale-field-qty">
+                    <label>{{ t('quantity_label') }}</label>
+                    <input name="quantity[]" type="number" min="1" step="1" value="1" required oninput="updateLineTotal(this)">
+                  </div>
+                  <div class="field-group sale-field-price">
+                    <label>{{ t('unit_price') }}</label>
+                    <input name="unit_price[]" type="number" step="0.01" value="0.00" readonly>
+                  </div>
+                  <div class="field-group sale-field-total">
+                    <label>{{ t('line_total') }}</label>
+                    <input name="line_total[]" type="number" step="0.01" value="0.00" readonly>
+                  </div>
+                  <div class="field-group sale-field-del">
+                    <button type="button" class="btn-delete btn-icon-del" onclick="removeSaleRow(this)" title="{{ t('remove') }}">&#128465;</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="sales-right-panel">
+          <div class="sales-panel sales-summary-card">
+            <h3>Cliente e ajustes</h3>
+            <p>Defina o cliente, desconto e acréscimo antes do pagamento.</p>
+            <div class="sales-summary-grid">
+              <div class="field-group sale-client-field">
+                <label>{{ t('client_label') }}</label>
+                <select name="client_id">
+                  <option value="">{{ t('no_client') }}</option>
+                  {% for client in clients %}
+                    <option value="{{ client['id'] }}">{{ client['name'] }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="sales-summary-grid two-columns">
+                <div class="field-group sale-field-discount">
+                  <label>{{ t('discount_label') }}</label>
+                  <input name="discount" type="number" step="0.01" value="0.00" oninput="updateTotals()">
+                </div>
+                <div class="field-group sale-field-surcharge">
+                  <label>{{ t('surcharge_label') }}</label>
+                  <input name="surcharge" type="number" step="0.01" value="0.00" oninput="updateTotals()">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sales-panel sales-summary-card">
+            <h4>Pagamento principal</h4>
+            <p>As regras já configuradas de cartão, Pix e troco continuam aplicadas.</p>
+            <div class="sales-payment-methods">
+              <div class="sales-method-chip"><strong>Dinheiro</strong><span>Permite troco</span></div>
+              <div class="sales-method-chip"><strong>Pix</strong><span>Gera QR Code</span></div>
+              <div class="sales-method-chip"><strong>Débito</strong><span>Considera taxa, se houver</span></div>
+              <div class="sales-method-chip"><strong>Crédito</strong><span>Aplica juros por parcela</span></div>
+            </div>
+            <div class="sales-summary-grid">
+              <div class="field-group sale-field-payment-method">
+                <label>{{ t('payment_method') }}</label>
+                <select name="payment_method" id="payment-method-select" onchange="onPaymentMethodChange(this.value)">
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Pix">Pix</option>
+                  <option value="Débito">Débito</option>
+                  <option value="Crédito">Crédito</option>
+                </select>
+              </div>
+              <div id="installment-row" class="field-group" style="display:none">
+                <label>Parcelas</label>
+                <select name="installments" id="installments-select" onchange="applyCardSurcharge()">
+                  <option value="1">1x (à vista)</option>
+                  <option value="2">2x</option>
+                  <option value="3">3x</option>
+                  <option value="4">4x</option>
+                  <option value="5">5x</option>
+                  <option value="6">6x</option>
+                  <option value="7">7x</option>
+                  <option value="8">8x</option>
+                  <option value="9">9x</option>
+                  <option value="10">10x</option>
+                  <option value="11">11x</option>
+                  <option value="12">12x</option>
+                </select>
+              </div>
+              <div id="payment-received-row" class="field-group">
+                <label>{{ t('payment_received') }}</label>
+                <input name="payment_received" type="number" step="0.01" value="0.00" oninput="updateTotals()">
+              </div>
+            </div>
+
+            <div id="multi-payment-block" class="multi-payment-block" style="display:none">
+              <div class="multi-payment-header">
+                <h4>Dividir pagamento</h4>
+                <button type="button" class="btn-add sale-add-btn" onclick="addPaymentRow()">+ Adicionar forma</button>
+              </div>
+              <div id="payment-rows"></div>
+              <p class="param-hint-small">A soma das formas de pagamento deve bater com o total da venda.</p>
+            </div>
+          </div>
+
+          <div class="sales-panel sales-summary-card">
+            <h4>Resumo do pedido</h4>
+            <div class="sales-summary-totals">
+              <div class="sales-summary-line">
+                <span>Subtotal</span>
+                <strong id="order-subtotal-side">R$ 0,00</strong>
+              </div>
+              <div class="sales-summary-line">
+                <span>Desconto</span>
+                <strong id="order-discount">R$ 0,00</strong>
+              </div>
+              <div class="sales-summary-line">
+                <span>Acréscimo</span>
+                <strong id="order-surcharge">R$ 0,00</strong>
+              </div>
+              <div class="sales-summary-line total">
+                <span>{{ t('total_label') }}</span>
+                <strong id="order-total">R$ 0,00</strong>
+              </div>
+              <div class="sales-summary-line change">
+                <span>{{ t('cash_change') }}</span>
+                <strong id="order-change">R$ 0,00</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="sales-actions-stack">
+            <button type="submit" class="btn-confirm-sale">{{ t('confirm_sale_button') }}</button>
+            <a class="outline-button sale-report-btn" href="{{ url_for('relatorios', section='vendas_periodo') }}">Imprimir relatório de vendas</a>
+            <a class="btn-close-cash" href="{{ url_for('fechar_caixa') }}">&#128717; {{ t('close_cash') }}</a>
+          </div>
+        </aside>
+      </form>
     </div>
-
-    <form method="post" action="{{ url_for('vendas') }}" id="sale-form">
-      <input type="hidden" name="pix_confirmed" id="pix-confirmed" value="0">
-      <div class="sale-items" id="sale-items">
-        <div class="sale-row">
-          <div class="field-group sale-field-product">
-            <label>{{ t('product_label') }}</label>
-            <div class="product-select-wrapper">
-              <select name="product_id[]" class="product-select" required onchange="updatePrice(this)">
-                <option value="">{{ t('select_product') }}</option>
-                <optgroup label="Mais vendidos">
-                  {% for product in products if product['top_seller'] %}
-                    <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
-                  {% endfor %}
-                </optgroup>
-                <optgroup label="Demais produtos">
-                  {% for product in products if not product['top_seller'] %}
-                    <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
-                  {% endfor %}
-                </optgroup>
-              </select>
-            </div>
-          </div>
-          <div class="field-group sale-field-qty">
-            <label>{{ t('quantity_label') }}</label>
-            <input name="quantity[]" type="number" min="1" step="1" value="1" required oninput="updateLineTotal(this)">
-          </div>
-          <div class="field-group sale-field-price">
-            <label>{{ t('unit_price') }}</label>
-            <input name="unit_price[]" type="number" step="0.01" value="0.00" readonly>
-          </div>
-          <div class="field-group sale-field-total">
-            <label>{{ t('line_total') }}</label>
-            <input name="line_total[]" type="number" step="0.01" value="0.00" readonly>
-          </div>
-          <div class="field-group sale-field-del">
-            <button type="button" class="btn-delete btn-icon-del" onclick="removeSaleRow(this)" title="{{ t('remove') }}">&#128465;</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="sale-lower">
-        <div class="sale-controls-row">
-          <div class="field-group sale-client-field">
-            <label>{{ t('client_label') }}</label>
-            <select name="client_id">
-              <option value="">{{ t('no_client') }}</option>
-              {% for client in clients %}
-                <option value="{{ client['id'] }}">{{ client['name'] }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="field-group sale-field-discount">
-            <label>{{ t('discount_label') }}</label>
-            <input name="discount" type="number" step="0.01" value="0.00" oninput="updateTotals()">
-          </div>
-          <div class="field-group sale-field-surcharge">
-            <label>{{ t('surcharge_label') }}</label>
-            <input name="surcharge" type="number" step="0.01" value="0.00" oninput="updateTotals()">
-          </div>
-          <div class="field-group sale-field-payment-method">
-            <label>{{ t('payment_method') }}</label>
-            <select name="payment_method" id="payment-method-select" onchange="onPaymentMethodChange(this.value)">
-              <option value="Dinheiro">Dinheiro</option>
-              <option value="Pix">Pix</option>
-              <option value="Débito">Débito</option>
-              <option value="Crédito">Crédito</option>
-            </select>
-          </div>
-          <div id="installment-row" class="field-group" style="display:none">
-            <label>Parcelas</label>
-            <select name="installments" id="installments-select" onchange="applyCardSurcharge()">
-              <option value="1">1x (à vista)</option>
-              <option value="2">2x</option>
-              <option value="3">3x</option>
-              <option value="4">4x</option>
-              <option value="5">5x</option>
-              <option value="6">6x</option>
-              <option value="7">7x</option>
-              <option value="8">8x</option>
-              <option value="9">9x</option>
-              <option value="10">10x</option>
-              <option value="11">11x</option>
-              <option value="12">12x</option>
-            </select>
-          </div>
-          <div id="payment-received-row" class="field-group">
-            <label>{{ t('payment_received') }}</label>
-            <input name="payment_received" type="number" step="0.01" value="0.00" oninput="updateTotals()">
-          </div>
-        </div>
-
-        <div id="multi-payment-block" class="multi-payment-block" style="display:none">
-          <div class="multi-payment-header">
-            <h4>Formas de pagamento</h4>
-            <button type="button" class="btn-add sale-add-btn" onclick="addPaymentRow()">+ Adicionar forma de pagamento</button>
-          </div>
-          <div id="payment-rows"></div>
-          <p class="param-hint-small">A soma dos pagamentos deve bater com o total da venda.</p>
-        </div>
-
-        <div class="sale-client-summary">
-          <div class="totals-section">
-            <div class="totals-row">
-              <span>{{ t('total_label') }}:</span>
-              <strong id="order-total">0,00</strong>
-            </div>
-            <div class="totals-row">
-              <span>{{ t('cash_change') }}:</span>
-              <strong id="order-change">0,00</strong>
-            </div>
-            <button type="submit" class="btn-confirm-sale">&#9432; {{ t('confirm_sale_button') }}</button>
-          </div>
-        </div>
-      </div>
-    </form>
-  </div>
-
-  <div class="manual-action">
-    <a class="btn-close-cash" href="{{ url_for('fechar_caixa') }}">&#128717; {{ t('close_cash') }}</a>
   </div>
 
   <div id="pix-modal" class="pix-modal" style="display:none">
@@ -167,6 +672,7 @@
     var PAYMENT_UI_SETTINGS = {{ payment_ui_settings_json|safe }};
     var PIX_QR_INSTANCE = null;
     var SALE_ROW_TEMPLATE_HTML = '';
+    var SALE_PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%231e293b'/%3E%3Cstop offset='100%25' stop-color='%230f172a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='20' fill='url(%23g)'/%3E%3Cpath d='M28 77l17-18 14 15 17-24 16 27H28z' fill='%235f7ea0' opacity='.9'/%3E%3Ccircle cx='45' cy='42' r='9' fill='%2393c5fd'/%3E%3C/svg%3E";
 
     function captureSaleRowTemplate() {
       if (SALE_ROW_TEMPLATE_HTML) return;
@@ -234,6 +740,40 @@
     function parseNumber(value) {
       if (value === null || value === undefined) return 0;
       return parseFloat(String(value).replace(',', '.')) || 0;
+    }
+    function getItemCount() {
+      let total = 0;
+      document.querySelectorAll('.sale-row input[name="quantity[]"]').forEach(input => {
+        total += parseNumber(input.value);
+      });
+      return total;
+    }
+
+    function syncSaleRowPreview(row) {
+      if (!row) return;
+      let select = row.querySelector('select[name="product_id[]"]');
+      if (!select) return;
+      let option = select.options[select.selectedIndex];
+      let image = row.querySelector('.sale-product-image');
+      let nameEl = row.querySelector('.sale-row-product-name');
+      let stockEl = row.querySelector('.sale-row-product-stock');
+      if (!option || !option.value) {
+        if (image) image.src = SALE_PLACEHOLDER_IMAGE;
+        if (nameEl) nameEl.textContent = 'Selecione um produto';
+        if (stockEl) stockEl.textContent = 'O estoque disponível será exibido aqui.';
+        return;
+      }
+
+      let productName = option.textContent.split(' (')[0] || 'Produto selecionado';
+      let stock = option.dataset.stock || '0';
+      let unit = option.dataset.unit || 'un';
+      let price = parseNumber(option.dataset.price || 0);
+      if (image) {
+        image.src = option.dataset.image || SALE_PLACEHOLDER_IMAGE;
+        image.alt = productName;
+      }
+      if (nameEl) nameEl.textContent = productName;
+      if (stockEl) stockEl.textContent = 'Estoque: ' + stock + ' ' + unit + ' | Preço: R$ ' + formatCurrency(price);
     }
 
     function getMethodRate(method, installments) {
@@ -550,6 +1090,22 @@
       }
 
       document.getElementById('order-total').innerText = 'R$ ' + formatCurrency(orderTotal);
+      let subtotalLabel = 'R$ ' + formatCurrency(subtotal);
+      let discountLabel = 'R$ ' + formatCurrency(discount);
+      let surchargeLabel = 'R$ ' + formatCurrency(surcharge);
+      let itemCount = String(getItemCount());
+      let summarySubtotal = document.getElementById('order-subtotal');
+      let sideSubtotal = document.getElementById('order-subtotal-side');
+      let summaryDiscount = document.getElementById('order-discount');
+      let summarySurcharge = document.getElementById('order-surcharge');
+      let summarySurchargeTop = document.getElementById('order-surcharge-summary');
+      let itemCountEl = document.getElementById('order-items-count');
+      if (summarySubtotal) summarySubtotal.innerText = subtotalLabel;
+      if (sideSubtotal) sideSubtotal.innerText = subtotalLabel;
+      if (summaryDiscount) summaryDiscount.innerText = discountLabel;
+      if (summarySurcharge) summarySurcharge.innerText = surchargeLabel;
+      if (summarySurchargeTop) summarySurchargeTop.innerText = surchargeLabel;
+      if (itemCountEl) itemCountEl.innerText = itemCount;
       updateChange(orderTotal);
       updateInstallmentOptions();
     }
@@ -558,6 +1114,7 @@
       let price = parseFloat(option.dataset.price || 0);
       let row = select.closest('.sale-row');
       row.querySelector('input[name="unit_price[]"]').value = formatNumber(price);
+      syncSaleRowPreview(row);
       updateLineTotal(row.querySelector('input[name="quantity[]"]'));
     }
     function updateLineTotal(quantityInput) {
@@ -584,6 +1141,7 @@
       newRow.querySelectorAll('input[name="unit_price[]"], input[name="line_total[]"]').forEach(i => i.value = '0.00');
       container.appendChild(newRow);
       initProductCombobox(newRow.querySelector('select.product-select'));
+      syncSaleRowPreview(newRow);
       updateTotals();
     }
     function removeSaleRow(button) {
@@ -620,6 +1178,7 @@
         row.querySelector('input[name="quantity[]"]').value = '1';
         row.querySelector('input[name="unit_price[]"]').value = '0.00';
         row.querySelector('input[name="line_total[]"]').value = '0.00';
+        syncSaleRowPreview(row);
       }
 
       document.querySelector('input[name="discount"]').value = '0.00';
@@ -937,6 +1496,7 @@
 
     captureSaleRowTemplate();
     document.querySelectorAll('select.product-select').forEach(initProductCombobox);
+    document.querySelectorAll('.sale-row').forEach(syncSaleRowPreview);
 
     if (PAYMENT_UI_SETTINGS.allow_multi) {
       document.getElementById('multi-payment-block').style.display = '';

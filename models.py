@@ -143,6 +143,7 @@ _TENANT_STATEMENTS = [
         stock INTEGER DEFAULT 0,
         stock_min INTEGER DEFAULT 0,
         status TEXT DEFAULT 'ativo',
+        image_url TEXT,
         expiration_date TEXT
     )
     """,
@@ -354,6 +355,7 @@ _TENANT_MIGRATIONS = [
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS conversion_factor DOUBLE PRECISION DEFAULT 1",
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS product_code TEXT",
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ativo'",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT",
     "ALTER TABLE clients ADD COLUMN IF NOT EXISTS notes TEXT",
     "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS notes TEXT",
     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER",

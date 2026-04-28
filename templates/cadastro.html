@@ -66,10 +66,19 @@
       <div style="margin: 8px 0 14px;">
         <a href="{{ url_for('relatorios', section='produtos') }}" class="outline-button small">Ir para Relatórios de Produtos</a>
       </div>
-      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" id="product-main-form">
+      <form method="post" action="{{ url_for('cadastro', entity='produtos') }}" id="product-main-form" enctype="multipart/form-data">
         {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
         <label>{{ t('product_name') }}</label>
         <input type="text" name="name" value="{{ edit_data.get('name', '') if edit_data else '' }}" required>
+        <label>Imagem do produto</label>
+        {% if edit_data and edit_data.get('image_url') %}
+          <div class="product-image-upload-preview">
+            <img src="{{ edit_data.get('image_url') }}" alt="Imagem atual do produto">
+            <span>Imagem atual</span>
+          </div>
+        {% endif %}
+        <input type="file" name="product_image" accept=".png,.jpg,.jpeg,.webp">
+        <p class="param-hint-small">Use PNG, JPG, JPEG ou WEBP. A imagem aparecerá na tela de vendas.</p>
         <label>Código do produto (opcional)</label>
         <input type="text" name="product_code" maxlength="60" value="{{ edit_data.get('product_code', '') if edit_data else '' }}" placeholder="Ex: 7891000315507 ou SKU-001">
         <label>{{ t('category_label') }}</label>
@@ -570,6 +579,24 @@
   </div>
 
   <style>
+    .product-image-upload-preview {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 4px 0 8px;
+      padding: 8px 10px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 10px;
+      background: rgba(248, 250, 252, 0.82);
+    }
+    .product-image-upload-preview img {
+      width: 58px;
+      height: 58px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: #ffffff;
+    }
     .btn-manage.action-whatsapp {
       background: #25D366 !important;
       border-color: #25D366 !important;

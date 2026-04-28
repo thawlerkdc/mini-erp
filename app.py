@@ -3341,6 +3341,8 @@ def cadastro(entity):
                     stock_min = int(request.form.get("stock_min") or 0)
                     expiration_date = request.form.get("expiration_date") or None
                     edit_id_form = request.form.get("edit_id")
+                    product_image = request.files.get("product_image")
+                    current_image_url = (edit_data or {}).get("image_url") if edit_data else None
 
                     if name and category_id and unit_id:
                         # Calcular margem de lucro
@@ -3394,15 +3396,48 @@ def cadastro(entity):
                                     edit_data=edit_data,
                                 )
 
+                        image_url = current_image_url
+                        if product_image and product_image.filename:
+                            filename = secure_filename(product_image.filename)
+                            ext = os.path.splitext(filename)[1].lower()
+                            allowed_ext = {".png", ".jpg", ".jpeg", ".webp"}
+                            if ext not in allowed_ext:
+                                edit_data = dict(request.form)
+                                if current_image_url:
+                                    edit_data["image_url"] = current_image_url
+                                flash("Imagem inválida. Use PNG, JPG, JPEG ou WEBP.", "error")
+                                conn.close()
+                                return render_template(
+                                    "cadastro.html",
+                                    title=get_entity_title(entity),
+                                    entity=entity,
+                                    rows=rows,
+                                    categories=categories,
+                                    units=units,
+                                    suppliers=suppliers,
+                                    default_profit_margin=default_profit_margin,
+                                    default_stock_min_percent=default_stock_min_percent,
+                                    edit_id=edit_id,
+                                    edit_data=edit_data,
+                                )
+
+                            image_dir = os.path.join(app.root_path, "static", "img", "products")
+                            os.makedirs(image_dir, exist_ok=True)
+                            product_identifier = edit_id_form or product_code or re.sub(r"[^a-z0-9]+", "-", (name or "produto").strip().lower()).strip("-") or "produto"
+                            image_name = f"account_{account_id}_product_{product_identifier}{ext}"
+                            image_path = os.path.join(image_dir, image_name)
+                            product_image.save(image_path)
+                            image_url = f"/static/img/products/{image_name}"
+
                         if edit_id_form:
                             conn.execute(
-                                "UPDATE products SET name = %s, product_code = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, margin_percent = %s, unit_buy = %s, conversion_factor = %s, stock = %s, stock_min = %s, status = %s, expiration_date = %s WHERE id = %s AND account_id = %s",
-                                (name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date, edit_id_form, account_id),
+                                "UPDATE products SET name = %s, product_code = %s, category_id = %s, unit_id = %s, supplier_id = %s, cost = %s, price = %s, margin_percent = %s, unit_buy = %s, conversion_factor = %s, stock = %s, stock_min = %s, status = %s, expiration_date = %s, image_url = %s WHERE id = %s AND account_id = %s",
+                                (name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date, image_url, edit_id_form, account_id),
                             )
                         else:
                             conn.execute(
-                                "INSERT INTO products (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date),
+                                "INSERT INTO products (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date, image_url) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date, image_url),
                             )
                         conn.commit()
                         flash(translate("record_saved"), "success")
