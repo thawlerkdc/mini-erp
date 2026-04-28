@@ -337,7 +337,7 @@
     .sales-payment-methods {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
+      gap: 6px;
       margin-bottom: 14px;
     }
     .sales-method-card {
@@ -345,8 +345,8 @@
       flex-direction: row;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 10px 11px;
+      gap: 6px;
+      padding: 9px 8px;
       border-radius: 12px;
       background: rgba(15, 23, 42, 0.52);
       border: 1px solid rgba(148, 163, 184, 0.14);
@@ -383,12 +383,13 @@
       vertical-align: middle;
     }
     .sales-method-card strong {
-      font-size: 0.86rem;
+      font-size: 0.8rem;
       color: #f8fafc;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: calc(100% - 1.4em);
+      overflow: visible;
+      text-overflow: clip;
+      max-width: none;
+      letter-spacing: -0.01em;
     }
     .sales-method-card > span:not(.sales-method-icon) {
       display: none;
@@ -697,10 +698,10 @@
     }
     [data-theme="light"] .sales-search-wrap .ts-dropdown .option.active,
     [data-theme="light"] .sales-search-wrap .ts-dropdown .option:hover {
-      background: #dbeafe !important;
-      color: #0f172a !important;
-      font-weight: 600;
-      border-left: 4px solid #2563eb;
+      background: #1d4ed8 !important;
+      color: #ffffff !important;
+      font-weight: 700;
+      border-left: 4px solid #1e3a8a;
       padding-left: 10px;
     }
     [data-theme="light"] .ts-dropdown .option.in-stock {
@@ -708,9 +709,9 @@
       color: #0f172a !important;
     }
     [data-theme="light"] .ts-dropdown .option.out-of-stock {
-      background: #fee2e2 !important;
-      color: #991b1b !important;
-      border-left: 4px solid #dc2626;
+      background: #b91c1c !important;
+      color: #ffffff !important;
+      border-left: 4px solid #7f1d1d;
       font-weight: 700;
     }
     [data-theme="light"] .ts-dropdown .option.low-stock {
@@ -721,8 +722,8 @@
     }
     [data-theme="light"] .ts-dropdown .option.out-of-stock.active,
     [data-theme="light"] .ts-dropdown .option.out-of-stock:hover {
-      background: #fecaca !important;
-      color: #7f1d1d !important;
+      background: #991b1b !important;
+      color: #ffffff !important;
     }
     [data-theme="light"] .sale-row {
       background: var(--bg-secondary);
