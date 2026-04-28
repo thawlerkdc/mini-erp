@@ -3934,16 +3934,7 @@ def vendas():
         ).fetchall()
 
         conn.close()
-        return render_template(
-            "vendas.html",
-            title=translate("menu_sales"),
-            products=products,
-            clients=clients,
-            pix_code=pix_code,
-            cash_summary=None,
-            card_settings_json=card_settings_json,
-            payment_ui_settings_json=payment_ui_settings_json,
-        )
+        return redirect(url_for("vendas"))
 
     conn.close()
     return render_template(
