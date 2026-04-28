@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40">
-  <!-- Top-left -->
-  <rect x="8" y="8" width="32" height="32" rx="6" ry="6" fill="#1EC6B0"/>
-  <!-- Top-right -->
-  <rect x="60" y="8" width="32" height="32" rx="6" ry="6" fill="#00B4D8"/>
-  <!-- Bottom-left -->
-  <rect x="8" y="60" width="32" height="32" rx="6" ry="6" fill="#0084D6"/>
-  <!-- Bottom-right -->
-  <rect x="60" y="60" width="32" height="32" rx="6" ry="6" fill="#132C61"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="24" height="24">
+  <!-- Quadrado superior esquerdo (Teal) -->
+  <rect x="4" y="4" width="24" height="24" rx="4" fill="#1EC6B0"/>
+  <!-- Quadrado superior direito (Cyan) -->
+  <rect x="36" y="4" width="24" height="24" rx="4" fill="#00BFD8"/>
+  <!-- Quadrado inferior esquerdo (Azul) -->
+  <rect x="4" y="36" width="24" height="24" rx="4" fill="#0084D6"/>
+  <!-- Quadrado inferior direito (Azul Escuro) -->
+  <rect x="36" y="36" width="24" height="24" rx="4" fill="#003B87"/>
 </svg>
