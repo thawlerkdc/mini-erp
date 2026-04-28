@@ -385,7 +385,7 @@
       color: #f8fafc;
       white-space: nowrap;
     }
-    .sales-method-card span {
+    .sales-method-card > span:not(.sales-method-icon) {
       display: none;
     }
     .sales-method-select {
@@ -700,14 +700,20 @@
       color: var(--text-primary) !important;
     }
     [data-theme="light"] .ts-dropdown .option.out-of-stock {
-      background: rgba(220, 38, 38, 0.16) !important;
-      color: #dc2626 !important;
+      background: #fee2e2 !important;
+      color: #991b1b !important;
+      border-left: 4px solid #dc2626;
       font-weight: 700;
     }
     [data-theme="light"] .ts-dropdown .option.low-stock {
       background: rgba(180, 83, 9, 0.14) !important;
       color: #b45309 !important;
       font-weight: 600;
+    }
+    [data-theme="light"] .ts-dropdown .option.out-of-stock.active,
+    [data-theme="light"] .ts-dropdown .option.out-of-stock:hover {
+      background: #fecaca !important;
+      color: #7f1d1d !important;
     }
     [data-theme="light"] .sale-row {
       background: var(--bg-secondary);
