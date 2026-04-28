@@ -28,67 +28,46 @@
     .sales-right-panel {
       min-width: 0;
     }
-    .sales-hero {
+    .sales-items-toolbar {
       display: flex;
-      justify-content: space-between;
-      gap: 18px;
-      align-items: flex-start;
-      margin-bottom: 20px;
-    }
-    .sales-kicker {
-      display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 7px 12px;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.36);
-      color: #93c5fd;
-      font-size: 0.82rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    .sales-kicker::before {
-      content: '';
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #22c55e;
-      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.16);
-    }
-    .sales-hero h2 {
-      margin: 14px 0 8px;
-      font-size: 2rem;
-      line-height: 1.1;
-      color: #f8fafc;
-    }
-    .sales-hero p {
-      margin: 0;
-      max-width: 640px;
-      color: rgba(226, 232, 240, 0.82);
-    }
-    .sales-header-actions {
-      display: flex;
-      flex-wrap: wrap;
       gap: 10px;
-      justify-content: flex-end;
+      margin-bottom: 14px;
     }
-    .sales-header-actions .outline-button,
-    .sales-header-actions .btn-add,
-    .sales-header-actions .sale-clear-btn {
-      min-height: 44px;
-    }
-    .sales-header-actions .outline-button,
-    .sales-header-actions .btn-add {
+    .sales-search-wrap {
+      flex: 1;
+      min-width: 260px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
       border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(15, 23, 42, 0.7);
+      padding: 0 14px;
     }
-    .sales-header-actions .sale-report-btn {
-      border-color: rgba(125, 211, 252, 0.35);
-      color: #dbeafe;
-      background: rgba(15, 23, 42, 0.28);
+    .sales-search-wrap input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: #e2e8f0;
+      min-height: 42px;
+      padding: 0;
     }
-    .sales-header-actions .sale-report-btn:hover {
-      background: rgba(59, 130, 246, 0.18);
+    .sales-search-wrap input::placeholder {
+      color: rgba(203, 213, 225, 0.7);
+    }
+    .sales-search-icon {
+      font-size: 0.98rem;
+      color: #93c5fd;
+    }
+    .sales-toolbar-add {
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 12px;
+      white-space: nowrap;
+      font-weight: 700;
     }
     .sales-panel {
       background: rgba(15, 23, 42, 0.46);
@@ -218,7 +197,7 @@
     }
     .sale-row-controls {
       display: grid;
-      grid-template-columns: minmax(90px, 0.85fr) minmax(120px, 1fr) minmax(120px, 1fr) 48px;
+      grid-template-columns: minmax(180px, 1.25fr) minmax(140px, 1fr) minmax(160px, 1fr) 48px;
       gap: 12px;
       align-items: end;
     }
@@ -264,6 +243,55 @@
       display: grid;
       gap: 14px;
     }
+    .sales-total-card {
+      background: linear-gradient(135deg, rgba(30, 64, 175, 0.26), rgba(15, 23, 42, 0.76));
+      border-color: rgba(96, 165, 250, 0.26);
+    }
+    .sales-total-card h4 {
+      margin: 0;
+      color: rgba(219, 234, 254, 0.9);
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .sales-total-value {
+      margin-top: 10px;
+      font-size: 3rem;
+      line-height: 1;
+      font-weight: 800;
+      color: #60a5fa;
+    }
+    .sales-total-change {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: rgba(219, 234, 254, 0.86);
+      font-weight: 600;
+    }
+    .sales-total-change strong {
+      color: #4ade80;
+      font-size: 1.45rem;
+    }
+    .sales-client-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+    .sales-new-client-btn {
+      min-height: 46px;
+      border-radius: 12px;
+      border: 1px solid rgba(96, 165, 250, 0.34);
+      background: rgba(30, 64, 175, 0.22);
+      color: #dbeafe;
+      padding: 0 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .sales-new-client-btn:hover {
+      background: rgba(37, 99, 235, 0.28);
+    }
     .sales-summary-grid.two-columns {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -273,23 +301,48 @@
       gap: 10px;
       margin-bottom: 14px;
     }
-    .sales-method-chip {
+    .sales-method-card {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding: 12px 14px;
+      gap: 6px;
+      padding: 12px;
       border-radius: 16px;
       background: rgba(15, 23, 42, 0.52);
       border: 1px solid rgba(148, 163, 184, 0.14);
       color: #e2e8f0;
+      cursor: pointer;
+      text-align: left;
+      min-height: 74px;
+      transition: border-color .2s ease, background .2s ease, transform .2s ease;
     }
-    .sales-method-chip strong {
-      font-size: 0.96rem;
+    .sales-method-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(96, 165, 250, 0.45);
+      background: rgba(30, 64, 175, 0.24);
+    }
+    .sales-method-card.active {
+      border-color: rgba(59, 130, 246, 0.8);
+      background: rgba(30, 64, 175, 0.34);
+      box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.25) inset;
+    }
+    .sales-method-icon {
+      font-size: 1rem;
+      color: #93c5fd;
+    }
+    .sales-method-card strong {
+      font-size: 0.95rem;
       color: #f8fafc;
     }
-    .sales-method-chip span {
+    .sales-method-card span {
       font-size: 0.78rem;
       color: rgba(191, 219, 254, 0.74);
+    }
+    .sales-method-select {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 0;
+      height: 0;
     }
     .sales-summary-totals {
       display: flex;
@@ -344,6 +397,56 @@
       display: flex;
       align-items: center;
     }
+    .split-toggle-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 48px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(15, 23, 42, 0.62);
+      color: #dbeafe;
+      font-weight: 700;
+      padding: 0 14px;
+      cursor: pointer;
+    }
+    .split-toggle-btn:hover {
+      border-color: rgba(96, 165, 250, 0.42);
+      background: rgba(30, 64, 175, 0.22);
+    }
+    .split-toggle-chevron {
+      color: #93c5fd;
+      font-size: 1rem;
+      transition: transform .2s ease;
+    }
+    .split-toggle-btn.expanded .split-toggle-chevron {
+      transform: rotate(180deg);
+    }
+    .qty-stepper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .qty-stepper-btn {
+      width: 36px;
+      min-width: 36px;
+      height: 46px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      background: rgba(15, 23, 42, 0.9);
+      color: #dbeafe;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .qty-stepper-btn:hover {
+      background: rgba(30, 64, 175, 0.32);
+    }
+    .qty-stepper input {
+      text-align: center;
+      max-width: 84px;
+      margin: 0;
+    }
     .sales-actions-stack {
       display: flex;
       flex-direction: column;
@@ -379,12 +482,6 @@
       }
     }
     @media (max-width: 900px) {
-      .sales-hero {
-        flex-direction: column;
-      }
-      .sales-header-actions {
-        justify-content: flex-start;
-      }
       .sale-row-main {
         grid-template-columns: 1fr;
       }
@@ -403,6 +500,9 @@
       .sales-payment-methods {
         grid-template-columns: 1fr 1fr;
       }
+      .sales-client-row {
+        grid-template-columns: 1fr;
+      }
     }
     @media (max-width: 640px) {
       .sales-layout {
@@ -418,9 +518,12 @@
       .sales-header-actions {
         width: 100%;
       }
-      .sales-header-actions > * {
+      .sales-items-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .sales-toolbar-add {
         width: 100%;
-        justify-content: center;
       }
     }
   </style>
@@ -431,25 +534,20 @@
         <input type="hidden" name="pix_confirmed" id="pix-confirmed" value="0">
 
         <section class="sales-left-panel">
-          <div class="sales-hero">
-            <div>
-              <span class="sales-kicker">Ponto de venda</span>
-              <h2>Fechamento rápido e visual</h2>
-              <p>Monte a venda em uma área central de itens e acompanhe o resumo financeiro ao lado, sem alterar a lógica atual de Pix, troco, juros e multipagamento.</p>
-            </div>
-            <div class="sales-header-actions">
-              <a href="{{ url_for('relatorios', section='vendas_periodo') }}" class="outline-button sale-report-btn">Relatório de vendas</a>
-              <button type="button" class="btn-add sale-add-btn" onclick="addSaleRow()">+ {{ t('add_item') }}</button>
-              <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()"><span class="sale-clear-icon" aria-hidden="true">&#128465;</span><span>Limpar venda</span></button>
-            </div>
-          </div>
-
           <div class="sales-panel sales-items-panel">
             <div class="sales-items-header">
               <div>
                 <h3>Itens da venda</h3>
-                <p>Selecione os produtos, ajuste a quantidade e acompanhe a composição do pedido.</p>
+                <p>Adicione os produtos e ajuste as quantidades rapidamente.</p>
               </div>
+            </div>
+
+            <div class="sales-items-toolbar">
+              <div class="sales-search-wrap">
+                <span class="sales-search-icon" aria-hidden="true">&#128269;</span>
+                <input type="text" id="sales-global-search" placeholder="Buscar produto por nome, código ou GTIN...">
+              </div>
+              <button type="button" class="btn-add sales-toolbar-add" onclick="addSaleRow()">+ Adicionar produto</button>
             </div>
 
             <div class="sales-mini-stats">
@@ -501,13 +599,17 @@
                 </div>
 
                 <div class="sale-row-controls">
-                  <div class="field-group sale-field-qty">
-                    <label>{{ t('quantity_label') }}</label>
-                    <input name="quantity[]" type="number" min="1" step="1" value="1" required oninput="updateLineTotal(this)">
-                  </div>
                   <div class="field-group sale-field-price">
                     <label>{{ t('unit_price') }}</label>
                     <input name="unit_price[]" type="number" step="0.01" value="0.00" readonly>
+                  </div>
+                  <div class="field-group sale-field-qty">
+                    <label>{{ t('quantity_label') }}</label>
+                    <div class="qty-stepper">
+                      <button type="button" class="qty-stepper-btn" onclick="changeQuantity(this, -1)">-</button>
+                      <input name="quantity[]" type="number" min="1" step="1" value="1" required oninput="updateLineTotal(this)">
+                      <button type="button" class="qty-stepper-btn" onclick="changeQuantity(this, 1)">+</button>
+                    </div>
                   </div>
                   <div class="field-group sale-field-total">
                     <label>{{ t('line_total') }}</label>
@@ -523,18 +625,29 @@
         </section>
 
         <aside class="sales-right-panel">
+          <div class="sales-panel sales-summary-card sales-total-card">
+            <h4>Total da venda</h4>
+            <div class="sales-total-value" id="order-total">R$ 0,00</div>
+            <div class="sales-total-change">
+              <span>{{ t('cash_change') }}</span>
+              <strong id="order-change">R$ 0,00</strong>
+            </div>
+          </div>
+
           <div class="sales-panel sales-summary-card">
-            <h3>Cliente e ajustes</h3>
-            <p>Defina o cliente, desconto e acréscimo antes do pagamento.</p>
+            <h3>Cliente</h3>
             <div class="sales-summary-grid">
-              <div class="field-group sale-client-field">
-                <label>{{ t('client_label') }}</label>
-                <select name="client_id">
-                  <option value="">{{ t('no_client') }}</option>
-                  {% for client in clients %}
-                    <option value="{{ client['id'] }}">{{ client['name'] }}</option>
-                  {% endfor %}
-                </select>
+              <div class="sales-client-row">
+                <div class="field-group sale-client-field">
+                  <label>{{ t('client_label') }}</label>
+                  <select name="client_id">
+                    <option value="">{{ t('no_client') }}</option>
+                    {% for client in clients %}
+                      <option value="{{ client['id'] }}">{{ client['name'] }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <button type="button" class="sales-new-client-btn" onclick="openNewClientWindow()">+ Novo cliente</button>
               </div>
               <div class="sales-summary-grid two-columns">
                 <div class="field-group sale-field-discount">
@@ -551,15 +664,14 @@
 
           <div class="sales-panel sales-summary-card">
             <h4>Pagamento principal</h4>
-            <p>As regras já configuradas de cartão, Pix e troco continuam aplicadas.</p>
             <div class="sales-payment-methods">
-              <div class="sales-method-chip"><strong>Dinheiro</strong><span>Permite troco</span></div>
-              <div class="sales-method-chip"><strong>Pix</strong><span>Gera QR Code</span></div>
-              <div class="sales-method-chip"><strong>Débito</strong><span>Considera taxa, se houver</span></div>
-              <div class="sales-method-chip"><strong>Crédito</strong><span>Aplica juros por parcela</span></div>
+              <button type="button" class="sales-method-card" data-method="Dinheiro" onclick="selectPaymentMethod('Dinheiro')"><span class="sales-method-icon">&#128181;</span><strong>Dinheiro</strong><span>Permite troco</span></button>
+              <button type="button" class="sales-method-card" data-method="Pix" onclick="selectPaymentMethod('Pix')"><span class="sales-method-icon">&#11035;</span><strong>Pix</strong><span>Gera QR Code</span></button>
+              <button type="button" class="sales-method-card" data-method="Débito" onclick="selectPaymentMethod('Débito')"><span class="sales-method-icon">&#128179;</span><strong>Débito</strong><span>Cartão de débito</span></button>
+              <button type="button" class="sales-method-card" data-method="Crédito" onclick="selectPaymentMethod('Crédito')"><span class="sales-method-icon">&#128179;</span><strong>Crédito</strong><span>Parcelamento e juros</span></button>
             </div>
             <div class="sales-summary-grid">
-              <div class="field-group sale-field-payment-method">
+              <div class="field-group sale-field-payment-method sales-method-select">
                 <label>{{ t('payment_method') }}</label>
                 <select name="payment_method" id="payment-method-select" onchange="onPaymentMethodChange(this.value)">
                   <option value="Dinheiro">Dinheiro</option>
@@ -591,13 +703,20 @@
               </div>
             </div>
 
-            <div id="multi-payment-block" class="multi-payment-block" style="display:none">
-              <div class="multi-payment-header">
-                <h4>Dividir pagamento</h4>
-                <button type="button" class="btn-add sale-add-btn" onclick="addPaymentRow()">+ Adicionar forma</button>
+            <div id="split-payment-wrapper" style="display:none; margin-top: 8px;">
+              <button type="button" id="split-payment-toggle" class="split-toggle-btn" onclick="toggleSplitPayment()">
+                <span>Dividir pagamento</span>
+                <span class="split-toggle-chevron">&#9662;</span>
+              </button>
+
+              <div id="multi-payment-block" class="multi-payment-block" style="display:none">
+                <div class="multi-payment-header">
+                  <h4>Formas de pagamento</h4>
+                  <button type="button" class="btn-add sale-add-btn" onclick="addPaymentRow()">+ Adicionar forma</button>
+                </div>
+                <div id="payment-rows"></div>
+                <p class="param-hint-small">A soma das formas de pagamento deve bater com o total da venda.</p>
               </div>
-              <div id="payment-rows"></div>
-              <p class="param-hint-small">A soma das formas de pagamento deve bater com o total da venda.</p>
             </div>
           </div>
 
@@ -616,20 +735,13 @@
                 <span>Acréscimo</span>
                 <strong id="order-surcharge">R$ 0,00</strong>
               </div>
-              <div class="sales-summary-line total">
-                <span>{{ t('total_label') }}</span>
-                <strong id="order-total">R$ 0,00</strong>
-              </div>
-              <div class="sales-summary-line change">
-                <span>{{ t('cash_change') }}</span>
-                <strong id="order-change">R$ 0,00</strong>
-              </div>
             </div>
           </div>
 
           <div class="sales-actions-stack">
             <button type="submit" class="btn-confirm-sale">{{ t('confirm_sale_button') }}</button>
-            <a class="outline-button sale-report-btn" href="{{ url_for('relatorios', section='vendas_periodo') }}">Imprimir relatório de vendas</a>
+            <a class="outline-button sale-report-btn" href="{{ url_for('relatorios', section='vendas_periodo') }}">Imprimir orçamento</a>
+            <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()"><span class="sale-clear-icon" aria-hidden="true">&#128465;</span><span>Limpar venda</span></button>
             <a class="btn-close-cash" href="{{ url_for('fechar_caixa') }}">&#128717; {{ t('close_cash') }}</a>
           </div>
         </aside>
@@ -673,6 +785,7 @@
     var PIX_QR_INSTANCE = null;
     var SALE_ROW_TEMPLATE_HTML = '';
     var SALE_PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%231e293b'/%3E%3Cstop offset='100%25' stop-color='%230f172a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='20' fill='url(%23g)'/%3E%3Cpath d='M28 77l17-18 14 15 17-24 16 27H28z' fill='%235f7ea0' opacity='.9'/%3E%3Ccircle cx='45' cy='42' r='9' fill='%2393c5fd'/%3E%3C/svg%3E";
+    var SPLIT_PAYMENT_EXPANDED = false;
 
     function captureSaleRowTemplate() {
       if (SALE_ROW_TEMPLATE_HTML) return;
@@ -747,6 +860,30 @@
         total += parseNumber(input.value);
       });
       return total;
+    }
+
+    function openNewClientWindow() {
+      window.open("{{ url_for('cadastro', entity='clientes') }}", '_blank', 'noopener,noreferrer');
+    }
+
+    function bindTopProductSearch() {
+      let searchInput = document.getElementById('sales-global-search');
+      if (!searchInput) return;
+      searchInput.addEventListener('keydown', function(event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        let query = (searchInput.value || '').trim();
+        let targetSelect = document.querySelector('.sale-row select.product-select');
+        if (!targetSelect) return;
+        let combo = targetSelect.tomselect;
+        if (!combo) return;
+        combo.focus();
+        if (query) {
+          combo.control_input.value = query;
+          combo.refreshOptions(false);
+          combo.open();
+        }
+      });
     }
 
     function syncSaleRowPreview(row) {
@@ -898,8 +1035,36 @@
         buildPaymentRow(defaultMethod, 1, 0);
       }
 
+      toggleSplitPayment(true);
       onPaymentMethodChange(document.getElementById('payment-method-select').value);
       applyCardSurcharge();
+    }
+
+    function toggleSplitPayment(forceOpen) {
+      let toggleBtn = document.getElementById('split-payment-toggle');
+      let block = document.getElementById('multi-payment-block');
+      if (!toggleBtn || !block) return;
+      if (forceOpen === true) {
+        SPLIT_PAYMENT_EXPANDED = true;
+      } else {
+        SPLIT_PAYMENT_EXPANDED = !SPLIT_PAYMENT_EXPANDED;
+      }
+      block.style.display = SPLIT_PAYMENT_EXPANDED ? '' : 'none';
+      toggleBtn.classList.toggle('expanded', SPLIT_PAYMENT_EXPANDED);
+    }
+
+    function syncPaymentMethodCards() {
+      let selected = document.getElementById('payment-method-select').value;
+      document.querySelectorAll('.sales-method-card').forEach(card => {
+        card.classList.toggle('active', card.getAttribute('data-method') === selected);
+      });
+    }
+
+    function selectPaymentMethod(method) {
+      let paymentSelect = document.getElementById('payment-method-select');
+      if (!paymentSelect) return;
+      paymentSelect.value = method;
+      onPaymentMethodChange(method);
     }
 
     function updatePaymentFeeHint(row) {
@@ -1053,11 +1218,20 @@
       let installmentRow = document.getElementById('installment-row');
       let receivedRow = document.getElementById('payment-received-row');
       let multiBlock = document.getElementById('multi-payment-block');
+      let splitWrapper = document.getElementById('split-payment-wrapper');
       updateInstallmentOptions();
 
       if (PAYMENT_UI_SETTINGS.allow_multi) {
         let hasRows = document.querySelectorAll('#payment-rows .payment-row').length > 0;
-        multiBlock.style.display = '';
+        if (splitWrapper) splitWrapper.style.display = '';
+        if (hasRows) {
+          SPLIT_PAYMENT_EXPANDED = true;
+        }
+        multiBlock.style.display = (SPLIT_PAYMENT_EXPANDED || hasRows) ? '' : 'none';
+        let splitToggle = document.getElementById('split-payment-toggle');
+        if (splitToggle) {
+          splitToggle.classList.toggle('expanded', SPLIT_PAYMENT_EXPANDED || hasRows);
+        }
         if (hasRows) {
           installmentRow.style.display = 'none';
           receivedRow.style.display = 'none';
@@ -1065,14 +1239,19 @@
           installmentRow.style.display = (method === 'Crédito') ? '' : 'none';
           receivedRow.style.display = method === 'Dinheiro' ? '' : 'none';
         }
+        syncPaymentMethodCards();
         applyCardSurcharge();
         return;
       }
 
+      if (splitWrapper) splitWrapper.style.display = 'none';
+      multiBlock.style.display = 'none';
+      SPLIT_PAYMENT_EXPANDED = false;
       installmentRow.style.display = (method === 'Crédito') ? '' : 'none';
       if (receivedRow) {
         receivedRow.style.display = method === 'Dinheiro' ? '' : 'none';
       }
+      syncPaymentMethodCards();
       applyCardSurcharge();
     }
     function updateTotals() {
@@ -1117,9 +1296,22 @@
       syncSaleRowPreview(row);
       updateLineTotal(row.querySelector('input[name="quantity[]"]'));
     }
+
+    function changeQuantity(button, delta) {
+      let row = button.closest('.sale-row');
+      if (!row) return;
+      let qtyInput = row.querySelector('input[name="quantity[]"]');
+      if (!qtyInput) return;
+      let current = parseNumber(qtyInput.value) || 1;
+      let next = Math.max(1, Math.round(current + delta));
+      qtyInput.value = String(next);
+      updateLineTotal(qtyInput);
+    }
+
     function updateLineTotal(quantityInput) {
       let row = quantityInput.closest('.sale-row');
-      let quantity = parseNumber(quantityInput.value);
+      let quantity = Math.max(1, Math.round(parseNumber(quantityInput.value) || 1));
+      quantityInput.value = String(quantity);
       let price = parseNumber(row.querySelector('input[name="unit_price[]"]').value);
       row.querySelector('input[name="line_total[]"]').value = formatNumber(quantity * price);
       applyCardSurcharge();
@@ -1497,9 +1689,12 @@
     captureSaleRowTemplate();
     document.querySelectorAll('select.product-select').forEach(initProductCombobox);
     document.querySelectorAll('.sale-row').forEach(syncSaleRowPreview);
+    bindTopProductSearch();
+    syncPaymentMethodCards();
 
     if (PAYMENT_UI_SETTINGS.allow_multi) {
-      document.getElementById('multi-payment-block').style.display = '';
+      document.getElementById('split-payment-wrapper').style.display = '';
+      document.getElementById('multi-payment-block').style.display = 'none';
       document.getElementById('installment-row').style.display = 'none';
       document.getElementById('payment-received-row').style.display = 'none';
     }
