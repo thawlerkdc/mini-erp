@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="form-card">
+  <div data-drilldown="true" data-drilldown-key="controle_estoque" data-drilldown-selector="[data-drill-section]">
+  <div class="form-card" data-drill-section data-drill-key="visao_geral_estoque">
     <h3>Controle de Estoque Integrado</h3>
     <p class="form-helper">Fluxo unificado: Compra -> Entrada -> Atualização de custo -> Venda -> Baixa de estoque -> Relatórios e alertas.</p>
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
@@ -12,7 +13,7 @@
     </div>
   </div>
 
-  <div id="ajuste-estoque" class="form-card">
+  <div id="ajuste-estoque" class="form-card" data-drill-section data-drill-key="ajuste_estoque">
     <h3>Ajuste de Estoque (integrado)</h3>
     <form method="post" action="{{ url_for('controle_estoque') }}">
       <input type="hidden" name="action" value="stock_adjust">
@@ -72,7 +73,7 @@
   </div>
 
   {% if recent_adjustments %}
-    <div class="form-card" style="margin-top:1rem">
+    <div class="form-card" style="margin-top:1rem" data-drill-section data-drill-key="ultimos_ajustes">
       <h3>Últimos ajustes registrados</h3>
       <div class="report-table-wrap">
         <table class="report-table">
@@ -138,7 +139,7 @@
     </div>
   </div>
 
-  <div class="form-card" style="margin-top: 14px;">
+  <div class="form-card" style="margin-top: 14px;" data-drill-section data-drill-key="alertas_inteligentes">
     <h3>Alertas Inteligentes</h3>
     <ul>
       <li>Produto abaixo do mínimo: {{ alerts.below_minimum|length }}</li>
@@ -148,7 +149,7 @@
     </ul>
   </div>
 
-  <div class="form-card">
+  <div class="form-card" data-drill-section data-drill-key="produtos_mais_vendidos">
     <h3>Produtos mais vendidos (90 dias)</h3>
     <div class="report-table-wrap">
       <table class="report-table">
@@ -169,7 +170,7 @@
     </div>
   </div>
 
-  <div class="form-card">
+  <div class="form-card" data-drill-section data-drill-key="kardex">
     <h3>Kardex (últimas movimentações)</h3>
     <div class="report-table-wrap">
       <table class="report-table">
@@ -293,4 +294,5 @@
       }
     }
   </script>
+  </div>
 {% endblock %}

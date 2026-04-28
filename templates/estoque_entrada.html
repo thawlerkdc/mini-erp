@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="form-card">
+<div data-drilldown="true" data-drilldown-key="estoque_entrada" data-drilldown-selector="[data-drill-section]">
+<div class="form-card" data-drill-section data-drill-key="registrar_compra">
   <h3>Registrar Compra</h3>
 
   <div id="xml-import-compras" class="xml-import-callout">
@@ -137,7 +138,7 @@
   </form>
 </div>
 
-<div class="form-card" style="margin-top:1.5rem">
+<div class="form-card" style="margin-top:1.5rem" data-drill-section data-drill-key="pedido_compra">
   <h3>Criar Pedido de Compra</h3>
   <form method="post" action="{{ url_for('estoque_entrada') }}">
     <input type="hidden" name="action" value="create_purchase_order">
@@ -205,7 +206,7 @@
 </div>
 
 {% if purchase_orders %}
-<div class="form-card" style="margin-top:1.5rem">
+<div class="form-card" style="margin-top:1.5rem" data-drill-section data-drill-key="pedidos_compra">
   <h3>Pedidos de compra</h3>
   <div class="report-table-wrap">
     <table class="report-table">
@@ -258,7 +259,7 @@
 {% endif %}
 
 {% if recent %}
-<div class="form-card" style="margin-top:1.5rem">
+<div class="form-card" style="margin-top:1.5rem" data-drill-section data-drill-key="ultimas_entradas">
   <h3>Últimas entradas registradas</h3>
   <div class="report-table-wrap">
     <table class="report-table">
@@ -321,4 +322,5 @@
     }
   }
 </script>
+</div>
 {% endblock %}

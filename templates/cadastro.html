@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
+  <div data-drilldown="true" data-drilldown-key="cadastro_{{ entity }}" data-drilldown-selector="[data-drill-section]">
   {% if entity == 'usuarios' %}
-    <div class="form-card">
+    <div class="form-card" data-drill-section data-drill-key="formulario_usuarios">
       <h3>{% if edit_id %}Editar Usuário Dependente{% else %}Adicionar Usuário Dependente{% endif %}</h3>
       <p class="form-helper">Os usuários criados aqui pertencem somente à conta principal ativa e compartilham os mesmos dados operacionais.</p>
       <form method="post" action="{{ url_for('cadastro', entity='usuarios') }}">
@@ -20,7 +21,7 @@
         {% if edit_id %}<a href="{{ url_for('cadastro', entity='usuarios') }}" class="outline-button">Cancelar</a>{% endif %}
       </form>
     </div>
-    <div class="table-card">
+    <div class="table-card" data-drill-section data-drill-key="lista_usuarios">
       <h3>{{ t('user_list') }}</h3>
       <div class="table-search">
         <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('users-table', this.value)">
@@ -60,7 +61,7 @@
       </table>
     </div>
   {% elif entity == 'produtos' %}
-    <div class="form-card">
+    <div class="form-card" data-drill-section data-drill-key="formulario_produtos">
       <h3>{% if edit_id %}Editar Produto{% else %}{{ t('add_product') }}{% endif %}</h3>
       <div style="margin: 8px 0 14px;">
         <a href="{{ url_for('relatorios', section='produtos') }}" class="outline-button small">Ir para Relatórios de Produtos</a>
@@ -231,7 +232,7 @@
         </div>
       </form>
     </div>
-    <div class="table-card">
+    <div class="table-card" data-drill-section data-drill-key="lista_produtos">
       <h3>{{ t('product_list') }}</h3>
       <div class="table-search">
         <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('products-table', this.value)">
@@ -273,7 +274,7 @@
       </div>
     </div>
   {% elif entity == 'clientes' %}
-    <div class="form-card">
+    <div class="form-card" data-drill-section data-drill-key="formulario_clientes">
       <h3>{% if edit_id %}Editar Cliente{% else %}{{ t('add_client') }}{% endif %}</h3>
       <div style="margin: 8px 0 14px;">
         <a href="{{ url_for('relatorios', section='clientes') }}" class="outline-button small">Ir para Relatórios de Clientes</a>
@@ -324,7 +325,7 @@
         {% if edit_id %}<a href="{{ url_for('cadastro', entity='clientes') }}" class="outline-button">Cancelar</a>{% endif %}
       </form>
     </div>
-    <div class="table-card">
+    <div class="table-card" data-drill-section data-drill-key="lista_clientes">
       <h3>{{ t('client_list') }}</h3>
       <div class="table-search">
         <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('clients-table', this.value)">
@@ -373,7 +374,7 @@
       </table>
     </div>
   {% elif entity == 'fornecedores' %}
-    <div class="form-card">
+    <div class="form-card" data-drill-section data-drill-key="formulario_fornecedores">
       <h3>{% if edit_id %}Editar Fornecedor{% else %}{{ t('add_supplier') }}{% endif %}</h3>
       <div style="margin: 8px 0 14px;">
         <a href="{{ url_for('relatorios', section='fornecedores') }}" class="outline-button small">Ir para Relatórios de Fornecedores</a>
@@ -452,7 +453,7 @@
         <button type="submit" class="outline-button small btn-aux">{{ t('add_category') }}</button>
       </form>
     </div>
-    <div class="table-card">
+    <div class="table-card" data-drill-section data-drill-key="lista_fornecedores">
       <h3>{{ t('supplier_list') }}</h3>
       <div class="table-search">
         <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('suppliers-table', this.value)">
@@ -491,7 +492,7 @@
       </table>
     </div>
   {% elif entity == 'categorias' %}
-    <div class="form-card">
+    <div class="form-card" data-drill-section data-drill-key="formulario_categorias_produto">
       <h3>{% if edit_id %}Editar Categoria{% else %}{{ t('add_category') }}{% endif %}</h3>
       <div style="margin: 8px 0 14px;">
         <a href="{{ url_for('relatorios', section='categorias') }}" class="outline-button small">Ir para Relatórios de Categorias</a>
@@ -505,7 +506,7 @@
         <a href="{{ url_for('cadastro', entity='produtos') }}" class="outline-button">{{ t('back_to_products') }}</a>
       </form>
     </div>
-    <div class="table-card">
+    <div class="table-card" data-drill-section data-drill-key="lista_categorias_produto">
       <h3>{{ t('category_list') }}</h3>
       <div class="table-search">
         <input type="search" class="search-input" placeholder="{{ t('search_placeholder') }}" oninput="filterTable('categories-table', this.value)">
@@ -531,7 +532,7 @@
       </table>
     </div>
   {% elif entity == 'unidades' %}
-    <div class="form-card">
+    <div class="form-card" data-drill-section data-drill-key="formulario_unidades">
       <h3>{% if edit_id %}Editar Unidade{% else %}{{ t('add_unit') }}{% endif %}</h3>
       <form method="post" action="{{ url_for('cadastro', entity='unidades') }}">
         {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
@@ -542,7 +543,7 @@
         <a href="{{ url_for('cadastro', entity='produtos') }}" class="outline-button">{{ t('back_to_products') }}</a>
       </form>
     </div>
-    <div class="table-card">
+    <div class="table-card" data-drill-section data-drill-key="lista_unidades">
       <h3>{{ t('unit_list') }}</h3>
       <table>
         <thead><tr><th>{{ t('unit_label') }}</th><th>{{ t('actions') }}</th></tr></thead>
@@ -565,6 +566,8 @@
       </table>
     </div>
   {% endif %}
+
+  </div>
 
   <style>
     .btn-manage.action-whatsapp {
