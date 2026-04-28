@@ -390,11 +390,10 @@
       color: #bfdbfe;
     }
     .multi-payment-block {
-      margin-top: 4px;
       padding: 16px;
-      border-radius: 18px;
-      background: rgba(15, 23, 42, 0.42);
-      border: 1px solid rgba(148, 163, 184, 0.14);
+      border-radius: 14px;
+      background: rgba(37, 99, 235, 0.08);
+      border: 1px solid rgba(96, 165, 250, 0.18);
     }
     .multi-payment-header {
       display: flex;
@@ -421,31 +420,26 @@
     .pay-installments-wrap select {
       width: 100%;
     }
-    .split-toggle-btn {
+    .split-payment-btn {
       width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
       min-height: 48px;
       border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      background: rgba(15, 23, 42, 0.62);
-      color: #dbeafe;
+      border: 1px solid rgba(96, 165, 250, 0.32);
+      background: rgba(37, 99, 235, 0.18);
+      color: #60a5fa;
       font-weight: 700;
+      font-size: 1rem;
       padding: 0 14px;
       cursor: pointer;
+      transition: all 0.2s ease;
     }
-    .split-toggle-btn:hover {
-      border-color: rgba(96, 165, 250, 0.42);
-      background: rgba(30, 64, 175, 0.22);
-    }
-    .split-toggle-chevron {
+    .split-payment-btn:hover {
+      border-color: rgba(96, 165, 250, 0.52);
+      background: rgba(37, 99, 235, 0.28);
       color: #93c5fd;
-      font-size: 1rem;
-      transition: transform .2s ease;
     }
-    .split-toggle-btn.expanded .split-toggle-chevron {
-      transform: rotate(180deg);
+    .split-payment-btn:active {
+      background: rgba(37, 99, 235, 0.38);
     }
     .qty-stepper {
       display: flex;
@@ -760,19 +754,21 @@
                   <option value="12">12x</option>
                 </select>
               </div>
+            </div>
+            <div class="sales-summary-grid two-columns" id="payment-actions-row">
               <div id="payment-received-row" class="field-group">
                 <label>{{ t('payment_received') }}</label>
                 <input name="payment_received" type="number" step="0.01" value="0.00" oninput="updateTotals()">
               </div>
+              <div id="split-payment-wrapper" style="display:none;" class="field-group">
+                <label>&nbsp;</label>
+                <button type="button" id="split-payment-toggle" class="split-payment-btn" onclick="toggleSplitPayment()">
+                  &#10240;Dividir pagamento
+                </button>
+              </div>
             </div>
 
-            <div id="split-payment-wrapper" style="display:none; margin-top: 8px;">
-              <button type="button" id="split-payment-toggle" class="split-toggle-btn" onclick="toggleSplitPayment()">
-                <span>Dividir pagamento</span>
-                <span class="split-toggle-chevron">&#9662;</span>
-              </button>
-
-              <div id="multi-payment-block" class="multi-payment-block" style="display:none">
+            <div id="multi-payment-block" class="multi-payment-block" style="display:none; margin-top: 12px;">
                 <div class="multi-payment-header">
                   <h4>Formas de pagamento</h4>
                   <button type="button" class="btn-add sale-add-btn" onclick="addPaymentRow()">+ Adicionar forma</button>
