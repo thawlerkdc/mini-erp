@@ -95,9 +95,9 @@
       color: #f8fafc !important;
     }
     .ts-dropdown .option.out-of-stock {
-      background: rgba(127, 29, 29, 0.22) !important;
-      color: #fca5a5 !important;
-      opacity: 0.7;
+      background: rgba(185, 28, 28, 0.38) !important;
+      color: #f87171 !important;
+      font-weight: 600;
     }
     .ts-dropdown .option.out-of-stock::before {
       content: '⛔ ';
@@ -341,16 +341,16 @@
     }
     .sales-method-card {
       display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding: 8px 9px;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 11px;
       border-radius: 12px;
       background: rgba(15, 23, 42, 0.52);
       border: 1px solid rgba(148, 163, 184, 0.14);
       color: #e2e8f0;
       cursor: pointer;
       text-align: left;
-      min-height: 62px;
       transition: border-color .2s ease, background .2s ease, transform .2s ease;
     }
     .sales-method-card:hover {
@@ -366,20 +366,22 @@
     .sales-method-icon {
       font-size: 0.9rem;
       color: #93c5fd;
+      flex-shrink: 0;
+      line-height: 1;
     }
     .sales-method-icon-img {
-      width: 16px;
-      height: 16px;
-      display: block;
-      margin: 0 auto 6px;
+      width: 1em;
+      height: 1em;
+      display: inline-block;
+      vertical-align: middle;
     }
     .sales-method-card strong {
       font-size: 0.9rem;
       color: #f8fafc;
+      white-space: nowrap;
     }
     .sales-method-card span {
-      font-size: 0.72rem;
-      color: rgba(191, 219, 254, 0.74);
+      display: none;
     }
     .sales-method-select {
       position: absolute;
@@ -633,6 +635,188 @@
         width: 100%;
       }
     }
+
+    /* ===== LIGHT THEME OVERRIDES ===== */
+    [data-theme="light"] .sales-shell .sale-card {
+      background: var(--bg-secondary);
+      box-shadow: var(--card-shadow);
+    }
+    [data-theme="light"] .sales-layout {
+      color: var(--text-primary);
+    }
+    [data-theme="light"] .sales-panel {
+      background: var(--card-bg);
+      border-color: var(--card-border);
+      box-shadow: var(--card-shadow);
+    }
+    [data-theme="light"] .sales-items-header h3,
+    [data-theme="light"] .sales-summary-card h3,
+    [data-theme="light"] .sales-summary-card h4,
+    [data-theme="light"] .multi-payment-header h4 {
+      color: var(--text-primary);
+    }
+    [data-theme="light"] .sales-items-header p,
+    [data-theme="light"] .sales-summary-card p,
+    [data-theme="light"] .multi-payment-block p,
+    [data-theme="light"] .sales-mini-stat span {
+      color: var(--text-secondary);
+    }
+    [data-theme="light"] .sales-search-wrap {
+      background: var(--input-bg);
+      border-color: var(--border-color);
+    }
+    [data-theme="light"] .sales-search-icon {
+      color: var(--btn-primary-bg);
+    }
+    [data-theme="light"] .sales-search-wrap .ts-control input {
+      color: var(--input-text) !important;
+    }
+    [data-theme="light"] .sales-search-wrap .ts-dropdown {
+      background: var(--card-bg) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--border-color) !important;
+    }
+    [data-theme="light"] .ts-dropdown .option.in-stock {
+      background: transparent !important;
+      color: var(--text-primary) !important;
+    }
+    [data-theme="light"] .ts-dropdown .option.out-of-stock {
+      background: rgba(220, 38, 38, 0.1) !important;
+      color: #dc2626 !important;
+    }
+    [data-theme="light"] .ts-dropdown .option.low-stock {
+      background: rgba(180, 83, 9, 0.1) !important;
+      color: #b45309 !important;
+    }
+    [data-theme="light"] .sale-row {
+      background: var(--bg-secondary);
+      border-color: var(--border-color);
+    }
+    [data-theme="light"] .sale-row-product-name {
+      color: var(--text-primary);
+    }
+    [data-theme="light"] .sale-row-product-stock,
+    [data-theme="light"] .sale-row-product-code {
+      color: var(--text-secondary);
+    }
+    [data-theme="light"] .sale-row-label,
+    [data-theme="light"] .sale-row-controls label,
+    [data-theme="light"] .sales-summary-card label {
+      color: var(--text-secondary);
+    }
+    [data-theme="light"] .sale-row-line-total,
+    [data-theme="light"] .sale-row-unit-price {
+      color: var(--text-primary);
+    }
+    [data-theme="light"] .sale-row-unit-price {
+      color: var(--text-secondary);
+    }
+    [data-theme="light"] .sale-row input,
+    [data-theme="light"] .sale-row select,
+    [data-theme="light"] .sales-summary-card input,
+    [data-theme="light"] .sales-summary-card select,
+    [data-theme="light"] .payment-row input,
+    [data-theme="light"] .payment-row select {
+      background: var(--input-bg) !important;
+      border-color: var(--input-border) !important;
+      color: var(--input-text) !important;
+    }
+    [data-theme="light"] .sale-row input[readonly] {
+      background: var(--bg-tertiary) !important;
+      color: var(--text-secondary) !important;
+    }
+    [data-theme="light"] .product-select-wrapper .ts-control,
+    [data-theme="light"] .sales-summary-card .ts-control {
+      background: var(--input-bg) !important;
+      border-color: var(--input-border) !important;
+    }
+    [data-theme="light"] .product-select-wrapper .ts-control input,
+    [data-theme="light"] .sales-summary-card .ts-control input {
+      color: var(--input-text) !important;
+    }
+    [data-theme="light"] .qty-stepper-btn {
+      background: var(--bg-secondary);
+      border-color: var(--border-color);
+      color: var(--text-primary);
+    }
+    [data-theme="light"] .qty-stepper-btn:hover {
+      background: var(--bg-hover);
+    }
+    [data-theme="light"] .sales-total-card {
+      background: linear-gradient(135deg, rgba(11,74,130,0.07), rgba(11,74,130,0.03));
+      border-color: rgba(11, 74, 130, 0.2);
+    }
+    [data-theme="light"] .sales-total-card h4 {
+      color: var(--text-secondary);
+    }
+    [data-theme="light"] .sales-total-value {
+      color: var(--btn-primary-bg);
+    }
+    [data-theme="light"] .sales-total-change {
+      color: var(--text-secondary);
+    }
+    [data-theme="light"] .sales-total-change strong {
+      color: #16a34a;
+    }
+    [data-theme="light"] .sales-summary-line {
+      color: var(--text-secondary);
+    }
+    [data-theme="light"] .sales-summary-line.total {
+      color: var(--text-primary);
+      border-top-color: var(--border-color);
+    }
+    [data-theme="light"] .sales-summary-line.total strong,
+    [data-theme="light"] .sales-summary-line.change strong {
+      color: #16a34a;
+    }
+    [data-theme="light"] .sales-summary-line.change strong {
+      color: var(--btn-primary-bg);
+    }
+    [data-theme="light"] .sales-method-card {
+      background: var(--bg-secondary);
+      border-color: var(--border-color);
+      color: var(--text-primary);
+    }
+    [data-theme="light"] .sales-method-card strong {
+      color: var(--text-primary);
+    }
+    [data-theme="light"] .sales-method-card:hover {
+      background: var(--bg-hover);
+      border-color: var(--input-focus-border);
+    }
+    [data-theme="light"] .sales-method-card.active {
+      background: var(--sidebar-item-active-bg);
+      border-color: var(--input-focus-border);
+      box-shadow: 0 0 0 1px var(--input-focus-border) inset, 0 4px 12px rgba(11, 74, 130, 0.14);
+    }
+    [data-theme="light"] .multi-payment-block {
+      background: var(--bg-secondary);
+      border-color: var(--border-color);
+    }
+    [data-theme="light"] .split-payment-btn {
+      background: rgba(11, 74, 130, 0.07);
+      border-color: rgba(11, 74, 130, 0.28);
+      color: var(--btn-primary-bg);
+    }
+    [data-theme="light"] .split-payment-btn:hover {
+      background: rgba(11, 74, 130, 0.13);
+    }
+    [data-theme="light"] .sales-new-client-btn {
+      background: var(--bg-secondary);
+      border-color: var(--border-color);
+      color: var(--btn-primary-bg);
+    }
+    [data-theme="light"] .sales-new-client-btn:hover {
+      background: var(--bg-hover);
+    }
+    [data-theme="light"] .sales-fixed-footer {
+      background: rgba(255, 255, 255, 0.95);
+      border-color: var(--border-color);
+    }
+    [data-theme="light"] .sale-product-badge {
+      background: rgba(22, 163, 74, 0.12);
+      color: #15803d;
+    }
   </style>
 
   <div class="sales-shell">
@@ -750,7 +934,7 @@
             <h4>Pagamento principal</h4>
             <div class="sales-payment-methods">
               <button type="button" class="sales-method-card" data-method="Dinheiro" onclick="selectPaymentMethod('Dinheiro')"><span class="sales-method-icon">&#128181;</span><strong>Dinheiro</strong><span>Permite troco</span></button>
-              <button type="button" class="sales-method-card" data-method="Pix" onclick="selectPaymentMethod('Pix')"><img src="{{ url_for('static', filename='img/pix-icon.svg') }}" alt="Pix" class="sales-method-icon-img"><strong>Pix</strong><span>Gera QR Code</span></button>
+              <button type="button" class="sales-method-card" data-method="Pix" onclick="selectPaymentMethod('Pix')"><span class="sales-method-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.1em"><g transform="translate(12,12) rotate(45)"><rect x="-8" y="-8" width="5.5" height="5.5" rx="1" fill="#32BCAD"/><rect x="2.5" y="-8" width="5.5" height="5.5" rx="1" fill="#32BCAD"/><rect x="-8" y="2.5" width="5.5" height="5.5" rx="1" fill="#32BCAD"/><rect x="2.5" y="2.5" width="5.5" height="5.5" rx="1" fill="#32BCAD"/></g></svg></span><strong>Pix</strong></button>
               <button type="button" class="sales-method-card" data-method="Débito" onclick="selectPaymentMethod('Débito')"><span class="sales-method-icon">&#128179;</span><strong>Débito</strong><span>Cartão de débito</span></button>
               <button type="button" class="sales-method-card" data-method="Crédito" onclick="selectPaymentMethod('Crédito')"><span class="sales-method-icon">&#128179;</span><strong>Crédito</strong><span>Parcelamento e juros</span></button>
             </div>
