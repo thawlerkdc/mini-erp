@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+  <div data-drilldown="true" data-drilldown-key="financeiro" data-drilldown-selector="[data-drill-section]">
   <div class="finance-page-header" id="resumo-financeiro">
     <h2 style="margin: 0; flex-shrink: 0;">Financeiro</h2>
     <form id="finance-header-filter-form" method="get" action="{{ url_for('financeiro') }}" class="finance-header-filter-form" data-date-range-form="true" data-date-start="finance-start-date" data-date-end="finance-end-date" data-date-error="finance-header-date-error">
@@ -75,7 +76,7 @@
 
   <!-- Duas colunas: Despesas Recentes e Desempenho -->
   <div class="finance-bottom-grid">
-    <div class="form-card">
+    <div class="form-card" data-drill-section data-drill-key="despesas_recentes">
       <h3>Despesas Recentes</h3>
       <div class="report-table-wrap">
         <table class="report-table compact">
@@ -97,7 +98,7 @@
       <a href="{{ url_for('financeiro') }}#cashflow-diario" class="outline-button small" style="margin-top: 10px;">Ver todas despesas →</a>
     </div>
 
-    <div class="form-card">
+    <div class="form-card" data-drill-section data-drill-key="desempenho_financeiro">
       <h3>Desempenho Financeiro</h3>
       <table class="performance-table">
         <tbody>
@@ -144,7 +145,7 @@
 
   <!-- Seção de dois cards no rodapé -->
   <div class="finance-footer-grid">
-    <div class="payment-status-card" id="a-receber">
+    <div class="payment-status-card" id="a-receber" data-drill-section data-drill-key="a_receber">
       <h3>A Receber</h3>
       <table class="compact-status-table">
         <tbody>
@@ -159,7 +160,7 @@
         </tbody>
       </table>
     </div>
-    <div class="payment-status-card" id="a-pagar">
+    <div class="payment-status-card" id="a-pagar" data-drill-section data-drill-key="a_pagar">
       <h3>A Pagar</h3>
       <table class="compact-status-table">
         <tbody>
@@ -177,7 +178,7 @@
   </div>
 
   <!-- Seção de Gerenciamento de Lançamentos e Categorias -->
-  <div class="finance-management-section">
+  <div class="finance-management-section" data-drill-section data-drill-key="gestao_lancamentos" data-drill-header-selector=".management-header">
     <div class="management-header">
       <h3>⚙️ Gerenciar lançamentos e categorias</h3>
       <p class="form-helper" style="margin-top: 6px;">A aba de lançamento manual já vem aberta. Clicar nela reposiciona e destaca o formulário.</p>
@@ -187,7 +188,7 @@
       <button type="button" class="tab-btn active" data-finance-tab="novo-lancamento" onclick="switchFinanceTab('novo-lancamento', this)">
         <span class="tab-icon">➕</span> Lançamento Manual
       </button>
-      <button type="button" class="tab-btn" data-finance-tab="categoria" onclick="switchFinanceTab('categoria', this)">
+      <button type="button" class="tab-btn" data-finance-tab="categoria-financeira" onclick="switchFinanceTab('categoria-financeira', this)">
         <span class="tab-icon">🏷️</span> Categoria Financeira
       </button>
       <button type="button" class="tab-btn" data-finance-tab="xml" onclick="switchFinanceTab('xml', this)">
@@ -284,7 +285,7 @@
     </div>
 
     <!-- Aba: Categoria Financeira -->
-    <div id="categoria" class="management-tab-content">
+    <div id="categoria-financeira" class="management-tab-content">
       <div class="finance-tab-helper">
         <strong>Como usar a categoria:</strong> este cadastro cria grupos para organizar e filtrar os lançamentos (ex.: aluguel, energia, impostos). Após adicionar, ela aparece no formulário de Lançamento Manual e também nos relatórios.
       </div>
@@ -409,7 +410,7 @@
   </div>
 
   <!-- Tabela de Lançamentos Financeiros -->
-  <div class="table-card" id="lancamentos-financeiros">
+  <div class="table-card" id="lancamentos-financeiros" data-drill-section data-drill-key="lancamentos_financeiros">
     <h3>Detalhes de Lançamentos Financeiros</h3>
     <form method="get" action="{{ url_for('financeiro') }}#lancamentos-financeiros" class="finance-origin-filter-form">
       <input type="hidden" name="period" value="{{ finance_selected_period }}">
@@ -539,7 +540,7 @@
     </div>
   </div>
 
-  <div class="table-card" id="cashflow-diario">
+  <div class="table-card" id="cashflow-diario" data-drill-section data-drill-key="fluxo_caixa_diario">
     <h3>Fluxo de caixa diário</h3>
     <form id="cashflow-filter-form" method="get" action="{{ url_for('financeiro') }}#cashflow-diario" class="toolbar-group" style="margin-bottom:10px" data-date-range-form="true" data-date-start="cf-start" data-date-end="cf-end" data-date-error="cashflow-date-error">
       <label>Início</label>
@@ -575,7 +576,7 @@
     </div>
   </div>
 
-  <div class="table-card" id="dre">
+  <div class="table-card" id="dre" data-drill-section data-drill-key="dre">
     <h3>DRE Simplificado</h3>
     <p>Período: {{ start_date[8:10] }}/{{ start_date[5:7] }}/{{ start_date[0:4] }} até {{ end_date[8:10] }}/{{ end_date[5:7] }}/{{ end_date[0:4] }}</p>
     <div class="report-table-wrap">
@@ -600,7 +601,7 @@
     </div>
   </div>
 
-  <div class="table-card">
+  <div class="table-card" data-drill-section data-drill-key="historico_xml">
     <h3>Histórico de XML importados</h3>
     <div class="report-table-wrap">
       <table class="report-table">
@@ -714,7 +715,7 @@
 
         var hashMap = {
           'novo-lancamento': '#novo-lancamento',
-          'categoria': '#categoria-financeira',
+          'categoria-financeira': '#categoria-financeira',
           'xml': '#xml-import'
         };
         if (hashMap[tabId]) {
@@ -727,8 +728,8 @@
       var hash = (window.location.hash || '').toLowerCase();
       var hashToTab = {
         '#novo-lancamento': 'novo-lancamento',
-        '#categoria': 'categoria',
-        '#categoria-financeira': 'categoria',
+        '#categoria': 'categoria-financeira',
+        '#categoria-financeira': 'categoria-financeira',
         '#xml': 'xml',
         '#xml-import': 'xml'
       };
@@ -1059,4 +1060,5 @@
       }
     });
   </script>
+  </div>
 {% endblock %}

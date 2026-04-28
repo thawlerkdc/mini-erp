@@ -89,7 +89,7 @@
               </button>
               <nav class="sidebar-nav menu-section-body" hidden>
                 {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='produtos') }}" data-menu-key="produtos" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'produtos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128246;</span><span>Produtos</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
-                {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='categorias') }}" data-menu-key="categorias" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128193;</span><span>Categorias</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='categorias') }}" data-menu-key="categorias" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'categorias' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128193;</span><span>Categorias de Produtos</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('compras') %}<a href="{{ url_for('estoque_entrada') }}" data-menu-key="entrada_mercadoria" class="nav-link {% if request.endpoint == 'estoque_entrada' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128666;</span><span>Entradas</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('estoque') %}<a href="{{ url_for('controle_estoque') }}" data-menu-key="controle_estoque" class="nav-link {% if request.endpoint == 'controle_estoque' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128203;</span><span>Histórico</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='fornecedores') }}" data-menu-key="fornecedores" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'fornecedores' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127970;</span><span>Fornecedores</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
@@ -107,7 +107,7 @@
                 {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#a-receber" data-menu-key="financeiro_receber" class="nav-link"><span class="menu-icon" aria-hidden="true">&#128179;</span><span>A receber</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#a-pagar" data-menu-key="financeiro_pagar" class="nav-link"><span class="menu-icon" aria-hidden="true">&#128181;</span><span>A pagar</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#lancamentos-financeiros" data-menu-key="financeiro_lancamentos" class="nav-link"><span class="menu-icon" aria-hidden="true">&#128221;</span><span>Lançamentos</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
-                {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#categoria" data-menu-key="financeiro_categorias" class="nav-link"><span class="menu-icon" aria-hidden="true">&#127991;</span><span>Categorias</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#categoria-financeira" data-menu-key="financeiro_categorias" class="nav-link"><span class="menu-icon" aria-hidden="true">&#127991;</span><span>Categorias Financeiras</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
               </nav>
             </div>
 
@@ -143,7 +143,7 @@
                 <span class="section-title">Configurações</span>
               </button>
               <nav class="sidebar-nav menu-section-body" hidden>
-                {% if can_access('parametros') %}<a href="{{ url_for('parametros') }}" data-menu-key="parametros" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127981;</span><span>Empresa</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('parametros') %}<a href="{{ url_for('parametros') }}" data-menu-key="parametros" class="nav-link {% if request.endpoint == 'parametros' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127981;</span><span>Parâmetros</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('usuarios') %}<a href="{{ url_for('cadastro', entity='usuarios') }}" data-menu-key="usuarios" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'usuarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>Usuários</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('usuarios') %}<a href="{{ url_for('access.controle_acesso') }}" data-menu-key="controle_acesso" class="nav-link {% if request.endpoint == 'access.controle_acesso' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128273;</span><span>Permissões</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('cadastro') %}<a href="{{ url_for('cadastro', entity='unidades') }}" data-menu-key="unidades" class="nav-link {% if request.endpoint == 'cadastro' and (request.view_args or {}).get('entity') == 'unidades' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#9878;</span><span>Unidades de Medida</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
@@ -802,6 +802,136 @@
           });
         }
 
+        function bindDrilldownSections() {
+          var containers = Array.prototype.slice.call(document.querySelectorAll('[data-drilldown="true"]'));
+          if (!containers.length) return;
+
+          var account = '{{ session.get("account_id") or "global" }}';
+          var user = '{{ session.get("user") or "anon" }}';
+          var pageKey = window.location.pathname || 'global';
+
+          function normalizeKey(text) {
+            return String(text || '')
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, '_')
+              .replace(/^_+|_+$/g, '');
+          }
+
+          function loadState(storageKey) {
+            try {
+              var parsed = JSON.parse(localStorage.getItem(storageKey) || '{}');
+              return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch (e) {
+              return {};
+            }
+          }
+
+          function resolveHeadNode(section) {
+            var selector = section.getAttribute('data-drill-header-selector');
+            if (selector) {
+              var selected = section.querySelector(selector);
+              if (selected && selected.parentElement === section) {
+                return selected;
+              }
+            }
+
+            var directChildren = Array.prototype.slice.call(section.children || []);
+            var directHeading = directChildren.find(function (child) {
+              return /^H[2-4]$/.test(child.tagName);
+            });
+            if (directHeading) return directHeading;
+
+            var firstHeading = section.querySelector('h2, h3, h4');
+            if (!firstHeading) return null;
+
+            if (firstHeading.parentElement && firstHeading.parentElement.parentElement === section) {
+              return firstHeading.parentElement;
+            }
+            return firstHeading;
+          }
+
+          function toggleSection(section, button, body, collapsed, state, stateKey, storageKey) {
+            section.classList.toggle('drilldown-section-collapsed', collapsed);
+            body.hidden = !!collapsed;
+            button.textContent = collapsed ? 'Expandir' : 'Recolher';
+            button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            state[stateKey] = !!collapsed;
+            localStorage.setItem(storageKey, JSON.stringify(state));
+          }
+
+          function ensureHashSectionVisible() {
+            if (!window.location.hash) return;
+            var target = document.querySelector(window.location.hash);
+            if (!target) return;
+            var collapsedSection = target.closest('.drilldown-section-collapsed');
+            if (collapsedSection) {
+              var btn = collapsedSection.querySelector('.drilldown-toggle');
+              if (btn) btn.click();
+            }
+          }
+
+          containers.forEach(function (container, containerIndex) {
+            var selector = container.getAttribute('data-drilldown-selector') || '.param-section';
+            var sections = Array.prototype.slice.call(container.querySelectorAll(selector));
+            if (!sections.length) return;
+
+            var containerKey = container.getAttribute('data-drilldown-key') || container.id || ('container_' + containerIndex);
+            var storageKey = 'drilldown_state_' + account + '_' + user + '_' + pageKey + '_' + normalizeKey(containerKey);
+            var state = loadState(storageKey);
+
+            sections.forEach(function (section, sectionIndex) {
+              if (section.querySelector(':scope > .drilldown-section-head')) return;
+
+              var headNode = resolveHeadNode(section);
+              if (!headNode || headNode.parentElement !== section) return;
+
+              var body = document.createElement('div');
+              body.className = 'drilldown-section-body';
+
+              var headWrap = document.createElement('div');
+              headWrap.className = 'drilldown-section-head';
+
+              section.insertBefore(headWrap, headNode);
+              headWrap.appendChild(headNode);
+
+              var button = document.createElement('button');
+              button.type = 'button';
+              button.className = 'drilldown-toggle';
+              headWrap.appendChild(button);
+
+              while (headWrap.nextSibling) {
+                body.appendChild(headWrap.nextSibling);
+              }
+              section.appendChild(body);
+
+              var titleEl = headWrap.querySelector('h2, h3, h4');
+              var sectionTitle = titleEl ? titleEl.textContent.trim() : ('secao_' + sectionIndex);
+              var sectionStateKey = section.getAttribute('data-drill-key') || section.id || normalizeKey(sectionTitle) || ('secao_' + sectionIndex);
+              var isCollapsed = !!state[sectionStateKey];
+
+              toggleSection(section, button, body, isCollapsed, state, sectionStateKey, storageKey);
+
+              headWrap.addEventListener('click', function (event) {
+                if (event.target.closest('a, button, input, select, textarea, label, summary, details')) {
+                  return;
+                }
+                toggleSection(section, button, body, !section.classList.contains('drilldown-section-collapsed'), state, sectionStateKey, storageKey);
+              });
+
+              button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleSection(section, button, body, !section.classList.contains('drilldown-section-collapsed'), state, sectionStateKey, storageKey);
+              });
+            });
+          });
+
+          ensureHashSectionVisible();
+          window.addEventListener('hashchange', ensureHashSectionVisible);
+        }
+
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', function () {
             bindLanguageDropdownAutoDirection();
@@ -809,6 +939,7 @@
             bindFlyoutMenu();
             bindUserMenuDropdown();
             bindSidebarFeatureSearch();
+            bindDrilldownSections();
           });
         } else {
           bindLanguageDropdownAutoDirection();
@@ -816,6 +947,7 @@
           bindFlyoutMenu();
           bindUserMenuDropdown();
           bindSidebarFeatureSearch();
+          bindDrilldownSections();
         }
       })();
     </script>

@@ -3286,6 +3286,43 @@ body.theme-dark .btn-icon-del:hover {
   background: #fff;
 }
 
+.drilldown-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.drilldown-section-head > h2,
+.drilldown-section-head > h3,
+.drilldown-section-head > h4,
+.drilldown-section-head > .management-header,
+.drilldown-section-head > .system-user-section-header {
+  margin: 0;
+}
+
+.drilldown-toggle {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.84rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.drilldown-toggle:hover {
+  background: #e2e8f0;
+}
+
+.drilldown-section-collapsed .drilldown-section-body {
+  display: none;
+}
+
 .param-subtitle {
   margin: 10px 0 6px;
   font-size: 1rem;
@@ -4748,6 +4785,16 @@ body.theme-dark .metric-card {
   background: #1e293b !important;
   border-color: #334155 !important;
   color: #eaf1fb !important;
+}
+
+body.theme-dark .drilldown-toggle {
+  background: rgba(15, 23, 42, 0.86);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+body.theme-dark .drilldown-toggle:hover {
+  background: rgba(30, 41, 59, 0.95);
 }
 
 body.theme-dark .metric-card h3 {

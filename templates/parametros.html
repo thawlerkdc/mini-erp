@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="form-card">
+  <div class="form-card" data-drilldown="true" data-drilldown-key="parametros" data-drilldown-selector=".param-section">
     {% if read_only %}
       <div class="readonly-access-note">
         Dados disponíveis somente para consulta. Em caso de necessidade de acesso, consulte o administrador da conta.
@@ -219,13 +219,15 @@
       </fieldset>
     </form>
 
-    <h3>Teste SMTP</h3>
-    <form method="post" action="{{ url_for('parametros') }}">
-      <input type="hidden" name="action" value="test_smtp">
-      <label>E-mail para teste (opcional)</label>
-      <input type="email" name="test_email" placeholder="Se vazio, usa e-mail de destino principal" {% if read_only %}disabled{% endif %}>
-      <button type="submit" class="btn-add param-action-btn" {% if read_only %}disabled title="Somente consulta"{% endif %}>Enviar e-mail de teste</button>
-    </form>
+    <section class="param-section" data-drill-key="teste_smtp">
+      <h3>Teste SMTP</h3>
+      <form method="post" action="{{ url_for('parametros') }}">
+        <input type="hidden" name="action" value="test_smtp">
+        <label>E-mail para teste (opcional)</label>
+        <input type="email" name="test_email" placeholder="Se vazio, usa e-mail de destino principal" {% if read_only %}disabled{% endif %}>
+        <button type="submit" class="btn-add param-action-btn" {% if read_only %}disabled title="Somente consulta"{% endif %}>Enviar e-mail de teste</button>
+      </form>
+    </section>
   </div>
 
   <script>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="form-card saas-panel-card">
+<div class="form-card saas-panel-card" data-drilldown="true" data-drilldown-key="saas_management" data-drilldown-selector=".param-section">
   <div class="saas-header">
     <h2>Gestão de Clientes SaaS (Multiempresa)</h2>
     <p>Painel central para administrar empresas, planos, assinaturas, cobranças, uso e insights estratégicos.</p>
@@ -1188,50 +1188,6 @@
       }
     }
 
-    var saasSections = document.querySelectorAll(".saas-panel-card .param-section");
-    saasSections.forEach(function (section) {
-      var title = section.querySelector("h3");
-      if (!title) {
-        return;
-      }
-
-      var head = document.createElement("div");
-      head.className = "saas-section-head";
-      title.parentNode.insertBefore(head, title);
-      head.appendChild(title);
-
-      var button = document.createElement("button");
-      button.type = "button";
-      button.className = "saas-collapse-btn";
-      button.textContent = "Recolher";
-      head.appendChild(button);
-
-      var body = document.createElement("div");
-      body.className = "saas-section-body";
-      while (head.nextSibling) {
-        body.appendChild(head.nextSibling);
-      }
-      section.appendChild(body);
-
-      function toggleSection() {
-        section.classList.toggle("saas-section-collapsed");
-        button.textContent = section.classList.contains("saas-section-collapsed") ? "Expandir" : "Recolher";
-      }
-
-      head.addEventListener("click", function (event) {
-        var target = event.target;
-        if (target.closest("a, input, select, textarea")) {
-          return;
-        }
-        toggleSection();
-      });
-
-      button.addEventListener("click", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        toggleSection();
-      });
-    });
   })();
 </script>
 {% endblock %}
