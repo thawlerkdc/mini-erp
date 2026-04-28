@@ -94,7 +94,25 @@
       background: rgba(15, 23, 42, 0.98) !important;
       color: #f8fafc !important;
     }
-    .sales-inline-feedback {
+    .ts-dropdown .option.out-of-stock {
+      background: rgba(127, 29, 29, 0.22) !important;
+      color: #fca5a5 !important;
+      opacity: 0.7;
+    }
+    .ts-dropdown .option.out-of-stock::before {
+      content: '⛔ ';
+    }
+    .ts-dropdown .option.low-stock {
+      background: rgba(146, 64, 14, 0.2) !important;
+      color: #fbbf24 !important;
+    }
+    .ts-dropdown .option.low-stock::before {
+      content: '⚠️  ';
+    }
+    .ts-dropdown .option.in-stock {
+      background: transparent !important;
+      color: #f8fafc !important;
+    }
       margin-top: 10px;
       padding: 10px 12px;
       border-radius: 10px;
@@ -639,12 +657,12 @@
                     <option value="">Buscar produto por nome, código ou GTIN...</option>
                     <optgroup label="Mais vendidos">
                       {% for product in products if product['top_seller'] %}
-                        <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-code="{{ product['product_code'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
+                        <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-stock-min="{{ product['stock_min'] or 0 }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-code="{{ product['product_code'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
                       {% endfor %}
                     </optgroup>
                     <optgroup label="Demais produtos">
                       {% for product in products if not product['top_seller'] %}
-                        <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-code="{{ product['product_code'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
+                        <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-stock-min="{{ product['stock_min'] or 0 }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-code="{{ product['product_code'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
                       {% endfor %}
                     </optgroup>
                   </select>
@@ -875,11 +893,40 @@
         searchField: ['text'],
         sortField: [{ field: '$order' }],
         placeholder: 'Buscar produto por nome, código ou GTIN...',
+        render: {
+          option: function(data, escape) {
+            let stock = parseInt(data.dataset['stock'] || 0);
+            let stockMin = parseInt(data.dataset['stockMin'] || 0);
+            let stockClass = 'in-stock';
+            let stockText = stock + ' ' + data.dataset['unit'];
+            
+            if (stock === 0) {
+              stockClass = 'out-of-stock';
+              stockText = 'Sem estoque';
+            } else if (stockMin > 0 && stock <= stockMin) {
+              stockClass = 'low-stock';
+              stockText = 'Baixo: ' + stock + ' ' + data.dataset['unit'];
+            }
+            
+            return '<div class="option ' + stockClass + '">' + 
+                   escape(data.text) + ' (' + stockText + ')' + 
+                   '</div>';
+          }
+        }
       });
 
       if (combo.control_input) {
         combo.control_input.readOnly = false;
       }
+      
+      // Desabilitar seleção de produtos sem estoque
+      selectEl.addEventListener('change', function() {
+        let selectedOption = selectEl.options[selectEl.selectedIndex];
+        if (selectedOption && parseInt(selectedOption.dataset.stock || 0) === 0) {
+          selectEl.selectedIndex = 0;
+          alert('Este produto não possui estoque disponível.');
+        }
+      });
     }
 
     function formatCurrency(value) {
