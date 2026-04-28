@@ -346,6 +346,12 @@
       font-size: 0.9rem;
       color: #93c5fd;
     }
+    .sales-method-icon-img {
+      width: 24px;
+      height: 24px;
+      display: block;
+      margin: 0 auto;
+    }
     .sales-method-card strong {
       font-size: 0.9rem;
       color: #f8fafc;
@@ -723,7 +729,7 @@
             <h4>Pagamento principal</h4>
             <div class="sales-payment-methods">
               <button type="button" class="sales-method-card" data-method="Dinheiro" onclick="selectPaymentMethod('Dinheiro')"><span class="sales-method-icon">&#128181;</span><strong>Dinheiro</strong><span>Permite troco</span></button>
-              <button type="button" class="sales-method-card" data-method="Pix" onclick="selectPaymentMethod('Pix')"><span class="sales-method-icon">&#11035;</span><strong>Pix</strong><span>Gera QR Code</span></button>
+              <button type="button" class="sales-method-card" data-method="Pix" onclick="selectPaymentMethod('Pix')"><img src="{{ url_for('static', filename='img/pix-icon.svg') }}" alt="Pix" class="sales-method-icon-img"><strong>Pix</strong><span>Gera QR Code</span></button>
               <button type="button" class="sales-method-card" data-method="Débito" onclick="selectPaymentMethod('Débito')"><span class="sales-method-icon">&#128179;</span><strong>Débito</strong><span>Cartão de débito</span></button>
               <button type="button" class="sales-method-card" data-method="Crédito" onclick="selectPaymentMethod('Crédito')"><span class="sales-method-icon">&#128179;</span><strong>Crédito</strong><span>Parcelamento e juros</span></button>
             </div>
