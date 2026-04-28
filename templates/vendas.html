@@ -120,41 +120,33 @@
     .sale-items {
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 10px;
     }
     .sale-row {
       margin: 0;
-      padding: 16px;
-      border-radius: 22px;
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      background: rgba(15, 23, 42, 0.52);
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.5);
       display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 16px;
-      align-items: stretch;
+      grid-template-columns: minmax(220px, 1.7fr) minmax(120px, 0.8fr) minmax(150px, 0.95fr) minmax(120px, 0.8fr) 44px;
+      gap: 12px;
+      align-items: center;
     }
-    .sale-row-main {
-      display: grid;
-      grid-template-columns: 124px minmax(0, 1fr);
-      gap: 16px;
-      align-items: stretch;
-    }
-    .sale-product-preview {
+    .sale-row-product {
       display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 12px;
-      border-radius: 18px;
-      background: rgba(30, 41, 59, 0.78);
-      border: 1px solid rgba(148, 163, 184, 0.16);
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
     }
     .sale-product-image {
-      width: 100%;
-      aspect-ratio: 1 / 1;
+      width: 72px;
+      height: 56px;
       object-fit: cover;
-      border-radius: 16px;
+      border-radius: 10px;
       background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(51, 65, 85, 0.95));
       border: 1px solid rgba(148, 163, 184, 0.18);
+      flex: 0 0 72px;
     }
     .sale-product-badge {
       display: inline-flex;
@@ -172,34 +164,38 @@
     .sale-row-product-name {
       display: block;
       color: #f8fafc;
-      font-size: 1rem;
+      font-size: 1.03rem;
       line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .sale-row-product-stock {
       display: block;
-      margin-top: 6px;
-      font-size: 0.88rem;
+      margin-top: 4px;
+      font-size: 0.84rem;
       color: rgba(191, 219, 254, 0.82);
     }
-    .sale-row-fields {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+    .sale-row-product-code {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.8rem;
+      color: rgba(203, 213, 225, 0.78);
     }
-    .sale-field-product label,
+    .sale-row-label,
     .sale-row-controls label,
     .sales-summary-card label {
       color: #cbd5e1;
-      font-size: 0.82rem;
+      font-size: 0.76rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
-    .sale-row-controls {
-      display: grid;
-      grid-template-columns: minmax(180px, 1.25fr) minmax(140px, 1fr) minmax(160px, 1fr) 48px;
-      gap: 12px;
-      align-items: end;
+    .sale-row-col {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
     }
     .sale-row input,
     .sale-row select,
@@ -207,8 +203,8 @@
     .sales-summary-card select,
     .payment-row input,
     .payment-row select {
-      min-height: 46px;
-      border-radius: 14px !important;
+      min-height: 40px;
+      border-radius: 10px !important;
       background: rgba(15, 23, 42, 0.74) !important;
       border: 1px solid rgba(148, 163, 184, 0.24) !important;
       color: #f8fafc !important;
@@ -426,13 +422,13 @@
     .qty-stepper {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
     }
     .qty-stepper-btn {
-      width: 36px;
-      min-width: 36px;
-      height: 46px;
-      border-radius: 10px;
+      width: 30px;
+      min-width: 30px;
+      height: 38px;
+      border-radius: 8px;
       border: 1px solid rgba(148, 163, 184, 0.24);
       background: rgba(15, 23, 42, 0.9);
       color: #dbeafe;
@@ -444,13 +440,66 @@
     }
     .qty-stepper input {
       text-align: center;
-      max-width: 84px;
+      max-width: 64px;
+      min-height: 38px;
       margin: 0;
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+    .sale-row-line-total,
+    .sale-row-unit-price {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #f8fafc;
+      line-height: 1;
+    }
+    .sale-row-unit-price {
+      font-size: 1.55rem;
+      color: #dbeafe;
+    }
+    .sale-row-del-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .sales-actions-stack {
       display: flex;
       flex-direction: column;
       gap: 10px;
+    }
+    .sales-fixed-footer {
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      bottom: 10px;
+      z-index: 45;
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(10px);
+    }
+    @media (min-width: 1024px) {
+      .sales-fixed-footer {
+        left: 286px;
+      }
+    }
+    .sales-fixed-footer .btn-confirm-sale,
+    .sales-fixed-footer .sale-clear-btn {
+      margin: 0;
+      min-height: 50px;
+    }
+    .sales-fixed-footer .btn-confirm-sale {
+      flex: 1;
+    }
+    .sales-fixed-footer .sale-clear-btn {
+      min-width: 170px;
+      justify-content: center;
+    }
+    .sales-shell {
+      padding-bottom: 92px;
     }
     .btn-confirm-sale {
       width: 100%;
@@ -482,23 +531,15 @@
       }
     }
     @media (max-width: 900px) {
-      .sale-row-main {
-        grid-template-columns: 1fr;
-      }
-      .sale-product-preview {
-        flex-direction: row;
-        align-items: center;
-      }
-      .sale-product-image {
-        width: 84px;
-        flex: 0 0 84px;
-      }
-      .sale-row-controls,
+      .sale-row,
       .payment-row,
       .sales-summary-grid.two-columns,
       .sales-mini-stats,
       .sales-payment-methods {
         grid-template-columns: 1fr 1fr;
+      }
+      .sale-row {
+        grid-template-columns: 1fr;
       }
       .sales-client-row {
         grid-template-columns: 1fr;
@@ -514,6 +555,12 @@
       .sales-mini-stats,
       .sales-payment-methods {
         grid-template-columns: 1fr;
+      }
+      .sales-fixed-footer {
+        flex-direction: column-reverse;
+      }
+      .sales-fixed-footer .sale-clear-btn {
+        min-width: 0;
       }
       .sales-header-actions {
         width: 100%;
@@ -545,7 +592,21 @@
             <div class="sales-items-toolbar">
               <div class="sales-search-wrap">
                 <span class="sales-search-icon" aria-hidden="true">&#128269;</span>
-                <input type="text" id="sales-global-search" placeholder="Buscar produto por nome, código ou GTIN...">
+                <div class="product-select-wrapper" style="width:100%;">
+                  <select id="sales-product-picker" class="product-select">
+                    <option value="">Buscar produto por nome, código ou GTIN...</option>
+                    <optgroup label="Mais vendidos">
+                      {% for product in products if product['top_seller'] %}
+                        <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-code="{{ product['product_code'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
+                      {% endfor %}
+                    </optgroup>
+                    <optgroup label="Demais produtos">
+                      {% for product in products if not product['top_seller'] %}
+                        <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-code="{{ product['product_code'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
+                      {% endfor %}
+                    </optgroup>
+                  </select>
+                </div>
               </div>
               <button type="button" class="btn-add sales-toolbar-add" onclick="addSaleRow()">+ Adicionar produto</button>
             </div>
@@ -559,68 +620,42 @@
                 <span>Subtotal</span>
                 <strong id="order-subtotal">R$ 0,00</strong>
               </div>
-              <div class="sales-mini-stat">
-                <span>Acréscimos</span>
-                <strong id="order-surcharge-summary">R$ 0,00</strong>
-              </div>
             </div>
 
-            <div class="sale-items" id="sale-items">
+            <div class="sale-items" id="sale-items"></div>
+
+            <template id="sale-row-template">
               <div class="sale-row">
-                <div class="sale-row-main">
-                  <div class="sale-product-preview">
-                    <img class="sale-product-image" src="" alt="Produto selecionado">
-                    <div class="sale-product-meta">
-                      <span class="sale-product-badge">Produto</span>
-                      <strong class="sale-row-product-name">Selecione um produto</strong>
-                      <span class="sale-row-product-stock">O estoque disponível será exibido aqui.</span>
-                    </div>
-                  </div>
-                  <div class="sale-row-fields">
-                    <div class="field-group sale-field-product">
-                      <label>{{ t('product_label') }}</label>
-                      <div class="product-select-wrapper">
-                        <select name="product_id[]" class="product-select" required onchange="updatePrice(this)">
-                          <option value="">{{ t('select_product') }}</option>
-                          <optgroup label="Mais vendidos">
-                            {% for product in products if product['top_seller'] %}
-                              <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
-                            {% endfor %}
-                          </optgroup>
-                          <optgroup label="Demais produtos">
-                            {% for product in products if not product['top_seller'] %}
-                              <option value="{{ product['id'] }}" data-price="{{ product['price'] }}" data-cost="{{ product['cost'] }}" data-stock="{{ product['stock'] }}" data-unit="{{ product['unit_name'] or 'un' }}" data-image="{{ product['image_url'] or '' }}" data-name="{{ (product['name'] or '')|lower }}">{{ product['name'] }} ({{ product['stock'] }} {{ product['unit_name'] }})</option>
-                            {% endfor %}
-                          </optgroup>
-                        </select>
-                      </div>
-                    </div>
+                <input type="hidden" name="product_id[]" value="">
+                <div class="sale-row-product">
+                  <img class="sale-product-image" src="" alt="Produto selecionado">
+                  <div class="sale-product-meta" style="min-width:0;">
+                    <strong class="sale-row-product-name">Produto</strong>
+                    <span class="sale-row-product-code">Código: -</span>
+                    <span class="sale-row-product-stock">Estoque: -</span>
                   </div>
                 </div>
-
-                <div class="sale-row-controls">
-                  <div class="field-group sale-field-price">
-                    <label>{{ t('unit_price') }}</label>
-                    <input name="unit_price[]" type="number" step="0.01" value="0.00" readonly>
+                <div class="sale-row-col">
+                  <span class="sale-row-label">Preço unitário</span>
+                  <input class="sale-row-unit-price" name="unit_price[]" type="number" step="0.01" value="0.00" readonly>
+                </div>
+                <div class="sale-row-col">
+                  <span class="sale-row-label">Quantidade</span>
+                  <div class="qty-stepper">
+                    <button type="button" class="qty-stepper-btn" onclick="changeQuantity(this, -1)">-</button>
+                    <input name="quantity[]" type="number" min="1" step="1" value="1" required oninput="updateLineTotal(this)">
+                    <button type="button" class="qty-stepper-btn" onclick="changeQuantity(this, 1)">+</button>
                   </div>
-                  <div class="field-group sale-field-qty">
-                    <label>{{ t('quantity_label') }}</label>
-                    <div class="qty-stepper">
-                      <button type="button" class="qty-stepper-btn" onclick="changeQuantity(this, -1)">-</button>
-                      <input name="quantity[]" type="number" min="1" step="1" value="1" required oninput="updateLineTotal(this)">
-                      <button type="button" class="qty-stepper-btn" onclick="changeQuantity(this, 1)">+</button>
-                    </div>
-                  </div>
-                  <div class="field-group sale-field-total">
-                    <label>{{ t('line_total') }}</label>
-                    <input name="line_total[]" type="number" step="0.01" value="0.00" readonly>
-                  </div>
-                  <div class="field-group sale-field-del">
-                    <button type="button" class="btn-delete btn-icon-del" onclick="removeSaleRow(this)" title="{{ t('remove') }}">&#128465;</button>
-                  </div>
+                </div>
+                <div class="sale-row-col">
+                  <span class="sale-row-label">Total</span>
+                  <input class="sale-row-line-total" name="line_total[]" type="number" step="0.01" value="0.00" readonly>
+                </div>
+                <div class="sale-row-del-wrap">
+                  <button type="button" class="btn-delete btn-icon-del" onclick="removeSaleRow(this)" title="{{ t('remove') }}">&#128465;</button>
                 </div>
               </div>
-            </div>
+            </template>
           </div>
         </section>
 
@@ -739,14 +774,17 @@
           </div>
 
           <div class="sales-actions-stack">
-            <button type="submit" class="btn-confirm-sale">{{ t('confirm_sale_button') }}</button>
             <a class="outline-button sale-report-btn" href="{{ url_for('relatorios', section='vendas_periodo') }}">Imprimir orçamento</a>
-            <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()"><span class="sale-clear-icon" aria-hidden="true">&#128465;</span><span>Limpar venda</span></button>
             <a class="btn-close-cash" href="{{ url_for('fechar_caixa') }}">&#128717; {{ t('close_cash') }}</a>
           </div>
         </aside>
       </form>
     </div>
+  </div>
+
+  <div class="sales-fixed-footer">
+    <button type="button" class="outline-button sale-clear-btn" onclick="confirmClearSaleData()"><span class="sale-clear-icon" aria-hidden="true">&#128465;</span><span>Limpar venda</span></button>
+    <button type="submit" form="sale-form" class="btn-confirm-sale">{{ t('confirm_sale_button') }}</button>
   </div>
 
   <div id="pix-modal" class="pix-modal" style="display:none">
@@ -789,9 +827,9 @@
 
     function captureSaleRowTemplate() {
       if (SALE_ROW_TEMPLATE_HTML) return;
-      var firstRow = document.querySelector('.sale-row');
-      if (firstRow) {
-        SALE_ROW_TEMPLATE_HTML = firstRow.outerHTML;
+      let rowTemplate = document.getElementById('sale-row-template');
+      if (rowTemplate) {
+        SALE_ROW_TEMPLATE_HTML = rowTemplate.innerHTML.trim();
       }
     }
 
@@ -866,51 +904,52 @@
       window.open("{{ url_for('cadastro', entity='clientes') }}", '_blank', 'noopener,noreferrer');
     }
 
-    function bindTopProductSearch() {
-      let searchInput = document.getElementById('sales-global-search');
-      if (!searchInput) return;
-      searchInput.addEventListener('keydown', function(event) {
-        if (event.key !== 'Enter') return;
-        event.preventDefault();
-        let query = (searchInput.value || '').trim();
-        let targetSelect = document.querySelector('.sale-row select.product-select');
-        if (!targetSelect) return;
-        let combo = targetSelect.tomselect;
-        if (!combo) return;
-        combo.focus();
-        if (query) {
-          combo.control_input.value = query;
-          combo.refreshOptions(false);
-          combo.open();
-        }
-      });
+    function getPickerSelect() {
+      return document.getElementById('sales-product-picker');
     }
 
-    function syncSaleRowPreview(row) {
+    function getPickerOption() {
+      let picker = getPickerSelect();
+      if (!picker) return null;
+      if (picker.tomselect) {
+        let selectedValue = picker.tomselect.getValue();
+        if (!selectedValue) return null;
+        return picker.querySelector('option[value="' + selectedValue + '"]');
+      }
+      let option = picker.options[picker.selectedIndex];
+      if (!option || !option.value) return null;
+      return option;
+    }
+
+    function getOptionLabel(option) {
+      return (option.textContent || '').split(' (')[0] || 'Produto';
+    }
+
+    function syncSaleRowPreview(row, option) {
       if (!row) return;
-      let select = row.querySelector('select[name="product_id[]"]');
-      if (!select) return;
-      let option = select.options[select.selectedIndex];
       let image = row.querySelector('.sale-product-image');
       let nameEl = row.querySelector('.sale-row-product-name');
       let stockEl = row.querySelector('.sale-row-product-stock');
+      let codeEl = row.querySelector('.sale-row-product-code');
       if (!option || !option.value) {
         if (image) image.src = SALE_PLACEHOLDER_IMAGE;
-        if (nameEl) nameEl.textContent = 'Selecione um produto';
-        if (stockEl) stockEl.textContent = 'O estoque disponível será exibido aqui.';
+        if (nameEl) nameEl.textContent = 'Produto';
+        if (stockEl) stockEl.textContent = 'Estoque: -';
+        if (codeEl) codeEl.textContent = 'Código: -';
         return;
       }
 
-      let productName = option.textContent.split(' (')[0] || 'Produto selecionado';
+      let productName = getOptionLabel(option);
       let stock = option.dataset.stock || '0';
       let unit = option.dataset.unit || 'un';
-      let price = parseNumber(option.dataset.price || 0);
+      let code = option.dataset.code || '-';
       if (image) {
         image.src = option.dataset.image || SALE_PLACEHOLDER_IMAGE;
         image.alt = productName;
       }
       if (nameEl) nameEl.textContent = productName;
-      if (stockEl) stockEl.textContent = 'Estoque: ' + stock + ' ' + unit + ' | Preço: R$ ' + formatCurrency(price);
+      if (stockEl) stockEl.textContent = 'Estoque: ' + stock + ' ' + unit;
+      if (codeEl) codeEl.textContent = 'Código: ' + code;
     }
 
     function getMethodRate(method, installments) {
@@ -1277,24 +1316,14 @@
       let sideSubtotal = document.getElementById('order-subtotal-side');
       let summaryDiscount = document.getElementById('order-discount');
       let summarySurcharge = document.getElementById('order-surcharge');
-      let summarySurchargeTop = document.getElementById('order-surcharge-summary');
       let itemCountEl = document.getElementById('order-items-count');
       if (summarySubtotal) summarySubtotal.innerText = subtotalLabel;
       if (sideSubtotal) sideSubtotal.innerText = subtotalLabel;
       if (summaryDiscount) summaryDiscount.innerText = discountLabel;
       if (summarySurcharge) summarySurcharge.innerText = surchargeLabel;
-      if (summarySurchargeTop) summarySurchargeTop.innerText = surchargeLabel;
       if (itemCountEl) itemCountEl.innerText = itemCount;
       updateChange(orderTotal);
       updateInstallmentOptions();
-    }
-    function updatePrice(select) {
-      let option = select.options[select.selectedIndex];
-      let price = parseFloat(option.dataset.price || 0);
-      let row = select.closest('.sale-row');
-      row.querySelector('input[name="unit_price[]"]').value = formatNumber(price);
-      syncSaleRowPreview(row);
-      updateLineTotal(row.querySelector('input[name="quantity[]"]'));
     }
 
     function changeQuantity(button, delta) {
@@ -1324,53 +1353,58 @@
       template.querySelectorAll('input').forEach(input => {
         if (input.type !== 'hidden') input.value = input.name === 'quantity[]' ? '1' : '0.00';
       });
-      template.querySelector('select.product-select').selectedIndex = 0;
       return template;
     }
+
+    function bindRowProduct(row, option) {
+      if (!row || !option) return;
+      row.querySelector('input[name="product_id[]"]').value = option.value;
+      row.querySelector('input[name="unit_price[]"]').value = formatNumber(parseNumber(option.dataset.price || 0));
+      row.querySelector('input[name="quantity[]"]').value = '1';
+      syncSaleRowPreview(row, option);
+      updateLineTotal(row.querySelector('input[name="quantity[]"]'));
+    }
+
     function addSaleRow() {
+      let option = getPickerOption();
+      if (!option) {
+        alert('Selecione um produto no campo de busca antes de adicionar.');
+        return;
+      }
       let container = document.getElementById('sale-items');
       let newRow = buildSaleRow();
       newRow.querySelectorAll('input[name="unit_price[]"], input[name="line_total[]"]').forEach(i => i.value = '0.00');
+      bindRowProduct(newRow, option);
       container.appendChild(newRow);
-      initProductCombobox(newRow.querySelector('select.product-select'));
-      syncSaleRowPreview(newRow);
+      let picker = getPickerSelect();
+      if (picker && picker.tomselect) {
+        picker.tomselect.clear(true);
+        picker.tomselect.control_input.value = '';
+      }
       updateTotals();
     }
     function removeSaleRow(button) {
-      let container = document.getElementById('sale-items');
-      if (container.querySelectorAll('.sale-row').length > 1) {
-        button.closest('.sale-row').remove();
-        applyCardSurcharge();
-      }
+      button.closest('.sale-row').remove();
+      applyCardSurcharge();
     }
 
     function clearSaleData() {
       let form = document.getElementById('sale-form');
       let saleItems = document.getElementById('sale-items');
-      let firstRow = saleItems.querySelector('.sale-row');
-
-      if (saleItems && firstRow) {
+      if (saleItems) {
         saleItems.innerHTML = '';
-        saleItems.appendChild(firstRow);
       }
 
       form.reset();
       document.getElementById('pix-confirmed').value = '0';
       document.getElementById('payment-rows').innerHTML = '';
 
-      let row = document.querySelector('#sale-items .sale-row');
-      if (row) {
-        let productSelect = row.querySelector('select.product-select');
-        if (productSelect && productSelect.tomselect) {
-          productSelect.tomselect.clear(true);
-          productSelect.tomselect.sync();
-        } else if (productSelect) {
-          productSelect.selectedIndex = 0;
-        }
-        row.querySelector('input[name="quantity[]"]').value = '1';
-        row.querySelector('input[name="unit_price[]"]').value = '0.00';
-        row.querySelector('input[name="line_total[]"]').value = '0.00';
-        syncSaleRowPreview(row);
+      let picker = getPickerSelect();
+      if (picker && picker.tomselect) {
+        picker.tomselect.clear(true);
+        picker.tomselect.control_input.value = '';
+      } else if (picker) {
+        picker.selectedIndex = 0;
       }
 
       document.querySelector('input[name="discount"]').value = '0.00';
@@ -1657,12 +1691,6 @@
         updateTotals();
       }
     });
-    document.addEventListener('change', function(event) {
-      if (event.target.matches('select[name="product_id[]"]')) {
-        updateTotals();
-      }
-    });
-
     document.getElementById('sale-form').addEventListener('submit', function(event) {
       if (document.getElementById('pix-confirmed').value === '1') {
         return;
@@ -1687,9 +1715,7 @@
     });
 
     captureSaleRowTemplate();
-    document.querySelectorAll('select.product-select').forEach(initProductCombobox);
-    document.querySelectorAll('.sale-row').forEach(syncSaleRowPreview);
-    bindTopProductSearch();
+    initProductCombobox(getPickerSelect());
     syncPaymentMethodCards();
 
     if (PAYMENT_UI_SETTINGS.allow_multi) {
