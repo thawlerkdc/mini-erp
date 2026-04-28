@@ -66,6 +66,13 @@
       box-shadow: none !important;
       padding-left: 0 !important;
       padding-right: 0 !important;
+      border-radius: 0 !important;
+    }
+    .sales-search-wrap .ts-control .item,
+    .sales-search-wrap .ts-control > input {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
     }
     .sales-search-wrap .ts-control input {
       color: #e2e8f0 !important;
@@ -126,7 +133,7 @@
     }
     .sales-mini-stats {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
       margin-bottom: 18px;
     }
@@ -141,6 +148,33 @@
       margin-top: 6px;
       color: #f8fafc;
       font-size: 1.15rem;
+    }
+    .sales-mini-count {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .sales-mini-count strong {
+      margin: 0;
+    }
+    .mini-stepper {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .mini-stepper button {
+      width: 26px;
+      min-width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.8);
+      color: #dbeafe;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
     }
     .sale-items {
       display: flex;
@@ -318,22 +352,22 @@
     }
     .sales-payment-methods {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
       margin-bottom: 14px;
     }
     .sales-method-card {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      padding: 12px;
-      border-radius: 16px;
+      padding: 8px 9px;
+      border-radius: 12px;
       background: rgba(15, 23, 42, 0.52);
       border: 1px solid rgba(148, 163, 184, 0.14);
       color: #e2e8f0;
       cursor: pointer;
       text-align: left;
-      min-height: 74px;
+      min-height: 62px;
       transition: border-color .2s ease, background .2s ease, transform .2s ease;
     }
     .sales-method-card:hover {
@@ -342,20 +376,20 @@
       background: rgba(30, 64, 175, 0.24);
     }
     .sales-method-card.active {
-      border-color: rgba(59, 130, 246, 0.8);
-      background: rgba(30, 64, 175, 0.34);
-      box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.25) inset;
+      border-color: rgba(96, 165, 250, 0.95);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.52), rgba(30, 64, 175, 0.6));
+      box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.42) inset, 0 8px 20px rgba(30, 64, 175, 0.28);
     }
     .sales-method-icon {
-      font-size: 1rem;
+      font-size: 0.9rem;
       color: #93c5fd;
     }
     .sales-method-card strong {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       color: #f8fafc;
     }
     .sales-method-card span {
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       color: rgba(191, 219, 254, 0.74);
     }
     .sales-method-select {
@@ -643,7 +677,13 @@
             <div class="sales-mini-stats">
               <div class="sales-mini-stat">
                 <span>Itens selecionados</span>
-                <strong id="order-items-count">0</strong>
+                <div class="sales-mini-count">
+                  <strong id="order-items-count">0</strong>
+                  <div class="mini-stepper">
+                    <button type="button" onclick="adjustSaleItemCount(-1)">-</button>
+                    <button type="button" onclick="adjustSaleItemCount(1)">+</button>
+                  </div>
+                </div>
               </div>
               <div class="sales-mini-stat">
                 <span>Subtotal</span>
@@ -703,7 +743,6 @@
             <div class="sales-summary-grid">
               <div class="sales-client-row">
                 <div class="field-group sale-client-field">
-                  <label>{{ t('client_label') }}</label>
                   <select name="client_id">
                     <option value="">{{ t('no_client') }}</option>
                     {% for client in clients %}
@@ -1442,6 +1481,20 @@
       }
       clearInlineFeedback();
       let container = document.getElementById('sale-items');
+      let existingRow = container.querySelector('.sale-row input[name="product_id[]"][value="' + option.value + '"]');
+      if (existingRow) {
+        let row = existingRow.closest('.sale-row');
+        let qtyInput = row.querySelector('input[name="quantity[]"]');
+        qtyInput.value = String(Math.max(1, parseInt(qtyInput.value || '1', 10) + 1));
+        updateLineTotal(qtyInput);
+        let pickerExisting = getPickerSelect();
+        if (pickerExisting && pickerExisting.tomselect) {
+          pickerExisting.tomselect.clear(true);
+          pickerExisting.tomselect.control_input.value = '';
+        }
+        updateTotals();
+        return;
+      }
       let newRow = buildSaleRow();
       newRow.querySelectorAll('input[name="unit_price[]"], input[name="line_total[]"]').forEach(i => i.value = '0.00');
       bindRowProduct(newRow, option);
@@ -1451,6 +1504,32 @@
         picker.tomselect.clear(true);
         picker.tomselect.control_input.value = '';
       }
+      updateTotals();
+    }
+
+    function adjustSaleItemCount(delta) {
+      let rows = Array.from(document.querySelectorAll('#sale-items .sale-row'));
+      if (!rows.length) {
+        if (delta > 0) {
+          addSaleRow();
+        }
+        return;
+      }
+      let targetRow = rows[rows.length - 1];
+      let qtyInput = targetRow.querySelector('input[name="quantity[]"]');
+      if (!qtyInput) return;
+      if (delta > 0) {
+        qtyInput.value = String(Math.max(1, parseInt(qtyInput.value || '1', 10) + 1));
+        updateLineTotal(qtyInput);
+        return;
+      }
+      let current = Math.max(1, parseInt(qtyInput.value || '1', 10));
+      if (current > 1) {
+        qtyInput.value = String(current - 1);
+        updateLineTotal(qtyInput);
+        return;
+      }
+      targetRow.remove();
       updateTotals();
     }
     function removeSaleRow(button) {
