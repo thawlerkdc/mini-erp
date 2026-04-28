@@ -43,24 +43,49 @@
       min-height: 46px;
       border-radius: 14px;
       border: 1px solid rgba(148, 163, 184, 0.22);
-      background: rgba(15, 23, 42, 0.7);
-      padding: 0 14px;
-    }
-    .sales-search-wrap input {
-      flex: 1;
-      border: none;
-      outline: none;
-      background: transparent;
-      color: #e2e8f0;
-      min-height: 42px;
-      padding: 0;
-    }
-    .sales-search-wrap input::placeholder {
-      color: rgba(203, 213, 225, 0.7);
+      background: rgba(15, 23, 42, 0.76);
+      padding: 0 8px 0 12px;
     }
     .sales-search-icon {
       font-size: 0.98rem;
       color: #93c5fd;
+      opacity: 0.9;
+      flex: 0 0 auto;
+    }
+    .sales-search-wrap .product-select-wrapper {
+      flex: 1;
+      min-width: 0;
+    }
+    .sales-search-wrap .ts-wrapper {
+      width: 100%;
+    }
+    .sales-search-wrap .ts-control {
+      border: none !important;
+      background: transparent !important;
+      min-height: 44px !important;
+      box-shadow: none !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+    .sales-search-wrap .ts-control input {
+      color: #e2e8f0 !important;
+      font-size: 1.02rem;
+    }
+    .sales-search-wrap .ts-dropdown {
+      border-radius: 12px !important;
+      border: 1px solid rgba(148, 163, 184, 0.24) !important;
+      background: rgba(15, 23, 42, 0.98) !important;
+      color: #f8fafc !important;
+    }
+    .sales-inline-feedback {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(248, 113, 113, 0.4);
+      background: rgba(127, 29, 29, 0.18);
+      color: #fecaca;
+      font-weight: 600;
+      font-size: 0.9rem;
     }
     .sales-toolbar-add {
       min-height: 46px;
@@ -544,6 +569,9 @@
       .sales-client-row {
         grid-template-columns: 1fr;
       }
+      .sales-search-wrap {
+        min-width: 0;
+      }
     }
     @media (max-width: 640px) {
       .sales-layout {
@@ -610,6 +638,7 @@
               </div>
               <button type="button" class="btn-add sales-toolbar-add" onclick="addSaleRow()">+ Adicionar produto</button>
             </div>
+            <div id="sales-inline-feedback" class="sales-inline-feedback" style="display:none;"></div>
 
             <div class="sales-mini-stats">
               <div class="sales-mini-stat">
@@ -919,6 +948,36 @@
       let option = picker.options[picker.selectedIndex];
       if (!option || !option.value) return null;
       return option;
+    }
+
+    function findPickerOptionByText(query) {
+      let picker = getPickerSelect();
+      if (!picker || !query) return null;
+      let normalized = String(query).trim().toLowerCase();
+      if (!normalized) return null;
+      let options = Array.from(picker.querySelectorAll('option[value]')).filter(opt => !!opt.value);
+      for (let i = 0; i < options.length; i++) {
+        let text = (options[i].textContent || '').toLowerCase();
+        let code = (options[i].dataset.code || '').toLowerCase();
+        if (text.includes(normalized) || code.includes(normalized)) {
+          return options[i];
+        }
+      }
+      return null;
+    }
+
+    function showInlineFeedback(message) {
+      let box = document.getElementById('sales-inline-feedback');
+      if (!box) return;
+      box.innerText = message;
+      box.style.display = '';
+    }
+
+    function clearInlineFeedback() {
+      let box = document.getElementById('sales-inline-feedback');
+      if (!box) return;
+      box.innerText = '';
+      box.style.display = 'none';
     }
 
     function getOptionLabel(option) {
@@ -1368,9 +1427,20 @@
     function addSaleRow() {
       let option = getPickerOption();
       if (!option) {
-        alert('Selecione um produto no campo de busca antes de adicionar.');
+        let picker = getPickerSelect();
+        let typed = picker && picker.tomselect ? (picker.tomselect.control_input.value || '').trim() : '';
+        if (typed) {
+          option = findPickerOptionByText(typed);
+          if (option && picker && picker.tomselect) {
+            picker.tomselect.setValue(option.value, true);
+          }
+        }
+      }
+      if (!option) {
+        showInlineFeedback('Selecione um produto no campo de busca antes de adicionar.');
         return;
       }
+      clearInlineFeedback();
       let container = document.getElementById('sale-items');
       let newRow = buildSaleRow();
       newRow.querySelectorAll('input[name="unit_price[]"], input[name="line_total[]"]').forEach(i => i.value = '0.00');
@@ -1716,6 +1786,11 @@
 
     captureSaleRowTemplate();
     initProductCombobox(getPickerSelect());
+    let pickerSelect = getPickerSelect();
+    if (pickerSelect && pickerSelect.tomselect) {
+      pickerSelect.tomselect.on('change', clearInlineFeedback);
+      pickerSelect.tomselect.on('item_add', clearInlineFeedback);
+    }
     syncPaymentMethodCards();
 
     if (PAYMENT_UI_SETTINGS.allow_multi) {
