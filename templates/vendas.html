@@ -1189,6 +1189,34 @@
       return document.getElementById('sales-product-picker');
     }
 
+    function clearProductPicker() {
+      let picker = getPickerSelect();
+      if (!picker) return;
+      if (picker.tomselect) {
+        picker.tomselect.clear(true);
+        picker.tomselect.control_input.value = '';
+      } else {
+        picker.selectedIndex = 0;
+      }
+    }
+
+    function focusProductPicker(openDropdown) {
+      let picker = getPickerSelect();
+      if (!picker || !picker.tomselect) return;
+      picker.tomselect.focus();
+      if (openDropdown) {
+        picker.tomselect.open();
+      }
+    }
+
+    function focusSaleRowQuantity(row) {
+      if (!row) return;
+      let qtyInput = row.querySelector('input[name="quantity[]"]');
+      if (!qtyInput) return;
+      qtyInput.focus();
+      qtyInput.select();
+    }
+
     function getPickerOption() {
       let picker = getPickerSelect();
       if (!picker) return null;
@@ -1697,8 +1725,7 @@
       // Bloquear produto sem estoque com feedback inline
       if (parseInt(option.dataset.stock || 0) === 0) {
         showInlineFeedback('Este produto não possui estoque disponível.');
-        let picker = getPickerSelect();
-        if (picker && picker.tomselect) picker.tomselect.clear(true);
+        clearProductPicker();
         return;
       }
       clearInlineFeedback();
@@ -1709,11 +1736,8 @@
         let qtyInput = row.querySelector('input[name="quantity[]"]');
         qtyInput.value = String(Math.max(1, parseInt(qtyInput.value || '1', 10) + 1));
         updateLineTotal(qtyInput);
-        let pickerExisting = getPickerSelect();
-        if (pickerExisting && pickerExisting.tomselect) {
-          pickerExisting.tomselect.clear(true);
-          pickerExisting.tomselect.control_input.value = '';
-        }
+        clearProductPicker();
+        focusSaleRowQuantity(row);
         updateTotals();
         return;
       }
@@ -1721,11 +1745,8 @@
       newRow.querySelectorAll('input[name="unit_price[]"], input[name="line_total[]"]').forEach(i => i.value = '0.00');
       bindRowProduct(newRow, option);
       container.appendChild(newRow);
-      let picker = getPickerSelect();
-      if (picker && picker.tomselect) {
-        picker.tomselect.clear(true);
-        picker.tomselect.control_input.value = '';
-      }
+      clearProductPicker();
+      focusSaleRowQuantity(newRow);
       updateTotals();
     }
 
@@ -2062,6 +2083,60 @@
         updateTotals();
       }
     });
+
+    document.addEventListener('keydown', function(event) {
+      let clearModal = document.getElementById('clear-sale-modal');
+      let pixModal = document.getElementById('pix-modal');
+      if ((clearModal && clearModal.style.display === 'flex') || (pixModal && pixModal.style.display === 'flex')) {
+        return;
+      }
+
+      let target = event.target;
+      if (!target || !target.matches) return;
+
+      if (target.matches('#sale-items input[name="quantity[]"]')) {
+        if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
+          event.preventDefault();
+          target.value = String(Math.max(1, parseInt(target.value || '1', 10) + 1));
+          updateLineTotal(target);
+          return;
+        }
+        if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
+          event.preventDefault();
+          target.value = String(Math.max(1, parseInt(target.value || '1', 10) - 1));
+          updateLineTotal(target);
+          return;
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          clearProductPicker();
+          focusProductPicker(true);
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          clearProductPicker();
+          focusProductPicker(true);
+          return;
+        }
+      }
+
+      let picker = getPickerSelect();
+      let pickerInput = (picker && picker.tomselect) ? picker.tomselect.control_input : null;
+      if (pickerInput && target === pickerInput) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          addSaleRow();
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          clearProductPicker();
+          focusProductPicker(true);
+        }
+      }
+    });
+
     document.getElementById('sale-form').addEventListener('submit', function(event) {
       if (document.getElementById('pix-confirmed').value === '1') {
         return;
