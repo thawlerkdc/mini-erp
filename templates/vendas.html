@@ -131,51 +131,6 @@
     .sales-mini-stat span {
       color: rgba(226, 232, 240, 0.74);
     }
-    .sales-mini-stats {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-    .sales-mini-stat {
-      padding: 14px 16px;
-      border-radius: 18px;
-      background: rgba(15, 23, 42, 0.34);
-      border: 1px solid rgba(148, 163, 184, 0.14);
-    }
-    .sales-mini-stat strong {
-      display: block;
-      margin-top: 6px;
-      color: #f8fafc;
-      font-size: 1.15rem;
-    }
-    .sales-mini-count {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-top: 6px;
-    }
-    .sales-mini-count strong {
-      margin: 0;
-    }
-    .mini-stepper {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .mini-stepper button {
-      width: 26px;
-      min-width: 26px;
-      height: 26px;
-      border-radius: 7px;
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      background: rgba(15, 23, 42, 0.8);
-      color: #dbeafe;
-      font-weight: 700;
-      cursor: pointer;
-      line-height: 1;
-    }
     .sale-items {
       display: flex;
       flex-direction: column;
@@ -188,8 +143,8 @@
       border: 1px solid rgba(148, 163, 184, 0.2);
       background: rgba(15, 23, 42, 0.5);
       display: grid;
-      grid-template-columns: minmax(220px, 1.7fr) minmax(120px, 0.8fr) minmax(150px, 0.95fr) minmax(120px, 0.8fr) 44px;
-      gap: 12px;
+      grid-template-columns: minmax(220px, 1.7fr) minmax(120px, 0.8fr) minmax(150px, 0.95fr) minmax(120px, 0.8fr) 40px;
+      gap: 8px;
       align-items: center;
     }
     .sale-row-product {
@@ -520,6 +475,14 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .sale-row .btn-icon-del {
+      width: 34px !important;
+      height: 34px !important;
+      min-width: 34px !important;
+      flex-shrink: 0;
     }
     .sales-actions-stack {
       display: flex;
@@ -673,23 +636,6 @@
               <button type="button" class="btn-add sales-toolbar-add" onclick="addSaleRow()">+ Adicionar produto</button>
             </div>
             <div id="sales-inline-feedback" class="sales-inline-feedback" style="display:none;"></div>
-
-            <div class="sales-mini-stats">
-              <div class="sales-mini-stat">
-                <span>Itens selecionados</span>
-                <div class="sales-mini-count">
-                  <strong id="order-items-count">0</strong>
-                  <div class="mini-stepper">
-                    <button type="button" onclick="adjustSaleItemCount(-1)">-</button>
-                    <button type="button" onclick="adjustSaleItemCount(1)">+</button>
-                  </div>
-                </div>
-              </div>
-              <div class="sales-mini-stat">
-                <span>Subtotal</span>
-                <strong id="order-subtotal">R$ 0,00</strong>
-              </div>
-            </div>
 
             <div class="sale-items" id="sale-items"></div>
 
@@ -909,44 +855,11 @@
         maxOptions: 500,
         searchField: ['text'],
         sortField: [{ field: '$order' }],
-        placeholder: 'Selecione um produto',
+        placeholder: 'Buscar produto por nome, código ou GTIN...',
       });
 
-      function syncComboboxLockState() {
-        let hasValue = !!combo.getValue();
-        if (combo.control) {
-          combo.control.classList.toggle('is-product-locked', hasValue);
-        }
-        if (combo.control_input) {
-          combo.control_input.readOnly = hasValue;
-          combo.control_input.placeholder = hasValue ? '' : 'Digite para buscar produto';
-        }
-        if (hasValue) {
-          combo.close();
-        }
-      }
-
-      combo.on('initialize', syncComboboxLockState);
-      combo.on('change', syncComboboxLockState);
-      combo.on('item_add', syncComboboxLockState);
-      combo.on('item_remove', syncComboboxLockState);
-      combo.on('clear', syncComboboxLockState);
-
-      if (combo.control) {
-        combo.control.addEventListener('mousedown', function(event) {
-          if (combo.getValue()) {
-            event.preventDefault();
-            combo.close();
-          }
-        });
-      }
-
       if (combo.control_input) {
-        combo.control_input.addEventListener('keydown', function(event) {
-          if (combo.getValue()) {
-            event.preventDefault();
-          }
-        });
+        combo.control_input.readOnly = false;
       }
     }
 
