@@ -895,21 +895,23 @@
         placeholder: 'Buscar produto por nome, código ou GTIN...',
         render: {
           option: function(data, escape) {
-            let stock = parseInt(data.dataset['stock'] || 0);
-            let stockMin = parseInt(data.dataset['stockMin'] || 0);
+            // data é um objeto JS simples; atributos data-* viram propriedades camelCase
+            let stock = parseInt(data.stock || 0);
+            let stockMin = parseInt(data.stockMin || 0);
+            let unit = data.unit || 'un';
             let stockClass = 'in-stock';
-            let stockText = stock + ' ' + data.dataset['unit'];
-            
+            let stockText = stock + ' ' + unit;
+
             if (stock === 0) {
               stockClass = 'out-of-stock';
               stockText = 'Sem estoque';
             } else if (stockMin > 0 && stock <= stockMin) {
               stockClass = 'low-stock';
-              stockText = 'Baixo: ' + stock + ' ' + data.dataset['unit'];
+              stockText = 'Baixo: ' + stock + ' ' + unit;
             }
-            
-            return '<div class="option ' + stockClass + '">' + 
-                   escape(data.text) + ' (' + stockText + ')' + 
+
+            return '<div class="option ' + stockClass + '">' +
+                   escape(data.text) + ' (' + stockText + ')' +
                    '</div>';
           }
         }
@@ -918,15 +920,6 @@
       if (combo.control_input) {
         combo.control_input.readOnly = false;
       }
-      
-      // Desabilitar seleção de produtos sem estoque
-      selectEl.addEventListener('change', function() {
-        let selectedOption = selectEl.options[selectEl.selectedIndex];
-        if (selectedOption && parseInt(selectedOption.dataset.stock || 0) === 0) {
-          selectEl.selectedIndex = 0;
-          alert('Este produto não possui estoque disponível.');
-        }
-      });
     }
 
     function formatCurrency(value) {
@@ -1458,6 +1451,13 @@
       }
       if (!option) {
         showInlineFeedback('Selecione um produto no campo de busca antes de adicionar.');
+        return;
+      }
+      // Bloquear produto sem estoque com feedback inline
+      if (parseInt(option.dataset.stock || 0) === 0) {
+        showInlineFeedback('Este produto não possui estoque disponível.');
+        let picker = getPickerSelect();
+        if (picker && picker.tomselect) picker.tomselect.clear(true);
         return;
       }
       clearInlineFeedback();
