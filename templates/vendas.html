@@ -37,9 +37,10 @@
                   </select>
                 </div>
               </div>
+              <button type="button" class="outline-button sales-shortcuts-btn" id="sales-shortcuts-btn" onclick="openShortcutsModal()">Atalhos</button>
               <button type="button" class="outline-button sales-toolbar-pdv" id="sales-sidebar-toggle">Modo PDV</button>
             </div>
-            <p class="sales-shortcut-hint">Enter adiciona produto, F2 foca busca e Del remove item selecionado.</p>
+            <p class="sales-shortcut-hint">Atalhos: Enter adiciona produto, F2 foca busca, Del remove item, Ctrl+1..4 troca pagamento, Ctrl+Shift+D alterna Único/Dividido.</p>
             <div id="sales-inline-feedback" class="sales-inline-feedback" style="display:none;"></div>
 
             <div class="sale-items" id="sale-items"></div>
@@ -96,7 +97,7 @@
             <div class="sales-summary-grid">
               <div class="sales-client-row">
                 <div class="field-group sale-client-field">
-                  <select name="client_id">
+                  <select name="client_id" id="sale-client-select">
                     <option value="">{{ t('no_client') }}</option>
                     {% for client in clients %}
                       <option value="{{ client['id'] }}">{{ client['name'] }}</option>
@@ -120,9 +121,9 @@
 
           <div class="sales-panel sales-summary-card">
             <div class="sales-payment-header">
-              <h4>Pagamento</h4>
+              <h4>Forma de Pagamento</h4>
               <div class="sales-payment-mode" id="sales-payment-mode">
-                <button type="button" id="payment-mode-main" class="sales-payment-mode-btn" onclick="setPaymentMode(false)">Principal</button>
+                <button type="button" id="payment-mode-main" class="sales-payment-mode-btn" onclick="setPaymentMode(false)">Único</button>
                 <button type="button" id="payment-mode-split" class="sales-payment-mode-btn" onclick="setPaymentMode(true)">Dividido</button>
               </div>
             </div>
@@ -227,6 +228,25 @@
     </div>
   </div>
 
+  <div id="sales-shortcuts-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content sales-shortcuts-modal-content">
+      <h3>Atalhos do PDV</h3>
+      <p>Use estes atalhos para vender mais rapido:</p>
+      <ul class="sales-shortcuts-list">
+        <li><strong>F2</strong> - foca a busca de produto</li>
+        <li><strong>Enter</strong> - adiciona produto selecionado</li>
+        <li><strong>Del</strong> - remove item selecionado</li>
+        <li><strong>Ctrl + 1/2/3/4</strong> - Dinheiro/Pix/Debito/Credito</li>
+        <li><strong>Ctrl + Shift + D</strong> - alterna Único/Dividido</li>
+        <li><strong>Ctrl + Enter</strong> - finalizar venda</li>
+        <li><strong>Alt + N</strong> - novo cliente</li>
+      </ul>
+      <div class="pix-modal-actions">
+        <button type="button" class="btn-add" onclick="closeShortcutsModal()">Entendi</button>
+      </div>
+    </div>
+  </div>
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
   <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -240,6 +260,7 @@
     var SPLIT_PAYMENT_EXPANDED = false;
     var ACTIVE_PAYMENT_METHOD = 'Dinheiro';
     var SALES_PDV_MODE_KEY = 'mini_erp_sales_pdv_mode';
+    var SALES_SHORTCUTS_SEEN_KEY = 'mini_erp_sales_shortcuts_seen';
 
     function getSelectedPaymentMethod() {
       return ACTIVE_PAYMENT_METHOD || 'Dinheiro';
@@ -474,7 +495,7 @@
       if (!validation || !PAYMENT_UI_SETTINGS.allow_multi) return;
       let rows = document.querySelectorAll('#payment-rows .payment-row');
       validation.classList.remove('ok', 'error');
-      if (!rows.length) {
+      if (!SPLIT_PAYMENT_EXPANDED || !rows.length) {
         validation.innerText = 'A soma das formas de pagamento deve bater com o total da venda.';
         return;
       }
@@ -650,6 +671,26 @@
       applyCardSurcharge();
     }
 
+    function openShortcutsModal() {
+      let modal = document.getElementById('sales-shortcuts-modal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      localStorage.setItem(SALES_SHORTCUTS_SEEN_KEY, '1');
+    }
+
+    function closeShortcutsModal() {
+      let modal = document.getElementById('sales-shortcuts-modal');
+      if (!modal) return;
+      modal.style.display = 'none';
+    }
+
+    function maybeShowShortcutsHint() {
+      if (localStorage.getItem(SALES_SHORTCUTS_SEEN_KEY) === '1') return;
+      window.setTimeout(function() {
+        openShortcutsModal();
+      }, 800);
+    }
+
     function toggleSplitPayment(forceOpen) {
       if (forceOpen === true) {
         setPaymentMode(true);
@@ -779,8 +820,9 @@
     function applyCardSurcharge() {
       let surchargeInput = document.querySelector('input[name="surcharge"]');
       let allowMulti = PAYMENT_UI_SETTINGS.allow_multi;
+      let useSplitMode = allowMulti && SPLIT_PAYMENT_EXPANDED;
       let base = getOrderBase();
-      if (allowMulti) {
+      if (useSplitMode) {
         let rows = document.querySelectorAll('#payment-rows .payment-row');
         if (rows.length > 0) {
           rebalanceSplitRows();
@@ -826,12 +868,8 @@
       updateInstallmentOptions();
 
       if (PAYMENT_UI_SETTINGS.allow_multi) {
-        let hasRows = document.querySelectorAll('#payment-rows .payment-row').length > 0;
-        if (hasRows && SPLIT_PAYMENT_EXPANDED === false) {
-          SPLIT_PAYMENT_EXPANDED = true;
-        }
-        multiBlock.style.display = (SPLIT_PAYMENT_EXPANDED || hasRows) ? '' : 'none';
-        if (SPLIT_PAYMENT_EXPANDED || hasRows) {
+        multiBlock.style.display = SPLIT_PAYMENT_EXPANDED ? '' : 'none';
+        if (SPLIT_PAYMENT_EXPANDED) {
           installmentRow.style.display = 'none';
           receivedRow.style.display = 'none';
         } else {
@@ -860,10 +898,11 @@
       let discount = parseNumber(document.querySelector('input[name="discount"]').value);
       let surcharge = parseNumber(document.querySelector('input[name="surcharge"]').value);
       let allowMulti = PAYMENT_UI_SETTINGS.allow_multi;
+      let useSplitMode = allowMulti && SPLIT_PAYMENT_EXPANDED;
       let rows = document.querySelectorAll('#payment-rows .payment-row');
       let orderTotal = subtotal - discount + surcharge;
 
-      if (allowMulti && rows.length > 0) {
+      if (useSplitMode && rows.length > 0) {
         orderTotal = getSplitPaidTotal();
         surcharge = orderTotal - (subtotal - discount);
         document.querySelector('input[name="surcharge"]').value = formatNumber(surcharge);
@@ -1076,7 +1115,7 @@
       openClearSaleModal();
     }
     function updateChange(orderTotal) {
-      if (PAYMENT_UI_SETTINGS.allow_multi && document.querySelectorAll('#payment-rows .payment-row').length > 0) {
+      if (PAYMENT_UI_SETTINGS.allow_multi && SPLIT_PAYMENT_EXPANDED && document.querySelectorAll('#payment-rows .payment-row').length > 0) {
         document.getElementById('order-change').innerText = 'R$ ' + formatCurrency(0);
         return;
       }
@@ -1138,7 +1177,11 @@
     }
 
     function getPixAmountForQr(orderTotal) {
+      let useSplitMode = PAYMENT_UI_SETTINGS.allow_multi && SPLIT_PAYMENT_EXPANDED;
       if (!PAYMENT_UI_SETTINGS.allow_multi) {
+        return getSelectedPaymentMethod() === 'Pix' ? orderTotal : 0;
+      }
+      if (!useSplitMode) {
         return getSelectedPaymentMethod() === 'Pix' ? orderTotal : 0;
       }
       let rows = document.querySelectorAll('#payment-rows .payment-row');
@@ -1289,7 +1332,11 @@
     });
 
     function shouldOpenPixModal() {
+      let useSplitMode = PAYMENT_UI_SETTINGS.allow_multi && SPLIT_PAYMENT_EXPANDED;
       if (!PAYMENT_UI_SETTINGS.allow_multi) {
+        return getSelectedPaymentMethod() === 'Pix';
+      }
+      if (!useSplitMode) {
         return getSelectedPaymentMethod() === 'Pix';
       }
       let rows = document.querySelectorAll('#payment-rows .payment-row');
@@ -1321,12 +1368,65 @@
     document.addEventListener('keydown', function(event) {
       let clearModal = document.getElementById('clear-sale-modal');
       let pixModal = document.getElementById('pix-modal');
+      let shortcutsModal = document.getElementById('sales-shortcuts-modal');
       if ((clearModal && clearModal.style.display === 'flex') || (pixModal && pixModal.style.display === 'flex')) {
+        return;
+      }
+
+      if (shortcutsModal && shortcutsModal.style.display === 'flex') {
+        if (event.key === 'Escape' || event.key === 'Enter') {
+          event.preventDefault();
+          closeShortcutsModal();
+        }
         return;
       }
 
       let target = event.target;
       if (!target || !target.matches) return;
+
+      let isTypingTarget = target.matches('input, textarea, select');
+
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        setPaymentMode(!SPLIT_PAYMENT_EXPANDED);
+        return;
+      }
+
+      if (event.ctrlKey && event.key === '1') {
+        event.preventDefault();
+        selectPaymentMethod('Dinheiro');
+        return;
+      }
+      if (event.ctrlKey && event.key === '2') {
+        event.preventDefault();
+        selectPaymentMethod('Pix');
+        return;
+      }
+      if (event.ctrlKey && event.key === '3') {
+        event.preventDefault();
+        selectPaymentMethod('Débito');
+        return;
+      }
+      if (event.ctrlKey && event.key === '4') {
+        event.preventDefault();
+        selectPaymentMethod('Crédito');
+        return;
+      }
+      if (event.ctrlKey && event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('sale-form').requestSubmit();
+        return;
+      }
+      if (event.altKey && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        openNewClientWindow();
+        return;
+      }
+      if (event.key === '?' || (event.shiftKey && event.key === '/')) {
+        event.preventDefault();
+        openShortcutsModal();
+        return;
+      }
 
       if (event.key === 'F2') {
         event.preventDefault();
@@ -1376,7 +1476,7 @@
         }
       }
 
-      if (event.key === 'Delete' && !target.matches('input, textarea, select')) {
+      if (event.key === 'Delete' && !isTypingTarget) {
         let selectedRow = document.querySelector('#sale-items .sale-row.selected');
         if (!selectedRow) return;
         event.preventDefault();
@@ -1389,6 +1489,20 @@
       if (document.getElementById('pix-confirmed').value === '1') {
         return;
       }
+
+      let clientSelect = document.getElementById('sale-client-select');
+      let hasClient = clientSelect && String(clientSelect.value || '').trim() !== '';
+      if (!hasClient) {
+        let proceedWithoutClient = confirm('Nenhum cliente selecionado. Deseja continuar a venda sem cliente?');
+        if (!proceedWithoutClient) {
+          event.preventDefault();
+          if (clientSelect) {
+            clientSelect.focus();
+          }
+          return;
+        }
+      }
+
       if (!shouldOpenPixModal()) {
         return;
       }
@@ -1450,14 +1564,11 @@
     syncPaymentMethodCards();
     syncPaymentModeButtons();
 
-    if (PAYMENT_UI_SETTINGS.allow_multi) {
-      document.getElementById('multi-payment-block').style.display = 'none';
-      document.getElementById('installment-row').style.display = 'none';
-      document.getElementById('payment-received-row').style.display = 'none';
-    }
+    document.getElementById('multi-payment-block').style.display = 'none';
     updateInstallmentOptions();
     onPaymentMethodChange(getSelectedPaymentMethod());
     updateEmptyState();
     bindPixCopyActions();
+    maybeShowShortcutsHint();
   </script>
 {% endblock %}
