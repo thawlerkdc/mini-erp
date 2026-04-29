@@ -1,876 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <style>
-    .sales-shell {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-    .sales-shell .sale-card {
-      padding: 0;
-      overflow: hidden;
-      border: none;
-      background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 26%),
-        radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 28%),
-        linear-gradient(135deg, #0f172a, #162033 48%, #1e293b);
-      box-shadow: 0 28px 65px rgba(15, 23, 42, 0.24);
-    }
-    .sales-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.9fr);
-      gap: 22px;
-      padding: 24px;
-      color: #dbe7f5;
-    }
-    .sales-left-panel,
-    .sales-right-panel {
-      min-width: 0;
-    }
-    .sales-items-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-    .sales-search-wrap {
-      flex: 1;
-      min-width: 260px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      min-height: 56px;
-      border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      background: rgba(15, 23, 42, 0.76);
-      padding: 8px 16px;
-    }
-    .sales-search-icon {
-      font-size: 1.15rem;
-      color: #93c5fd;
-      opacity: 0.85;
-      flex: 0 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .sales-search-wrap .product-select-wrapper {
-      flex: 1;
-      min-width: 0;
-    }
-    .sales-search-wrap .ts-wrapper {
-      width: 100%;
-    }
-    .sales-search-wrap .ts-control {
-      border: none !important;
-      background: transparent !important;
-      min-height: 40px !important;
-      box-shadow: none !important;
-      padding: 4px 8px !important;
-      border-radius: 0 !important;
-    }
-    /* Higher specificity to beat .product-select-wrapper .ts-control */
-    .sales-search-wrap .product-select-wrapper .ts-control {
-      border: none !important;
-      background: transparent !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-    }
-    .sales-search-wrap .ts-control .item,
-    .sales-search-wrap .ts-control > input {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-    }
-    .sales-search-wrap .ts-control input {
-      color: #e2e8f0 !important;
-      font-size: 1.08rem !important;
-      padding: 4px 0 !important;
-    }
-    .sales-search-wrap .ts-dropdown {
-      border-radius: 12px !important;
-      border: 1px solid rgba(148, 163, 184, 0.24) !important;
-      background: rgba(15, 23, 42, 0.98) !important;
-      color: #f8fafc !important;
-    }
-    .sales-search-wrap .ts-dropdown .optgroup-header {
-      background: rgba(15, 23, 42, 0.99) !important;
-      color: #bfdbfe !important;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.24);
-      position: sticky;
-      top: 0;
-      z-index: 2;
-    }
-    .ts-dropdown .option.out-of-stock {
-      background: rgba(185, 28, 28, 0.38) !important;
-      color: #f87171 !important;
-      font-weight: 600;
-    }
-    .ts-dropdown .option.out-of-stock::before {
-      content: '⛔ ';
-    }
-    .ts-dropdown .option.low-stock {
-      background: rgba(146, 64, 14, 0.2) !important;
-      color: #fbbf24 !important;
-    }
-    .ts-dropdown .option.low-stock::before {
-      content: '⚠️  ';
-    }
-    .ts-dropdown .option.in-stock {
-      background: transparent !important;
-      color: #f8fafc !important;
-    }
-    .sales-inline-feedback {
-      margin-top: 10px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(248, 113, 113, 0.4);
-      background: rgba(127, 29, 29, 0.18);
-      color: #fecaca;
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-    .sales-toolbar-add {
-      min-height: 46px;
-      padding: 0 18px;
-      border-radius: 12px;
-      white-space: nowrap;
-      font-weight: 700;
-    }
-    .sales-panel {
-      background: rgba(15, 23, 42, 0.46);
-      border: 1px solid rgba(148, 163, 184, 0.16);
-      border-radius: 22px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-      backdrop-filter: blur(18px);
-    }
-    .sales-items-panel {
-      padding: 20px;
-    }
-    .sales-items-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 16px;
-    }
-    .sales-items-header h3,
-    .sales-summary-card h3,
-    .sales-summary-card h4,
-    .multi-payment-header h4 {
-      margin: 0;
-      color: #f8fafc;
-    }
-    .sales-items-header p,
-    .sales-summary-card p,
-    .multi-payment-block p,
-    .sales-mini-stat span {
-      color: rgba(226, 232, 240, 0.74);
-    }
-    .sale-items {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .sale-row {
-      margin: 0;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      background: rgba(15, 23, 42, 0.5);
-      display: grid;
-      grid-template-columns: minmax(220px, 1.7fr) minmax(120px, 0.8fr) minmax(150px, 0.95fr) minmax(120px, 0.8fr) 40px;
-      gap: 8px;
-      align-items: center;
-    }
-    .sale-row-product {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-width: 0;
-    }
-    .sale-product-image {
-      width: 72px;
-      height: 56px;
-      object-fit: cover;
-      border-radius: 10px;
-      background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(51, 65, 85, 0.95));
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      flex: 0 0 72px;
-    }
-    .sale-product-badge {
-      display: inline-flex;
-      align-items: center;
-      width: fit-content;
-      padding: 5px 9px;
-      border-radius: 999px;
-      background: rgba(34, 197, 94, 0.14);
-      color: #86efac;
-      font-size: 0.74rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .sale-row-product-name {
-      display: block;
-      color: #f8fafc;
-      font-size: 1.03rem;
-      line-height: 1.35;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .sale-row-product-stock {
-      display: block;
-      margin-top: 4px;
-      font-size: 0.84rem;
-      color: rgba(191, 219, 254, 0.82);
-    }
-    .sale-row-product-code {
-      display: block;
-      margin-top: 2px;
-      font-size: 0.8rem;
-      color: rgba(203, 213, 225, 0.78);
-    }
-    .sale-row-label,
-    .sale-row-controls label,
-    .sales-summary-card label {
-      color: #cbd5e1;
-      font-size: 0.76rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .sale-row-col {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-width: 0;
-    }
-    .sale-row input,
-    .sale-row select,
-    .sales-summary-card input,
-    .sales-summary-card select,
-    .payment-row input,
-    .payment-row select {
-      min-height: 40px;
-      border-radius: 10px !important;
-      background: rgba(15, 23, 42, 0.74) !important;
-      border: 1px solid rgba(148, 163, 184, 0.24) !important;
-      color: #f8fafc !important;
-      box-shadow: none !important;
-    }
-    .sale-row input[readonly] {
-      background: rgba(30, 41, 59, 0.9) !important;
-      color: #bfdbfe !important;
-      font-weight: 700;
-    }
-    .product-select-wrapper .ts-control,
-    .sales-summary-card .ts-control {
-      min-height: 46px !important;
-      border-radius: 14px !important;
-      background: rgba(15, 23, 42, 0.74) !important;
-      border: 1px solid rgba(148, 163, 184, 0.24) !important;
-      box-shadow: none !important;
-    }
-    .product-select-wrapper .ts-control input,
-    .sales-summary-card .ts-control input {
-      color: #f8fafc !important;
-    }
-    .sales-right-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .sales-summary-card {
-      padding: 18px;
-    }
-    .sales-summary-grid {
-      display: grid;
-      gap: 14px;
-    }
-    .sales-total-card {
-      background: linear-gradient(135deg, rgba(30, 64, 175, 0.26), rgba(15, 23, 42, 0.76));
-      border-color: rgba(96, 165, 250, 0.26);
-    }
-    .sales-total-card h4 {
-      margin: 0;
-      color: rgba(219, 234, 254, 0.9);
-      font-size: 0.9rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .sales-total-value {
-      margin-top: 10px;
-      font-size: 3rem;
-      line-height: 1;
-      font-weight: 800;
-      color: #60a5fa;
-    }
-    .sales-total-change {
-      margin-top: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: rgba(219, 234, 254, 0.86);
-      font-weight: 600;
-    }
-    .sales-total-change strong {
-      color: #4ade80;
-      font-size: 1.45rem;
-    }
-    .sales-client-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: end;
-    }
-    .sales-new-client-btn {
-      min-height: 46px;
-      border-radius: 12px;
-      border: 1px solid rgba(96, 165, 250, 0.34);
-      background: rgba(30, 64, 175, 0.22);
-      color: #dbeafe;
-      padding: 0 16px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .sales-new-client-btn:hover {
-      background: rgba(37, 99, 235, 0.28);
-    }
-    .sales-summary-grid.two-columns {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .sales-payment-methods {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-    .sales-method-card {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 9px 8px;
-      border-radius: 12px;
-      background: rgba(15, 23, 42, 0.52);
-      border: 1px solid rgba(148, 163, 184, 0.14);
-      color: #e2e8f0;
-      cursor: pointer;
-      text-align: left;
-      min-width: 0;
-      transition: border-color .2s ease, background .2s ease, transform .2s ease;
-    }
-    .sales-method-card:hover {
-      transform: translateY(-1px);
-      border-color: rgba(96, 165, 250, 0.45);
-      background: rgba(30, 64, 175, 0.24);
-    }
-    .sales-method-card.active {
-      border-color: rgba(96, 165, 250, 0.95);
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.52), rgba(30, 64, 175, 0.6));
-      box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.42) inset, 0 8px 20px rgba(30, 64, 175, 0.28);
-    }
-    .sales-method-icon {
-      font-size: 1rem;
-      color: #93c5fd;
-      flex-shrink: 0;
-      line-height: 1;
-      width: 1.1em;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .sales-method-icon-img {
-      width: 1em;
-      height: 1em;
-      display: inline-block;
-      vertical-align: middle;
-    }
-    .sales-method-card strong {
-      font-size: 0.8rem;
-      color: #f8fafc;
-      white-space: nowrap;
-      overflow: visible;
-      text-overflow: clip;
-      max-width: none;
-      letter-spacing: -0.01em;
-    }
-    .sales-method-card > span:not(.sales-method-icon) {
-      display: none;
-    }
-    .sales-method-select {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-      width: 0;
-      height: 0;
-    }
-    .sales-summary-totals {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .sales-summary-line {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      color: rgba(226, 232, 240, 0.86);
-      font-weight: 600;
-    }
-    .sales-summary-line.total {
-      margin-top: 6px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(148, 163, 184, 0.14);
-      color: #f8fafc;
-      font-size: 1.08rem;
-    }
-    .sales-summary-line.total strong,
-    .sales-summary-line.change strong {
-      font-size: 1.5rem;
-      color: #bbf7d0;
-      line-height: 1;
-    }
-    .sales-summary-line.change strong {
-      color: #bfdbfe;
-    }
-    .multi-payment-block {
-      padding: 16px;
-      border-radius: 14px;
-      background: rgba(37, 99, 235, 0.08);
-      border: 1px solid rgba(96, 165, 250, 0.18);
-    }
-    .multi-payment-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .payment-row {
-      display: grid;
-      grid-template-columns: minmax(130px, 1fr) 1fr 40px;
-      gap: 8px;
-      align-items: start;
-      margin-bottom: 10px;
-    }
-    .payment-amount-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .payment-amount-wrap input {
-      width: 100%;
-    }
-    .pay-installments-wrap select {
-      width: 100%;
-    }
-    .split-payment-btn {
-      width: 100%;
-      min-height: 48px;
-      border-radius: 14px;
-      border: 1px solid rgba(96, 165, 250, 0.32);
-      background: rgba(37, 99, 235, 0.18);
-      color: #60a5fa;
-      font-weight: 700;
-      font-size: 1rem;
-      padding: 0 14px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .split-payment-btn:hover {
-      border-color: rgba(96, 165, 250, 0.52);
-      background: rgba(37, 99, 235, 0.28);
-      color: #93c5fd;
-    }
-    .split-payment-btn:active {
-      background: rgba(37, 99, 235, 0.38);
-    }
-    .qty-stepper {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .qty-stepper-btn {
-      width: 30px;
-      min-width: 30px;
-      height: 38px;
-      border-radius: 8px;
-      border: 1px solid rgba(148, 163, 184, 0.24);
-      background: rgba(15, 23, 42, 0.9);
-      color: #dbeafe;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    .qty-stepper-btn:hover {
-      background: rgba(30, 64, 175, 0.32);
-    }
-    .qty-stepper input {
-      text-align: center;
-      max-width: 64px;
-      min-height: 38px;
-      margin: 0;
-      padding-left: 4px;
-      padding-right: 4px;
-    }
-    .sale-row-line-total,
-    .sale-row-unit-price {
-      font-size: 2rem;
-      font-weight: 800;
-      color: #f8fafc;
-      line-height: 1;
-    }
-    .sale-row-unit-price {
-      font-size: 1.55rem;
-      color: #dbeafe;
-    }
-    .sale-row-del-wrap {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      min-width: 0;
-    }
-    .sale-row .btn-icon-del {
-      width: 34px !important;
-      height: 34px !important;
-      min-width: 34px !important;
-      flex-shrink: 0;
-    }
-    .sales-actions-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .sales-fixed-footer {
-      position: fixed;
-      left: 16px;
-      right: 16px;
-      bottom: 10px;
-      z-index: 45;
-      display: flex;
-      gap: 10px;
-      padding: 10px;
-      border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.24);
-      background: rgba(15, 23, 42, 0.92);
-      backdrop-filter: blur(10px);
-    }
-    @media (min-width: 1024px) {
-      .sales-fixed-footer {
-        left: 286px;
-      }
-    }
-    .sales-fixed-footer .btn-confirm-sale,
-    .sales-fixed-footer .sale-clear-btn {
-      margin: 0;
-      min-height: 50px;
-    }
-    .sales-fixed-footer .btn-confirm-sale {
-      flex: 1;
-    }
-    .sales-fixed-footer .sale-clear-btn {
-      min-width: 170px;
-      justify-content: center;
-    }
-    .sales-shell {
-      padding-bottom: 92px;
-    }
-    .btn-confirm-sale {
-      width: 100%;
-      margin-top: 0;
-      min-height: 54px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      border: none;
-      box-shadow: 0 18px 30px rgba(34, 197, 94, 0.24);
-      font-size: 1rem;
-      font-weight: 800;
-      letter-spacing: 0.01em;
-    }
-    .btn-confirm-sale:hover {
-      background: linear-gradient(135deg, #16a34a, #15803d);
-    }
-    .sales-actions-stack .sale-clear-btn,
-    .sales-actions-stack .sale-report-btn,
-    .sales-actions-stack .btn-close-cash {
-      width: 100%;
-      justify-content: center;
-    }
-    .pix-modal-content {
-      background: linear-gradient(135deg, #f8fafc, #eef4ff);
-    }
-    @media (max-width: 1180px) {
-      .sales-layout {
-        grid-template-columns: 1fr;
-      }
-    }
-    @media (max-width: 900px) {
-      .sale-row,
-      .payment-row,
-      .sales-summary-grid.two-columns,
-      .sales-mini-stats,
-      .sales-payment-methods {
-        grid-template-columns: 1fr 1fr;
-      }
-      .sale-row {
-        grid-template-columns: 1fr;
-      }
-      .sales-client-row {
-        grid-template-columns: 1fr;
-      }
-      .sales-search-wrap {
-        min-width: 0;
-      }
-    }
-    @media (max-width: 640px) {
-      .sales-layout {
-        padding: 16px;
-      }
-      .sale-row-controls,
-      .payment-row,
-      .sales-summary-grid.two-columns,
-      .sales-mini-stats,
-      .sales-payment-methods {
-        grid-template-columns: 1fr;
-      }
-      .sales-fixed-footer {
-        flex-direction: column-reverse;
-      }
-      .sales-fixed-footer .sale-clear-btn {
-        min-width: 0;
-      }
-      .sales-header-actions {
-        width: 100%;
-      }
-      .sales-items-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .sales-toolbar-add {
-        width: 100%;
-      }
-    }
-
-    /* ===== LIGHT THEME OVERRIDES ===== */
-    [data-theme="light"] .sales-shell .sale-card {
-      background: var(--bg-secondary);
-      box-shadow: var(--card-shadow);
-    }
-    [data-theme="light"] .sales-layout {
-      color: var(--text-primary);
-    }
-    [data-theme="light"] .sales-panel {
-      background: var(--card-bg);
-      border-color: var(--card-border);
-      box-shadow: var(--card-shadow);
-    }
-    [data-theme="light"] .sales-items-header h3,
-    [data-theme="light"] .sales-summary-card h3,
-    [data-theme="light"] .sales-summary-card h4,
-    [data-theme="light"] .multi-payment-header h4 {
-      color: var(--text-primary);
-    }
-    [data-theme="light"] .sales-items-header p,
-    [data-theme="light"] .sales-summary-card p,
-    [data-theme="light"] .multi-payment-block p,
-    [data-theme="light"] .sales-mini-stat span {
-      color: var(--text-secondary);
-    }
-    [data-theme="light"] .sales-search-wrap {
-      background: var(--input-bg);
-      border-color: var(--border-color);
-    }
-    [data-theme="light"] .sales-search-icon {
-      color: var(--btn-primary-bg);
-    }
-    [data-theme="light"] .sales-search-wrap .ts-control input {
-      color: var(--input-text) !important;
-    }
-    [data-theme="light"] .sales-search-wrap .ts-dropdown {
-      background: var(--card-bg) !important;
-      color: var(--text-primary) !important;
-      border-color: var(--border-color) !important;
-      box-shadow: 0 14px 30px rgba(2, 6, 23, 0.16) !important;
-    }
-    [data-theme="light"] .sales-search-wrap .ts-dropdown .optgroup-header {
-      background: #e2e8f0 !important;
-      color: #0f172a !important;
-      border-bottom: 1px solid #cbd5e1;
-      position: sticky;
-      top: 0;
-      z-index: 2;
-    }
-    [data-theme="light"] .sales-search-wrap .ts-dropdown .option {
-      color: var(--text-primary) !important;
-      background: #ffffff !important;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-    }
-    [data-theme="light"] .sales-search-wrap .ts-dropdown .option:last-child {
-      border-bottom: none;
-    }
-    [data-theme="light"] .sales-search-wrap .ts-dropdown .option.active,
-    [data-theme="light"] .sales-search-wrap .ts-dropdown .option:hover {
-      background: #1d4ed8 !important;
-      color: #ffffff !important;
-      font-weight: 700;
-      border-left: 4px solid #1e3a8a;
-      padding-left: 10px;
-    }
-    [data-theme="light"] .ts-dropdown .option.in-stock {
-      background: #ffffff !important;
-      color: #0f172a !important;
-    }
-    [data-theme="light"] .ts-dropdown .option.out-of-stock {
-      background: #b91c1c !important;
-      color: #ffffff !important;
-      border-left: 4px solid #7f1d1d;
-      font-weight: 700;
-    }
-    [data-theme="light"] .ts-dropdown .option.low-stock {
-      background: #fff7ed !important;
-      color: #9a3412 !important;
-      border-left: 4px solid #c2410c;
-      font-weight: 600;
-    }
-    [data-theme="light"] .ts-dropdown .option.out-of-stock.active,
-    [data-theme="light"] .ts-dropdown .option.out-of-stock:hover {
-      background: #991b1b !important;
-      color: #ffffff !important;
-    }
-    [data-theme="light"] .sale-row {
-      background: var(--bg-secondary);
-      border-color: var(--border-color);
-    }
-    [data-theme="light"] .sale-row-product-name {
-      color: var(--text-primary);
-    }
-    [data-theme="light"] .sale-row-product-stock,
-    [data-theme="light"] .sale-row-product-code {
-      color: var(--text-secondary);
-    }
-    [data-theme="light"] .sale-row-label,
-    [data-theme="light"] .sale-row-controls label,
-    [data-theme="light"] .sales-summary-card label {
-      color: var(--text-secondary);
-    }
-    [data-theme="light"] .sale-row-line-total,
-    [data-theme="light"] .sale-row-unit-price {
-      color: var(--text-primary);
-    }
-    [data-theme="light"] .sale-row-unit-price {
-      color: var(--text-secondary);
-    }
-    [data-theme="light"] .sale-row input,
-    [data-theme="light"] .sale-row select,
-    [data-theme="light"] .sales-summary-card input,
-    [data-theme="light"] .sales-summary-card select,
-    [data-theme="light"] .payment-row input,
-    [data-theme="light"] .payment-row select {
-      background: var(--input-bg) !important;
-      border-color: var(--input-border) !important;
-      color: var(--input-text) !important;
-    }
-    [data-theme="light"] .sale-row input[readonly] {
-      background: var(--bg-tertiary) !important;
-      color: var(--text-secondary) !important;
-    }
-    [data-theme="light"] .product-select-wrapper .ts-control,
-    [data-theme="light"] .sales-summary-card .ts-control {
-      background: var(--input-bg) !important;
-      border-color: var(--input-border) !important;
-    }
-    [data-theme="light"] .product-select-wrapper .ts-control input,
-    [data-theme="light"] .sales-summary-card .ts-control input {
-      color: var(--input-text) !important;
-    }
-    [data-theme="light"] .qty-stepper-btn {
-      background: var(--bg-secondary);
-      border-color: var(--border-color);
-      color: var(--text-primary);
-    }
-    [data-theme="light"] .qty-stepper-btn:hover {
-      background: var(--bg-hover);
-    }
-    [data-theme="light"] .sales-total-card {
-      background: linear-gradient(135deg, rgba(11,74,130,0.07), rgba(11,74,130,0.03));
-      border-color: rgba(11, 74, 130, 0.2);
-    }
-    [data-theme="light"] .sales-total-card h4 {
-      color: var(--text-secondary);
-    }
-    [data-theme="light"] .sales-total-value {
-      color: var(--btn-primary-bg);
-    }
-    [data-theme="light"] .sales-total-change {
-      color: var(--text-secondary);
-    }
-    [data-theme="light"] .sales-total-change strong {
-      color: #16a34a;
-    }
-    [data-theme="light"] .sales-summary-line {
-      color: var(--text-secondary);
-    }
-    [data-theme="light"] .sales-summary-line.total {
-      color: var(--text-primary);
-      border-top-color: var(--border-color);
-    }
-    [data-theme="light"] .sales-summary-line.total strong,
-    [data-theme="light"] .sales-summary-line.change strong {
-      color: #16a34a;
-    }
-    [data-theme="light"] .sales-summary-line.change strong {
-      color: var(--btn-primary-bg);
-    }
-    [data-theme="light"] .sales-method-card {
-      background: var(--bg-secondary);
-      border-color: var(--border-color);
-      color: var(--text-primary);
-    }
-    [data-theme="light"] .sales-method-card strong {
-      color: var(--text-primary);
-    }
-    [data-theme="light"] .sales-method-card:hover {
-      background: var(--bg-hover);
-      border-color: var(--input-focus-border);
-    }
-    [data-theme="light"] .sales-method-card.active {
-      background: var(--sidebar-item-active-bg);
-      border-color: var(--input-focus-border);
-      box-shadow: 0 0 0 1px var(--input-focus-border) inset, 0 4px 12px rgba(11, 74, 130, 0.14);
-    }
-    [data-theme="light"] .multi-payment-block {
-      background: var(--bg-secondary);
-      border-color: var(--border-color);
-    }
-    [data-theme="light"] .split-payment-btn {
-      background: rgba(11, 74, 130, 0.07);
-      border-color: rgba(11, 74, 130, 0.28);
-      color: var(--btn-primary-bg);
-    }
-    [data-theme="light"] .split-payment-btn:hover {
-      background: rgba(11, 74, 130, 0.13);
-    }
-    [data-theme="light"] .sales-new-client-btn {
-      background: var(--bg-secondary);
-      border-color: var(--border-color);
-      color: var(--btn-primary-bg);
-    }
-    [data-theme="light"] .sales-new-client-btn:hover {
-      background: var(--bg-hover);
-    }
-    [data-theme="light"] .sales-fixed-footer {
-      background: rgba(255, 255, 255, 0.95);
-      border-color: var(--border-color);
-    }
-    [data-theme="light"] .sale-product-badge {
-      background: rgba(22, 163, 74, 0.12);
-      color: #15803d;
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260428pdv1') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -884,6 +15,7 @@
                 <h3>Itens da venda</h3>
                 <p>Adicione os produtos e ajuste as quantidades rapidamente.</p>
               </div>
+              <a class="outline-button sales-admin-link" href="{{ url_for('fechar_caixa') }}">&#9881; {{ t('close_cash') }}</a>
             </div>
 
             <div class="sales-items-toolbar">
@@ -905,21 +37,24 @@
                   </select>
                 </div>
               </div>
-              <button type="button" class="btn-add sales-toolbar-add" onclick="addSaleRow()">+ Adicionar produto</button>
+              <button type="button" class="outline-button sales-toolbar-pdv" id="sales-sidebar-toggle">Modo PDV</button>
             </div>
+            <p class="sales-shortcut-hint">Enter adiciona produto, F2 foca busca e Del remove item selecionado.</p>
             <div id="sales-inline-feedback" class="sales-inline-feedback" style="display:none;"></div>
 
             <div class="sale-items" id="sale-items"></div>
+            <div class="sales-empty-state" id="sales-empty-state" aria-live="polite">
+              <div class="sales-empty-icon" aria-hidden="true">&#128722;</div>
+              <p>Busque um produto acima para iniciar a venda</p>
+            </div>
 
             <template id="sale-row-template">
               <div class="sale-row">
                 <input type="hidden" name="product_id[]" value="">
                 <div class="sale-row-product">
                   <img class="sale-product-image" src="" alt="Produto selecionado">
-                  <div class="sale-product-meta" style="min-width:0;">
+                  <div class="sale-product-meta sale-row-hover-meta" style="min-width:0;" title="">
                     <strong class="sale-row-product-name">Produto</strong>
-                    <span class="sale-row-product-code">Código: -</span>
-                    <span class="sale-row-product-stock">Estoque: -</span>
                   </div>
                 </div>
                 <div class="sale-row-col">
@@ -992,15 +127,7 @@
               <button type="button" class="sales-method-card" data-method="Crédito" onclick="selectPaymentMethod('Crédito')"><span class="sales-method-icon">&#128179;</span><strong>Crédito</strong></button>
             </div>
             <div class="sales-summary-grid">
-              <div class="field-group sale-field-payment-method sales-method-select">
-                <label>{{ t('payment_method') }}</label>
-                <select name="payment_method" id="payment-method-select" onchange="onPaymentMethodChange(this.value)">
-                  <option value="Dinheiro">Dinheiro</option>
-                  <option value="Pix">Pix</option>
-                  <option value="Débito">Débito</option>
-                  <option value="Crédito">Crédito</option>
-                </select>
-              </div>
+              <input type="hidden" name="payment_method" id="payment-method-input" value="Dinheiro">
               <div id="installment-row" class="field-group" style="display:none">
                 <label>Parcelas</label>
                 <select name="installments" id="installments-select" onchange="applyCardSurcharge()">
@@ -1027,7 +154,7 @@
               <div id="split-payment-wrapper" style="display:none;" class="field-group">
                 <label>&nbsp;</label>
                 <button type="button" id="split-payment-toggle" class="split-payment-btn" onclick="toggleSplitPayment()">
-                  &#10240;Dividir pagamento
+                  &#10240;Dividir entre formas de pagamento
                 </button>
               </div>
             </div>
@@ -1038,7 +165,7 @@
                   <button type="button" class="btn-add sale-add-btn" onclick="addPaymentRow()">+ Adicionar forma</button>
                 </div>
                 <div id="payment-rows"></div>
-                <p class="param-hint-small">A soma das formas de pagamento deve bater com o total da venda.</p>
+                <p class="param-hint-small" id="split-payment-validation">A soma das formas de pagamento deve bater com o total da venda.</p>
               </div>
             </div>
           </div>
@@ -1063,7 +190,6 @@
 
           <div class="sales-actions-stack">
             <a class="outline-button sale-report-btn" href="{{ url_for('relatorios', section='vendas_periodo') }}">Imprimir orçamento</a>
-            <a class="btn-close-cash" href="{{ url_for('fechar_caixa') }}">&#128717; {{ t('close_cash') }}</a>
           </div>
         </aside>
       </form>
@@ -1112,6 +238,20 @@
     var SALE_ROW_TEMPLATE_HTML = '';
     var SALE_PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%231e293b'/%3E%3Cstop offset='100%25' stop-color='%230f172a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='20' fill='url(%23g)'/%3E%3Cpath d='M28 77l17-18 14 15 17-24 16 27H28z' fill='%235f7ea0' opacity='.9'/%3E%3Ccircle cx='45' cy='42' r='9' fill='%2393c5fd'/%3E%3C/svg%3E";
     var SPLIT_PAYMENT_EXPANDED = false;
+    var ACTIVE_PAYMENT_METHOD = 'Dinheiro';
+    var SALES_PDV_MODE_KEY = 'mini_erp_sales_pdv_mode';
+
+    function getSelectedPaymentMethod() {
+      return ACTIVE_PAYMENT_METHOD || 'Dinheiro';
+    }
+
+    function setSelectedPaymentMethod(method) {
+      ACTIVE_PAYMENT_METHOD = method || 'Dinheiro';
+      let input = document.getElementById('payment-method-input');
+      if (input) {
+        input.value = ACTIVE_PAYMENT_METHOD;
+      }
+    }
 
     function captureSaleRowTemplate() {
       if (SALE_ROW_TEMPLATE_HTML) return;
@@ -1161,6 +301,12 @@
       if (combo.control_input) {
         combo.control_input.readOnly = false;
       }
+      combo.on('change', function(value) {
+        clearInlineFeedback();
+        if (value) {
+          addSaleRow(value, true);
+        }
+      });
     }
 
     function formatCurrency(value) {
@@ -1230,6 +376,13 @@
       return option;
     }
 
+    function getPickerOptionByValue(value) {
+      if (!value) return null;
+      let picker = getPickerSelect();
+      if (!picker) return null;
+      return picker.querySelector('option[value="' + value + '"]');
+    }
+
     function findPickerOptionByText(query) {
       let picker = getPickerSelect();
       if (!picker || !query) return null;
@@ -1268,13 +421,11 @@
       if (!row) return;
       let image = row.querySelector('.sale-product-image');
       let nameEl = row.querySelector('.sale-row-product-name');
-      let stockEl = row.querySelector('.sale-row-product-stock');
-      let codeEl = row.querySelector('.sale-row-product-code');
+      let metaEl = row.querySelector('.sale-row-hover-meta');
       if (!option || !option.value) {
         if (image) image.src = SALE_PLACEHOLDER_IMAGE;
         if (nameEl) nameEl.textContent = 'Produto';
-        if (stockEl) stockEl.textContent = 'Estoque: -';
-        if (codeEl) codeEl.textContent = 'Código: -';
+        if (metaEl) metaEl.setAttribute('title', 'Código: - | Estoque: -');
         return;
       }
 
@@ -1287,8 +438,64 @@
         image.alt = productName;
       }
       if (nameEl) nameEl.textContent = productName;
-      if (stockEl) stockEl.textContent = 'Estoque: ' + stock + ' ' + unit;
-      if (codeEl) codeEl.textContent = 'Código: ' + code;
+      if (metaEl) {
+        metaEl.setAttribute('title', 'Código: ' + code + ' | Estoque: ' + stock + ' ' + unit);
+      }
+    }
+
+    function updateEmptyState() {
+      let emptyState = document.getElementById('sales-empty-state');
+      let saleItems = document.querySelectorAll('#sale-items .sale-row').length;
+      if (!emptyState) return;
+      emptyState.style.display = saleItems ? 'none' : '';
+    }
+
+    function selectSaleRow(row) {
+      document.querySelectorAll('#sale-items .sale-row.selected').forEach(function(item) {
+        item.classList.remove('selected');
+      });
+      if (row) {
+        row.classList.add('selected');
+      }
+    }
+
+    function highlightAddedRow(row) {
+      if (!row) return;
+      row.classList.remove('sale-row-added');
+      void row.offsetWidth;
+      row.classList.add('sale-row-added');
+      window.setTimeout(function() {
+        row.classList.remove('sale-row-added');
+      }, 450);
+    }
+
+    function validateSplitPayment() {
+      let validation = document.getElementById('split-payment-validation');
+      if (!validation || !PAYMENT_UI_SETTINGS.allow_multi) return;
+      let rows = document.querySelectorAll('#payment-rows .payment-row');
+      validation.classList.remove('ok', 'error');
+      if (!rows.length) {
+        validation.innerText = 'A soma das formas de pagamento deve bater com o total da venda.';
+        return;
+      }
+
+      let paidTotal = getSplitPaidTotal();
+      let expectedTotal = getOrderBase();
+      rows.forEach(function(row) {
+        let method = row.querySelector('select[name="pay_method[]"]').value;
+        let installments = parseInt(row.querySelector('select[name="pay_installments[]"]').value) || 1;
+        let amount = parseNumber(row.querySelector('input[name="pay_amount[]"]').value);
+        expectedTotal += amount - rowFinalToBase(amount, method, installments);
+      });
+
+      let diff = Math.abs(paidTotal - expectedTotal);
+      if (diff <= 0.05) {
+        validation.classList.add('ok');
+        validation.innerText = 'Valores conferem com o total da venda.';
+      } else {
+        validation.classList.add('error');
+        validation.innerText = 'Diferença de R$ ' + formatCurrency(diff) + '. Ajuste os valores para fechar o total.';
+      }
     }
 
     function getMethodRate(method, installments) {
@@ -1399,10 +606,10 @@
     }
 
     function addPaymentRow() {
-      let defaultMethod = document.getElementById('payment-method-select').value || 'Dinheiro';
+      let defaultMethod = getSelectedPaymentMethod();
       buildPaymentRow(defaultMethod, 1, 0);
       toggleSplitPayment(true);
-      onPaymentMethodChange(document.getElementById('payment-method-select').value);
+      onPaymentMethodChange(getSelectedPaymentMethod());
       applyCardSurcharge();
     }
 
@@ -1421,29 +628,27 @@
       if (SPLIT_PAYMENT_EXPANDED && forceOpen !== true) {
         let container = document.getElementById('payment-rows');
         if (container && container.querySelectorAll('.payment-row').length === 0) {
-          let defaultMethod = document.getElementById('payment-method-select').value || 'Dinheiro';
+          let defaultMethod = getSelectedPaymentMethod();
           let defaultInstallments = parseInt(document.getElementById('installments-select').value) || 1;
           let orderBase = getOrderBase();
           let firstFinal = rowBaseToFinal(orderBase, defaultMethod, defaultInstallments);
           buildPaymentRow(defaultMethod, defaultInstallments, firstFinal);
           buildPaymentRow(defaultMethod, 1, 0);
-          onPaymentMethodChange(document.getElementById('payment-method-select').value);
+          onPaymentMethodChange(getSelectedPaymentMethod());
           applyCardSurcharge();
         }
       }
     }
 
     function syncPaymentMethodCards() {
-      let selected = document.getElementById('payment-method-select').value;
+      let selected = getSelectedPaymentMethod();
       document.querySelectorAll('.sales-method-card').forEach(card => {
         card.classList.toggle('active', card.getAttribute('data-method') === selected);
       });
     }
 
     function selectPaymentMethod(method) {
-      let paymentSelect = document.getElementById('payment-method-select');
-      if (!paymentSelect) return;
-      paymentSelect.value = method;
+      setSelectedPaymentMethod(method);
       onPaymentMethodChange(method);
     }
 
@@ -1475,7 +680,7 @@
       if (rows.length) {
         rebalanceSplitRows();
       }
-      onPaymentMethodChange(document.getElementById('payment-method-select').value);
+      onPaymentMethodChange(getSelectedPaymentMethod());
       applyCardSurcharge();
     }
 
@@ -1566,7 +771,7 @@
             updatePaymentFeeHint(row);
           });
         } else {
-          let method = document.getElementById('payment-method-select').value;
+          let method = getSelectedPaymentMethod();
           if (method === 'Crédito' && CARD_SETTINGS.credit_enabled) {
             let installments = parseInt(document.getElementById('installments-select').value) || 1;
             let rate = parseFloat(CARD_SETTINGS.credit_rates[String(installments)]) || 0;
@@ -1579,7 +784,7 @@
           }
         }
       } else {
-        let method = document.getElementById('payment-method-select').value;
+        let method = getSelectedPaymentMethod();
         if (method === 'Crédito' && CARD_SETTINGS.credit_enabled) {
           let installments = parseInt(document.getElementById('installments-select').value) || 1;
           let rate = parseFloat(CARD_SETTINGS.credit_rates[String(installments)]) || 0;
@@ -1595,6 +800,8 @@
     }
 
     function onPaymentMethodChange(method) {
+      method = method || getSelectedPaymentMethod();
+      setSelectedPaymentMethod(method);
       let installmentRow = document.getElementById('installment-row');
       let receivedRow = document.getElementById('payment-received-row');
       let multiBlock = document.getElementById('multi-payment-block');
@@ -1634,6 +841,7 @@
       syncPaymentMethodCards();
       applyCardSurcharge();
     }
+
     function updateTotals() {
       let subtotal = getSubtotal();
       let discount = parseNumber(document.querySelector('input[name="discount"]').value);
@@ -1665,6 +873,8 @@
       if (itemCountEl) itemCountEl.innerText = itemCount;
       updateChange(orderTotal);
       updateInstallmentOptions();
+      updateEmptyState();
+      validateSplitPayment();
     }
 
     function changeQuantity(button, delta) {
@@ -1706,8 +916,8 @@
       updateLineTotal(row.querySelector('input[name="quantity[]"]'));
     }
 
-    function addSaleRow() {
-      let option = getPickerOption();
+    function addSaleRow(selectedProductId, keepFocusOnSearch) {
+      let option = selectedProductId ? getPickerOptionByValue(selectedProductId) : getPickerOption();
       if (!option) {
         let picker = getPickerSelect();
         let typed = picker && picker.tomselect ? (picker.tomselect.control_input.value || '').trim() : '';
@@ -1736,8 +946,12 @@
         let qtyInput = row.querySelector('input[name="quantity[]"]');
         qtyInput.value = String(Math.max(1, parseInt(qtyInput.value || '1', 10) + 1));
         updateLineTotal(qtyInput);
+        selectSaleRow(row);
+        highlightAddedRow(row);
         clearProductPicker();
-        focusSaleRowQuantity(row);
+        if (keepFocusOnSearch !== false) {
+          focusProductPicker(true);
+        }
         updateTotals();
         return;
       }
@@ -1745,8 +959,12 @@
       newRow.querySelectorAll('input[name="unit_price[]"], input[name="line_total[]"]').forEach(i => i.value = '0.00');
       bindRowProduct(newRow, option);
       container.appendChild(newRow);
+      selectSaleRow(newRow);
+      highlightAddedRow(newRow);
       clearProductPicker();
-      focusSaleRowQuantity(newRow);
+      if (keepFocusOnSearch !== false) {
+        focusProductPicker(true);
+      }
       updateTotals();
     }
 
@@ -1776,7 +994,9 @@
       updateTotals();
     }
     function removeSaleRow(button) {
-      button.closest('.sale-row').remove();
+      let row = button.closest('.sale-row');
+      if (!row) return;
+      row.remove();
       applyCardSurcharge();
     }
 
@@ -1802,9 +1022,10 @@
       document.querySelector('input[name="discount"]').value = '0.00';
       document.querySelector('input[name="surcharge"]').value = '0.00';
       document.querySelector('input[name="payment_received"]').value = '0.00';
-      document.getElementById('payment-method-select').value = 'Dinheiro';
+      setSelectedPaymentMethod('Dinheiro');
       document.getElementById('installments-select').value = '1';
       onPaymentMethodChange('Dinheiro');
+      updateEmptyState();
       updateTotals();
     }
 
@@ -1846,7 +1067,7 @@
         document.getElementById('order-change').innerText = 'R$ ' + formatCurrency(0);
         return;
       }
-      let method = document.getElementById('payment-method-select').value;
+      let method = getSelectedPaymentMethod();
       let received = parseFloat(document.querySelector('input[name="payment_received"]').value) || 0;
       let change = method === 'Dinheiro' ? Math.max(received - orderTotal, 0) : 0;
       document.getElementById('order-change').innerText = 'R$ ' + formatCurrency(change);
@@ -1905,11 +1126,11 @@
 
     function getPixAmountForQr(orderTotal) {
       if (!PAYMENT_UI_SETTINGS.allow_multi) {
-        return document.getElementById('payment-method-select').value === 'Pix' ? orderTotal : 0;
+        return getSelectedPaymentMethod() === 'Pix' ? orderTotal : 0;
       }
       let rows = document.querySelectorAll('#payment-rows .payment-row');
       if (!rows.length) {
-        return document.getElementById('payment-method-select').value === 'Pix' ? orderTotal : 0;
+        return getSelectedPaymentMethod() === 'Pix' ? orderTotal : 0;
       }
       let totalPix = 0;
       rows.forEach(row => {
@@ -2056,11 +1277,11 @@
 
     function shouldOpenPixModal() {
       if (!PAYMENT_UI_SETTINGS.allow_multi) {
-        return document.getElementById('payment-method-select').value === 'Pix';
+        return getSelectedPaymentMethod() === 'Pix';
       }
       let rows = document.querySelectorAll('#payment-rows .payment-row');
       if (!rows.length) {
-        return document.getElementById('payment-method-select').value === 'Pix';
+        return getSelectedPaymentMethod() === 'Pix';
       }
       let hasPix = false;
       rows.forEach(row => {
@@ -2093,6 +1314,12 @@
 
       let target = event.target;
       if (!target || !target.matches) return;
+
+      if (event.key === 'F2') {
+        event.preventDefault();
+        focusProductPicker(true);
+        return;
+      }
 
       if (target.matches('#sale-items input[name="quantity[]"]')) {
         if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
@@ -2135,6 +1362,14 @@
           focusProductPicker(true);
         }
       }
+
+      if (event.key === 'Delete' && !target.matches('input, textarea, select')) {
+        let selectedRow = document.querySelector('#sale-items .sale-row.selected');
+        if (!selectedRow) return;
+        event.preventDefault();
+        selectedRow.remove();
+        applyCardSurcharge();
+      }
     });
 
     document.getElementById('sale-form').addEventListener('submit', function(event) {
@@ -2161,12 +1396,44 @@
     });
 
     captureSaleRowTemplate();
+    setSelectedPaymentMethod('Dinheiro');
     initProductCombobox(getPickerSelect());
     let pickerSelect = getPickerSelect();
-    if (pickerSelect && pickerSelect.tomselect) {
-      pickerSelect.tomselect.on('change', clearInlineFeedback);
-      pickerSelect.tomselect.on('item_add', clearInlineFeedback);
+    if (pickerSelect && !pickerSelect.tomselect) {
+      pickerSelect.addEventListener('change', function() {
+        clearInlineFeedback();
+        if (pickerSelect.value) {
+          addSaleRow(pickerSelect.value, true);
+        }
+      });
     }
+
+    document.getElementById('sale-items').addEventListener('click', function(event) {
+      let row = event.target.closest('.sale-row');
+      if (!row) return;
+      selectSaleRow(row);
+    });
+
+    (function initSalesPdvModeToggle() {
+      let toggleBtn = document.getElementById('sales-sidebar-toggle');
+      if (!toggleBtn) return;
+      let appLayout = document.querySelector('.app-layout');
+      if (!appLayout) return;
+
+      let saved = localStorage.getItem(SALES_PDV_MODE_KEY) === '1';
+      appLayout.classList.toggle('sales-pdv-mode', saved);
+      toggleBtn.classList.toggle('active', saved);
+      toggleBtn.innerText = saved ? 'Sair do Modo PDV' : 'Modo PDV';
+
+      toggleBtn.addEventListener('click', function() {
+        let enabled = !appLayout.classList.contains('sales-pdv-mode');
+        appLayout.classList.toggle('sales-pdv-mode', enabled);
+        toggleBtn.classList.toggle('active', enabled);
+        toggleBtn.innerText = enabled ? 'Sair do Modo PDV' : 'Modo PDV';
+        localStorage.setItem(SALES_PDV_MODE_KEY, enabled ? '1' : '0');
+      });
+    })();
+
     syncPaymentMethodCards();
 
     if (PAYMENT_UI_SETTINGS.allow_multi) {
@@ -2176,7 +1443,8 @@
       document.getElementById('payment-received-row').style.display = 'none';
     }
     updateInstallmentOptions();
-    onPaymentMethodChange(document.getElementById('payment-method-select').value);
+    onPaymentMethodChange(getSelectedPaymentMethod());
+    updateEmptyState();
     bindPixCopyActions();
   </script>
 {% endblock %}
