@@ -119,7 +119,13 @@
           </div>
 
           <div class="sales-panel sales-summary-card">
-            <h4>Pagamento principal</h4>
+            <div class="sales-payment-header">
+              <h4>Pagamento</h4>
+              <div class="sales-payment-mode" id="sales-payment-mode">
+                <button type="button" id="payment-mode-main" class="sales-payment-mode-btn" onclick="setPaymentMode(false)">Principal</button>
+                <button type="button" id="payment-mode-split" class="sales-payment-mode-btn" onclick="setPaymentMode(true)">Dividido</button>
+              </div>
+            </div>
             <div class="sales-payment-methods">
               <button type="button" class="sales-method-card" data-method="Dinheiro" onclick="selectPaymentMethod('Dinheiro')"><span class="sales-method-icon">&#128176;</span><strong>Dinheiro</strong></button>
               <button type="button" class="sales-method-card" data-method="Pix" onclick="selectPaymentMethod('Pix')"><span class="sales-method-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-0.1em"><g transform="translate(12,12) rotate(45)"><rect x="-8" y="-8" width="5.5" height="5.5" rx="1" fill="#32BCAD"/><rect x="2.5" y="-8" width="5.5" height="5.5" rx="1" fill="#32BCAD"/><rect x="-8" y="2.5" width="5.5" height="5.5" rx="1" fill="#32BCAD"/><rect x="2.5" y="2.5" width="5.5" height="5.5" rx="1" fill="#32BCAD"/></g></svg></span><strong>Pix</strong></button>
@@ -146,16 +152,10 @@
                 </select>
               </div>
             </div>
-            <div class="sales-summary-grid two-columns" id="payment-actions-row">
+            <div class="sales-summary-grid" id="payment-actions-row">
               <div id="payment-received-row" class="field-group">
                 <label>{{ t('payment_received') }}</label>
                 <input name="payment_received" type="number" step="0.01" value="0.00" oninput="updateTotals()">
-              </div>
-              <div id="split-payment-wrapper" style="display:none;" class="field-group">
-                <label>&nbsp;</label>
-                <button type="button" id="split-payment-toggle" class="split-payment-btn" onclick="toggleSplitPayment()">
-                  &#10240;Dividir entre formas de pagamento
-                </button>
               </div>
             </div>
 
@@ -608,24 +608,33 @@
     function addPaymentRow() {
       let defaultMethod = getSelectedPaymentMethod();
       buildPaymentRow(defaultMethod, 1, 0);
-      toggleSplitPayment(true);
+      setPaymentMode(true);
       onPaymentMethodChange(getSelectedPaymentMethod());
       applyCardSurcharge();
     }
 
-    function toggleSplitPayment(forceOpen) {
-      let toggleBtn = document.getElementById('split-payment-toggle');
-      let block = document.getElementById('multi-payment-block');
-      if (!toggleBtn || !block) return;
-      if (forceOpen === true) {
-        SPLIT_PAYMENT_EXPANDED = true;
-      } else {
-        SPLIT_PAYMENT_EXPANDED = !SPLIT_PAYMENT_EXPANDED;
+    function syncPaymentModeButtons() {
+      let mainBtn = document.getElementById('payment-mode-main');
+      let splitBtn = document.getElementById('payment-mode-split');
+      if (!mainBtn || !splitBtn) return;
+      mainBtn.classList.toggle('active', !SPLIT_PAYMENT_EXPANDED);
+      splitBtn.classList.toggle('active', SPLIT_PAYMENT_EXPANDED);
+      if (!PAYMENT_UI_SETTINGS.allow_multi) {
+        splitBtn.disabled = true;
+        splitBtn.classList.add('disabled');
       }
-      block.style.display = SPLIT_PAYMENT_EXPANDED ? '' : 'none';
-      toggleBtn.classList.toggle('expanded', SPLIT_PAYMENT_EXPANDED);
-      // Auto-popular 2 linhas na primeira abertura
-      if (SPLIT_PAYMENT_EXPANDED && forceOpen !== true) {
+    }
+
+    function setPaymentMode(splitEnabled) {
+      if (!PAYMENT_UI_SETTINGS.allow_multi) {
+        SPLIT_PAYMENT_EXPANDED = false;
+        syncPaymentModeButtons();
+        onPaymentMethodChange(getSelectedPaymentMethod());
+        return;
+      }
+
+      SPLIT_PAYMENT_EXPANDED = !!splitEnabled;
+      if (SPLIT_PAYMENT_EXPANDED) {
         let container = document.getElementById('payment-rows');
         if (container && container.querySelectorAll('.payment-row').length === 0) {
           let defaultMethod = getSelectedPaymentMethod();
@@ -634,10 +643,19 @@
           let firstFinal = rowBaseToFinal(orderBase, defaultMethod, defaultInstallments);
           buildPaymentRow(defaultMethod, defaultInstallments, firstFinal);
           buildPaymentRow(defaultMethod, 1, 0);
-          onPaymentMethodChange(getSelectedPaymentMethod());
-          applyCardSurcharge();
         }
       }
+      syncPaymentModeButtons();
+      onPaymentMethodChange(getSelectedPaymentMethod());
+      applyCardSurcharge();
+    }
+
+    function toggleSplitPayment(forceOpen) {
+      if (forceOpen === true) {
+        setPaymentMode(true);
+        return;
+      }
+      setPaymentMode(!SPLIT_PAYMENT_EXPANDED);
     }
 
     function syncPaymentMethodCards() {
@@ -805,39 +823,34 @@
       let installmentRow = document.getElementById('installment-row');
       let receivedRow = document.getElementById('payment-received-row');
       let multiBlock = document.getElementById('multi-payment-block');
-      let splitWrapper = document.getElementById('split-payment-wrapper');
       updateInstallmentOptions();
 
       if (PAYMENT_UI_SETTINGS.allow_multi) {
         let hasRows = document.querySelectorAll('#payment-rows .payment-row').length > 0;
-        if (splitWrapper) splitWrapper.style.display = '';
-        if (hasRows) {
+        if (hasRows && SPLIT_PAYMENT_EXPANDED === false) {
           SPLIT_PAYMENT_EXPANDED = true;
         }
         multiBlock.style.display = (SPLIT_PAYMENT_EXPANDED || hasRows) ? '' : 'none';
-        let splitToggle = document.getElementById('split-payment-toggle');
-        if (splitToggle) {
-          splitToggle.classList.toggle('expanded', SPLIT_PAYMENT_EXPANDED || hasRows);
-        }
-        if (hasRows) {
+        if (SPLIT_PAYMENT_EXPANDED || hasRows) {
           installmentRow.style.display = 'none';
           receivedRow.style.display = 'none';
         } else {
           installmentRow.style.display = (method === 'Crédito') ? '' : 'none';
           receivedRow.style.display = method === 'Dinheiro' ? '' : 'none';
         }
+        syncPaymentModeButtons();
         syncPaymentMethodCards();
         applyCardSurcharge();
         return;
       }
 
-      if (splitWrapper) splitWrapper.style.display = 'none';
       multiBlock.style.display = 'none';
       SPLIT_PAYMENT_EXPANDED = false;
       installmentRow.style.display = (method === 'Crédito') ? '' : 'none';
       if (receivedRow) {
         receivedRow.style.display = method === 'Dinheiro' ? '' : 'none';
       }
+      syncPaymentModeButtons();
       syncPaymentMethodCards();
       applyCardSurcharge();
     }
@@ -1435,9 +1448,9 @@
     })();
 
     syncPaymentMethodCards();
+    syncPaymentModeButtons();
 
     if (PAYMENT_UI_SETTINGS.allow_multi) {
-      document.getElementById('split-payment-wrapper').style.display = '';
       document.getElementById('multi-payment-block').style.display = 'none';
       document.getElementById('installment-row').style.display = 'none';
       document.getElementById('payment-received-row').style.display = 'none';
