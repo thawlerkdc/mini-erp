@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260428pdv1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260428pdv2') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -122,7 +122,7 @@
           <div class="sales-panel sales-summary-card">
             <div class="sales-payment-header">
               <h4>Forma de Pagamento</h4>
-              <div class="sales-payment-mode" id="sales-payment-mode">
+              <div class="sales-payment-mode" id="sales-payment-mode" data-mode="single">
                 <button type="button" id="payment-mode-main" class="sales-payment-mode-btn" onclick="setPaymentMode(false)">Único</button>
                 <button type="button" id="payment-mode-split" class="sales-payment-mode-btn" onclick="setPaymentMode(true)">Dividido</button>
               </div>
@@ -637,9 +637,11 @@
     function syncPaymentModeButtons() {
       let mainBtn = document.getElementById('payment-mode-main');
       let splitBtn = document.getElementById('payment-mode-split');
+      let modeContainer = document.getElementById('sales-payment-mode');
       if (!mainBtn || !splitBtn) return;
       mainBtn.classList.toggle('active', !SPLIT_PAYMENT_EXPANDED);
       splitBtn.classList.toggle('active', SPLIT_PAYMENT_EXPANDED);
+      if (modeContainer) modeContainer.dataset.mode = SPLIT_PAYMENT_EXPANDED ? 'split' : 'single';
       if (!PAYMENT_UI_SETTINGS.allow_multi) {
         splitBtn.disabled = true;
         splitBtn.classList.add('disabled');
