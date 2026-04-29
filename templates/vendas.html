@@ -15,7 +15,10 @@
                 <h3>Itens da venda</h3>
                 <p>Adicione os produtos e ajuste as quantidades rapidamente.</p>
               </div>
-              <a class="outline-button sales-admin-link" href="{{ url_for('fechar_caixa') }}">&#9881; {{ t('close_cash') }}</a>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <button type="button" class="outline-button sales-admin-link" id="sales-shortcuts-btn" onclick="openShortcutsModal()">&#9875; Atalhos</button>
+                <a class="outline-button sales-admin-link" href="{{ url_for('fechar_caixa') }}">&#9881; {{ t('close_cash') }}</a>
+              </div>
             </div>
 
             <div class="sales-items-toolbar">
@@ -37,7 +40,6 @@
                   </select>
                 </div>
               </div>
-              <button type="button" class="outline-button sales-shortcuts-btn" id="sales-shortcuts-btn" onclick="openShortcutsModal()">Atalhos</button>
               <button type="button" class="outline-button sales-toolbar-pdv" id="sales-sidebar-toggle">Modo PDV</button>
             </div>
             <p class="sales-shortcut-hint">Atalhos: Enter adiciona produto, F2 foca busca, Del remove item, Ctrl+1..4 troca pagamento, Ctrl+Shift+D alterna Único/Dividido.</p>
