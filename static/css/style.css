@@ -1400,8 +1400,9 @@ body.theme-dark .flash.info {
 
 .app-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 64px 1fr;
   min-height: 100vh;
+  transition: grid-template-columns 0.25s ease;
 }
 
 .sidebar {
@@ -1415,6 +1416,10 @@ body.theme-dark .flash.info {
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 64px;
+  transition: width 0.25s ease, box-shadow 0.25s ease;
+  z-index: 200;
 }
 
 .sidebar-brand {
@@ -5117,4 +5122,325 @@ body.theme-dark .btn-download-template {
 body.theme-dark .btn-download-template:hover {
   background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
   color: #ffffff !important;
+}
+
+
+/* ================================================================
+   SIDEBAR — SISTEMA DE COLAPSO / EXPANSÃO / PIN
+   ================================================================
+
+   Classes de estado no <aside class="sidebar">:
+     .is-expanded   — sidebar visualmente expandida (hover OU pinned)
+     .is-pinned     — sidebar fixada (ocupa espaço no layout)
+     .mobile-open   — sidebar aberta no modo mobile
+
+   Classe no .app-layout:
+     .sidebar-is-pinned — expande a coluna do grid para 260px
+   ================================================================ */
+
+/* ---- 1. LAYOUT: expansão no grid quando fixada ---- */
+
+.app-layout.sidebar-is-pinned {
+  grid-template-columns: 260px 1fr;
+}
+
+/* ---- 2. SIDEBAR: largura e posição por estado ---- */
+
+/* Hover (não fixada): sidebar sobrepõe conteúdo sem deslocar layout */
+.sidebar.is-expanded:not(.is-pinned) {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 260px;
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.35);
+}
+
+/* Fixada: sidebar ocupa espaço no grid normalmente */
+.sidebar.is-pinned {
+  position: sticky;
+  width: 260px;
+  box-shadow: none;
+}
+
+/* ---- 3. COLAPSADO: esconde elementos de texto ---- */
+
+/* Centraliza os ícones dos headers de seção */
+.sidebar:not(.is-expanded):not(.mobile-open) .menu-section-header {
+  justify-content: center;
+  padding: 10px;
+  gap: 0;
+}
+
+/* Oculta textos e elementos desnecessários quando colapsado */
+.sidebar:not(.is-expanded):not(.mobile-open) .section-title,
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-search-block,
+.sidebar:not(.is-expanded):not(.mobile-open) .menu-group,
+.sidebar:not(.is-expanded):not(.mobile-open) .menu-empty-hint,
+.sidebar:not(.is-expanded):not(.mobile-open) .menu-fav-toggle,
+.sidebar:not(.is-expanded):not(.mobile-open) .brand-subtitle,
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-brand .brand-name {
+  display: none;
+}
+
+/* Brand compacto: mostra só o ícone de brand quando colapsado */
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-brand {
+  justify-content: center;
+  padding: 8px;
+  gap: 0;
+}
+
+/* Ícone compacto do brand (mostrado somente quando colapsado) */
+.sidebar-brand-icon {
+  display: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #fff;
+  flex-shrink: 0;
+  letter-spacing: -0.05em;
+  user-select: none;
+}
+
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-brand-icon {
+  display: flex;
+}
+
+/* Ajusta seções para não quebrarem quando colapsadas */
+.sidebar:not(.is-expanded):not(.mobile-open) #sidebar-sections {
+  gap: 4px;
+}
+
+/* Oculta o botão pin quando colapsado (só aparece quando expandido) */
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-pin-btn {
+  display: none;
+}
+
+/* ---- 4. EXPANDIDO: revela textos e seções inline ---- */
+
+/* Seções abertas inline (accordion) quando expandido */
+.sidebar.is-expanded .menu-section.is-inline-open .menu-section-body,
+.sidebar.mobile-open .menu-section.is-inline-open .menu-section-body {
+  display: flex !important;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0 4px 12px;
+}
+
+/* Indicador visual de seção inline aberta */
+.menu-section.is-inline-open > .menu-section-header {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Seta/indicador no header de seção quando expandido */
+.sidebar.is-expanded .menu-section-header .section-icon,
+.sidebar.mobile-open .menu-section-header .section-icon {
+  transition: transform 0.2s ease;
+}
+
+.sidebar.is-expanded .menu-section.is-inline-open .menu-section-header .section-icon,
+.sidebar.mobile-open .menu-section.is-inline-open .menu-section-header .section-icon {
+  transform: rotate(10deg);
+}
+
+/* ---- 5. BOTÃO PIN ---- */
+
+.sidebar-pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  padding: 5px 8px;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.sidebar-pin-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.sidebar-pin-btn.is-active {
+  background: rgba(49, 95, 184, 0.55);
+  color: #fff;
+  border-color: rgba(100, 142, 215, 0.65);
+}
+
+.sidebar-pin-btn:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+/* ---- 6. TOOLTIPS para items do menu colapsado ---- */
+
+/* Os tooltips usam data-tooltip no .menu-section-header.
+   Posicionados via JS porque overflow:hidden na sidebar os cortaria.
+   Usamos a classe .sidebar-tooltip injetada dinamicamente. */
+
+.sidebar-tooltip {
+  position: fixed;
+  left: 72px;
+  background: #1e2d4d;
+  color: #e9efff;
+  padding: 5px 11px;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.sidebar-tooltip.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ---- 7. BOTÃO HAMBÚRGUER (mobile) ---- */
+
+#sidebar-hamburger-btn {
+  display: none;   /* visível apenas em mobile via media query */
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 7px;
+  border-radius: 8px;
+  font-size: 1.25rem;
+  line-height: 1;
+  margin-right: 2px;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+#sidebar-hamburger-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+#sidebar-hamburger-btn:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+/* ---- 8. OVERLAY MOBILE ---- */
+
+#sidebar-mobile-overlay {
+  display: none;   /* visível apenas em mobile via media query */
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.52);
+  z-index: 499;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+#sidebar-mobile-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+body.sidebar-mobile-open {
+  overflow: hidden;
+}
+
+/* ---- 9. RESPONSIVIDADE MOBILE ---- */
+
+@media (max-width: 768px) {
+  /* Grid sem coluna de sidebar — sidebar é fixed */
+  .app-layout,
+  .app-layout.sidebar-is-pinned {
+    grid-template-columns: 1fr;
+  }
+
+  /* Hambúrguer visível */
+  #sidebar-hamburger-btn {
+    display: flex;
+  }
+
+  /* Overlay visível */
+  #sidebar-mobile-overlay {
+    display: block;
+  }
+
+  /* Sidebar: fora da tela por padrão */
+  .sidebar,
+  .sidebar.is-expanded,
+  .sidebar.is-pinned,
+  .sidebar.is-expanded:not(.is-pinned) {
+    position: fixed !important;
+    left: -268px;
+    top: 0;
+    width: 260px !important;
+    height: 100vh;
+    box-shadow: none;
+    z-index: 500;
+    transition: left 0.25s ease !important;
+  }
+
+  /* Mobile aberta: desliza para dentro */
+  .sidebar.mobile-open {
+    left: 0 !important;
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  /* Quando mobile aberta: mostra todos os textos (ignora regras de colapso) */
+  .sidebar.mobile-open .section-title,
+  .sidebar.mobile-open .sidebar-search-block,
+  .sidebar.mobile-open .menu-group,
+  .sidebar.mobile-open .menu-empty-hint,
+  .sidebar.mobile-open .menu-fav-toggle,
+  .sidebar.mobile-open .brand-subtitle,
+  .sidebar.mobile-open .sidebar-brand .brand-name,
+  .sidebar.mobile-open .sidebar-pin-btn {
+    display: revert;
+  }
+
+  .sidebar.mobile-open .sidebar-brand-icon {
+    display: none;
+  }
+
+  .sidebar.mobile-open .menu-section-header {
+    justify-content: flex-start;
+    padding: 8px 12px;
+    gap: 10px;
+  }
+
+  .sidebar.mobile-open .sidebar-brand {
+    justify-content: flex-start;
+    padding: 8px 10px;
+    gap: 10px;
+  }
+}
+
+/* ---- 10. ACESSIBILIDADE: foco visível ---- */
+
+.sidebar .menu-section-header:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+/* Garante que o foco siga o scroll da sidebar */
+.sidebar:focus-within {
+  scroll-behavior: smooth;
 }

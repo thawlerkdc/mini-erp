@@ -30,10 +30,23 @@
   <body>
     {% if session.get('user') %}
       <div class="app-layout">
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
           <div class="sidebar-brand">
+            <!-- Ícone compacto: visível somente quando colapsado -->
+            <span class="sidebar-brand-icon" aria-hidden="true">
+              {{ (global_settings.get('brand_name', 'K') or 'K')[0]|upper }}
+            </span>
             <span class="brand-name">{{ global_settings.get('brand_name', 'Kdc Systems') }}</span>
             <span class="brand-subtitle">{{ global_settings.get('brand_subtitle', 'ERP') }}</span>
+            <!-- Botão de fixar/desafixar sidebar -->
+            <button
+              class="sidebar-pin-btn"
+              id="sidebar-pin-btn"
+              type="button"
+              aria-label="Fixar menu lateral"
+              aria-pressed="false"
+              title="Fixar menu"
+            >&#128204;</button>
           </div>
 
           <div class="sidebar-search-block">
@@ -60,7 +73,7 @@
 
             <!-- VISÃO GERAL -->
             <div class="menu-section" data-section="visao-geral">
-              <button class="menu-section-header" type="button" aria-haspopup="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Visão Geral">
                 <span class="section-icon" aria-hidden="true">&#129517;</span>
                 <span class="section-title">Visão Geral</span>
               </button>
@@ -71,7 +84,7 @@
 
             <!-- VENDAS -->
             <div class="menu-section" data-section="vendas">
-              <button class="menu-section-header" type="button" aria-haspopup="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Vendas">
                 <span class="section-icon" aria-hidden="true">&#9889;</span>
                 <span class="section-title">Vendas</span>
               </button>
@@ -83,7 +96,7 @@
 
             <!-- ESTOQUE -->
             <div class="menu-section" data-section="estoque">
-              <button class="menu-section-header" type="button" aria-haspopup="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Estoque">
                 <span class="section-icon" aria-hidden="true">&#128230;</span>
                 <span class="section-title">Estoque</span>
               </button>
@@ -98,7 +111,7 @@
 
             <!-- FINANCEIRO -->
             <div class="menu-section" data-section="financeiro">
-              <button class="menu-section-header" type="button" aria-haspopup="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Financeiro">
                 <span class="section-icon" aria-hidden="true">&#128176;</span>
                 <span class="section-title">Financeiro</span>
               </button>
@@ -113,7 +126,7 @@
 
             <!-- RELATÓRIOS -->
             <div class="menu-section" data-section="relatorios">
-              <button class="menu-section-header" type="button" aria-haspopup="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Relatórios">
                 <span class="section-icon" aria-hidden="true">&#128202;</span>
                 <span class="section-title">Relatórios</span>
               </button>
@@ -125,7 +138,7 @@
             <!-- GESTÃO DE CONTAS -->
             {% if can_manage_saas or is_system_admin %}
             <div class="menu-section" data-section="gestao_contas">
-              <button class="menu-section-header" type="button" aria-haspopup="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Gestão de Contas">
                 <span class="section-icon" aria-hidden="true">&#128188;</span>
                 <span class="section-title">Gestão de Contas</span>
               </button>
@@ -138,7 +151,7 @@
 
             <!-- CONFIGURAÇÕES -->
             <div class="menu-section" data-section="configuracoes">
-              <button class="menu-section-header" type="button" aria-haspopup="true">
+              <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Configurações">
                 <span class="section-icon" aria-hidden="true">&#9881;</span>
                 <span class="section-title">Configurações</span>
               </button>
@@ -161,6 +174,15 @@
         <div class="app-main-shell">
           <header class="app-topbar">
             <div class="topbar-left">
+              <!-- Botão hambúrguer: visível somente em mobile -->
+              <button
+                id="sidebar-hamburger-btn"
+                type="button"
+                aria-label="Abrir menu lateral"
+                aria-expanded="false"
+                aria-controls="sidebar"
+                title="Menu"
+              >&#9776;</button>
               <h1>{{ title }}</h1>
               <span class="account-badge">{% if session.get('role') == 'owner' %}<span class="badge-role-icon" title="Conta principal">&#128081;</span>{% else %}<span class="badge-role-icon" title="Conta dependente">&#128100;</span>{% endif %} {{ session.get('account_name') }}</span>
             </div>
@@ -628,13 +650,19 @@
             if (!header) return;
 
             section.addEventListener('mouseenter', function () {
+              /* Quando sidebar está expandida, não usa flyout */
+              if (window.sidebarIsExpanded) return;
               openFlyout(section);
             });
             section.addEventListener('mouseleave', function () {
+              if (window.sidebarIsExpanded) return;
               scheduleClose();
             });
 
             header.addEventListener('click', function () {
+              /* Quando expandido, o accordion (sidebar.js) cuida do clique */
+              if (window.sidebarIsExpanded) return;
+
               var links = getSectionLinks(section);
               if (links.length === 1) {
                 window.location.href = links[0].href;
@@ -703,6 +731,42 @@
           document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') closeFlyout();
           });
+
+          /* ---- Tooltips para estado colapsado ---- */
+          (function bindCollapsedTooltips() {
+            var tooltip = document.createElement('div');
+            tooltip.className = 'sidebar-tooltip';
+            tooltip.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(tooltip);
+
+            var tooltipTimer = null;
+
+            sectionsWrap.querySelectorAll('.menu-section-header[data-tooltip]').forEach(function (header) {
+              header.addEventListener('mouseenter', function () {
+                /* Só mostra tooltip quando colapsado */
+                if (window.sidebarIsExpanded) return;
+                clearTimeout(tooltipTimer);
+                var text = header.getAttribute('data-tooltip') || '';
+                tooltip.textContent = text;
+                var rect = header.getBoundingClientRect();
+                var sidebarRect = sidebar.getBoundingClientRect();
+                tooltip.style.left = (sidebarRect.right + 8) + 'px';
+                tooltip.style.top = (rect.top + rect.height / 2 - 14) + 'px';
+                tooltip.classList.add('is-visible');
+              });
+
+              header.addEventListener('mouseleave', function () {
+                tooltipTimer = setTimeout(function () {
+                  tooltip.classList.remove('is-visible');
+                }, 100);
+              });
+            });
+
+            /* Fecha tooltip quando sidebar expande */
+            document.addEventListener('sidebar-pinned', function () {
+              tooltip.classList.remove('is-visible');
+            });
+          })();
         }
 
         function bindSidebarFeatureSearch() {
@@ -963,5 +1027,11 @@
         }
       })();
     </script>
+
+    <!-- Overlay mobile (fundo escuro quando sidebar aberta em mobile) -->
+    <div id="sidebar-mobile-overlay" aria-hidden="true"></div>
+
+    <!-- SidebarManager: colapso, hover, pin, mobile -->
+    <script src="{{ url_for('static', filename='js/sidebar.js', v='20260429a') }}"></script>
   </body>
 </html>
