@@ -71,6 +71,14 @@
     clearTimeout(collapseTimer);
   }
 
+  function syncBodySidebarState() {
+    if (!sidebar) return;
+    var expanded = sidebar.classList.contains('is-expanded') ||
+      sidebar.classList.contains('is-pinned') ||
+      sidebar.classList.contains('mobile-open');
+    document.body.classList.toggle('sidebar-expanded-state', expanded);
+  }
+
   function setMotionState(mode) {
     if (!sidebar) return;
     clearTimeout(motionTimer);
@@ -95,6 +103,7 @@
     setMotionState('open');
     sidebar.classList.add('is-expanded');
     sidebar.setAttribute('aria-expanded', 'true');
+    syncBodySidebarState();
     syncFlyoutAwareness();
     dispatch('expanded');
   }
@@ -105,6 +114,7 @@
     setMotionState('close');
     sidebar.classList.remove('is-expanded');
     sidebar.setAttribute('aria-expanded', 'false');
+    syncBodySidebarState();
     syncFlyoutAwareness();
     dispatch('collapsed');
   }
@@ -119,6 +129,7 @@
     sidebar.classList.add('is-pinned', 'is-expanded');
     sidebar.setAttribute('aria-expanded', 'true');
     appLayout.classList.add('sidebar-is-pinned');
+    syncBodySidebarState();
 
     /* Visual do botão pin */
     pinBtn.classList.add('is-active');
@@ -139,6 +150,7 @@
     sidebar.classList.remove('is-pinned', 'is-expanded');
     sidebar.setAttribute('aria-expanded', 'false');
     appLayout.classList.remove('sidebar-is-pinned');
+    syncBodySidebarState();
 
     pinBtn.classList.remove('is-active');
     pinBtn.setAttribute('aria-label', 'Fixar menu lateral');
@@ -160,6 +172,7 @@
     sidebar.classList.add('mobile-open');
     mobileOverlay.classList.add('is-visible');
     document.body.classList.add('sidebar-mobile-open');
+    syncBodySidebarState();
 
     if (hamburgerBtn) {
       hamburgerBtn.setAttribute('aria-expanded', 'true');
@@ -175,6 +188,7 @@
     sidebar.classList.remove('mobile-open');
     mobileOverlay.classList.remove('is-visible');
     document.body.classList.remove('sidebar-mobile-open');
+    syncBodySidebarState();
 
     if (hamburgerBtn) {
       hamburgerBtn.setAttribute('aria-expanded', 'false');
@@ -284,6 +298,7 @@
     sidebar.setAttribute('aria-expanded', 'false');
     sidebar.setAttribute('role', 'navigation');
     sidebar.setAttribute('aria-label', 'Menu lateral');
+    syncBodySidebarState();
 
     /* Restaura preferência do usuário */
     state.pinned = loadPinState();

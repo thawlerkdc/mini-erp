@@ -1668,6 +1668,14 @@ body.theme-dark .sidebar-search-empty {
   transform: translateX(0);
 }
 
+/* Estado global: nunca mostra flyout/tooltip quando sidebar esta expandida. */
+body.sidebar-expanded-state #sidebar-flyout,
+body.sidebar-expanded-state .sidebar-tooltip {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateX(-8px) !important;
+}
+
 .flyout-title {
   font-size: 0.7rem;
   text-transform: uppercase;
