@@ -19,6 +19,8 @@
   --------------------------------------------------------------- */
   var STORAGE_KEY      = 'mini_erp_sidebar_pinned';
   var BREAKPOINT_MOBILE = 768;  // px
+  var HOVER_OPEN_DELAY_MS = 160;
+  var HOVER_CLOSE_DELAY_MS = 90;
 
   /* ---------------------------------------------------------------
      REFERÊNCIAS DOM (preenchidas em init)
@@ -38,7 +40,9 @@
     mobileOpen : false   // menu mobile aberto
   };
 
+  var expandTimer = null;    // timer para expansão com hover-intent
   var collapseTimer = null;  // timer para colapsar após mouse leave
+  var motionTimer = null;    // limpa classes transitórias de animação
 
   /* ---------------------------------------------------------------
      UTILIDADES
@@ -62,6 +66,25 @@
     } catch (e) { /* silent */ }
   }
 
+  function clearHoverTimers() {
+    clearTimeout(expandTimer);
+    clearTimeout(collapseTimer);
+  }
+
+  function setMotionState(mode) {
+    if (!sidebar) return;
+    clearTimeout(motionTimer);
+    sidebar.classList.remove('is-opening', 'is-closing');
+    if (mode === 'open') {
+      sidebar.classList.add('is-opening');
+    } else if (mode === 'close') {
+      sidebar.classList.add('is-closing');
+    }
+    motionTimer = setTimeout(function () {
+      sidebar.classList.remove('is-opening', 'is-closing');
+    }, 340);
+  }
+
   /* ---------------------------------------------------------------
      CONTROLE DE ESTADO — DESKTOP
   --------------------------------------------------------------- */
@@ -69,21 +92,26 @@
   /** Expande a sidebar (hover ou pin). */
   function expand() {
     if (!sidebar) return;
+    setMotionState('open');
     sidebar.classList.add('is-expanded');
     sidebar.setAttribute('aria-expanded', 'true');
+    syncFlyoutAwareness();
   }
 
   /** Colapsa a sidebar (volta a somente ícones). */
   function collapse() {
     if (!sidebar || state.pinned) return;
+    setMotionState('close');
     sidebar.classList.remove('is-expanded');
     sidebar.setAttribute('aria-expanded', 'false');
+    syncFlyoutAwareness();
   }
 
   /** Fixa a sidebar expandida permanentemente. */
   function pin() {
     if (!sidebar || !pinBtn || !appLayout) return;
     state.pinned = true;
+    clearHoverTimers();
 
     /* Muda de overlay para posicionamento in-flow */
     sidebar.classList.add('is-pinned', 'is-expanded');
@@ -104,6 +132,7 @@
   function unpin() {
     if (!sidebar || !pinBtn || !appLayout) return;
     state.pinned = false;
+    clearHoverTimers();
 
     sidebar.classList.remove('is-pinned', 'is-expanded');
     sidebar.setAttribute('aria-expanded', 'false');
@@ -163,14 +192,22 @@
   function onMouseEnter() {
     if (isMobile() || state.pinned) return;
     clearTimeout(collapseTimer);
-    state.hovered = true;
-    expand();
+    clearTimeout(expandTimer);
+
+    // Hover-intent: evita abrir quando o mouse apenas raspa na lateral.
+    expandTimer = setTimeout(function () {
+      if (!sidebar || isMobile() || state.pinned) return;
+      if (!sidebar.matches(':hover')) return;
+      state.hovered = true;
+      expand();
+    }, HOVER_OPEN_DELAY_MS);
   }
 
   function onMouseLeave() {
     if (isMobile() || state.pinned) return;
+    clearTimeout(expandTimer);
     state.hovered = false;
-    collapseTimer = setTimeout(collapse, 220);
+    collapseTimer = setTimeout(collapse, HOVER_CLOSE_DELAY_MS);
   }
 
   /* ---------------------------------------------------------------
@@ -284,12 +321,9 @@
     /* ----- Hover desktop ----- */
     sidebar.addEventListener('mouseenter', function () {
       onMouseEnter();
-      syncFlyoutAwareness();
     });
     sidebar.addEventListener('mouseleave', function () {
       onMouseLeave();
-      /* Agenda sync após animação de colapso */
-      setTimeout(syncFlyoutAwareness, 260);
     });
 
     /* ----- Seções inline (accordion quando expandido) ----- */

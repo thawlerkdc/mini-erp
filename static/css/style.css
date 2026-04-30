@@ -1402,10 +1402,13 @@ body.theme-dark .flash.info {
   display: grid;
   grid-template-columns: 64px 1fr;
   min-height: 100vh;
-  transition: grid-template-columns 0.25s ease;
+  transition: grid-template-columns 240ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar {
+  --sidebar-open-duration: 280ms;
+  --sidebar-close-duration: 200ms;
+  --sidebar-easing: cubic-bezier(0.4, 0, 0.2, 1);
   background: linear-gradient(180deg, var(--sidebar-a), var(--sidebar-b));
   color: #f4f7ff;
   padding: 18px 12px;
@@ -1418,7 +1421,7 @@ body.theme-dark .flash.info {
   overflow-y: auto;
   overflow-x: hidden;
   width: 64px;
-  transition: width 0.25s ease, box-shadow 0.25s ease;
+  transition: width var(--sidebar-close-duration) var(--sidebar-easing), box-shadow var(--sidebar-close-duration) var(--sidebar-easing);
   z-index: 200;
 }
 
@@ -5160,6 +5163,15 @@ body.theme-dark .btn-download-template:hover {
   position: sticky;
   width: 260px;
   box-shadow: none;
+}
+
+/* Abre mais suave e fecha mais ágil para UX previsível */
+.sidebar.is-opening {
+  transition-duration: var(--sidebar-open-duration), var(--sidebar-open-duration);
+}
+
+.sidebar.is-closing {
+  transition-duration: var(--sidebar-close-duration), var(--sidebar-close-duration);
 }
 
 /* ---- 3. COLAPSADO: esconde elementos de texto ---- */
