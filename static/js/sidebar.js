@@ -96,6 +96,7 @@
     sidebar.classList.add('is-expanded');
     sidebar.setAttribute('aria-expanded', 'true');
     syncFlyoutAwareness();
+    dispatch('expanded');
   }
 
   /** Colapsa a sidebar (volta a somente ícones). */
@@ -105,6 +106,7 @@
     sidebar.classList.remove('is-expanded');
     sidebar.setAttribute('aria-expanded', 'false');
     syncFlyoutAwareness();
+    dispatch('collapsed');
   }
 
   /** Fixa a sidebar expandida permanentemente. */

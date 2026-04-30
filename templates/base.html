@@ -585,12 +585,23 @@
           var hideTimer = null;
           var openSection = null;
 
+          function isSidebarExpanded() {
+            return sidebar.classList.contains('is-expanded') ||
+                   sidebar.classList.contains('is-pinned') ||
+                   sidebar.classList.contains('mobile-open');
+          }
+
           function getSectionLinks(section) {
             var body = section.querySelector('.menu-section-body');
             return body ? Array.prototype.slice.call(body.querySelectorAll('.nav-link')) : [];
           }
 
           function openFlyout(section) {
+            // Nunca abre flyout quando a sidebar ja esta expandida.
+            if (isSidebarExpanded()) {
+              closeFlyout();
+              return;
+            }
             clearTimeout(hideTimer);
             if (openSection === section) return;
             closeFlyout();
@@ -651,17 +662,17 @@
 
             section.addEventListener('mouseenter', function () {
               /* Quando sidebar está expandida, não usa flyout */
-              if (window.sidebarIsExpanded) return;
+              if (isSidebarExpanded()) return;
               openFlyout(section);
             });
             section.addEventListener('mouseleave', function () {
-              if (window.sidebarIsExpanded) return;
+              if (isSidebarExpanded()) return;
               scheduleClose();
             });
 
             header.addEventListener('click', function () {
               /* Quando expandido, o accordion (sidebar.js) cuida do clique */
-              if (window.sidebarIsExpanded) return;
+              if (isSidebarExpanded()) return;
 
               var links = getSectionLinks(section);
               if (links.length === 1) {
@@ -732,6 +743,11 @@
             if (e.key === 'Escape') closeFlyout();
           });
 
+          // Garante exclusividade visual: quando sidebar expandir, fecha flyout.
+          document.addEventListener('sidebar-expanded', closeFlyout);
+          document.addEventListener('sidebar-pinned', closeFlyout);
+          document.addEventListener('sidebar-mobile-opened', closeFlyout);
+
           /* ---- Tooltips para estado colapsado ---- */
           (function bindCollapsedTooltips() {
             var tooltip = document.createElement('div');
@@ -744,7 +760,7 @@
             sectionsWrap.querySelectorAll('.menu-section-header[data-tooltip]').forEach(function (header) {
               header.addEventListener('mouseenter', function () {
                 /* Só mostra tooltip quando colapsado */
-                if (window.sidebarIsExpanded) return;
+                if (isSidebarExpanded()) return;
                 clearTimeout(tooltipTimer);
                 var text = header.getAttribute('data-tooltip') || '';
                 tooltip.textContent = text;
@@ -764,6 +780,12 @@
 
             /* Fecha tooltip quando sidebar expande */
             document.addEventListener('sidebar-pinned', function () {
+              tooltip.classList.remove('is-visible');
+            });
+            document.addEventListener('sidebar-expanded', function () {
+              tooltip.classList.remove('is-visible');
+            });
+            document.addEventListener('sidebar-mobile-opened', function () {
               tooltip.classList.remove('is-visible');
             });
           })();
