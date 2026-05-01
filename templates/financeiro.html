@@ -51,7 +51,7 @@
     <div class="kpi-card kpi-pagar">
       <div class="kpi-icon">💳</div>
       <div class="kpi-content">
-        <div class="kpi-label">A Pagar no Mês</div>
+        <div class="kpi-label">Contas a Pagar no Mês</div>
         <div class="kpi-value">R$ {{ "%.2f"|format(summary['payable']['pendente'])|replace('.', ',') }}</div>
       </div>
     </div>
@@ -146,7 +146,7 @@
   <!-- Seção de dois cards no rodapé -->
   <div class="finance-footer-grid">
     <div class="payment-status-card" id="a-receber" data-drill-section data-drill-key="a_receber">
-      <h3>A Receber</h3>
+      <h3>Contas a Receber</h3>
       <table class="compact-status-table">
         <tbody>
           <tr>
@@ -161,7 +161,7 @@
       </table>
     </div>
     <div class="payment-status-card" id="a-pagar" data-drill-section data-drill-key="a_pagar">
-      <h3>A Pagar</h3>
+      <h3>Contas a Pagar</h3>
       <table class="compact-status-table">
         <tbody>
           <tr>

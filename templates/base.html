@@ -23,7 +23,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux2') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux3') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
   </head>
@@ -70,6 +70,20 @@
               aria-label="Buscar funcionalidades do sistema"
             >
             <div id="sidebar-search-results" class="sidebar-search-results" hidden></div>
+          </div>
+
+          <div class="sidebar-favorites-preferences">
+            <span class="sidebar-favorites-pref-label">Fixar favoritos</span>
+            <label class="sidebar-switch" for="sidebar-favorites-pin-toggle" title="Fixar favoritos no topo">
+              <input id="sidebar-favorites-pin-toggle" type="checkbox" role="switch" aria-label="Fixar favoritos no topo do menu">
+              <span class="sidebar-switch-slider" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <div class="sidebar-favorites-fixed" id="sidebar-favorites-fixed" hidden>
+            <div class="sidebar-favorites-fixed-title">&#11088; Favoritos</div>
+            <nav class="sidebar-nav sidebar-nav-favorites sidebar-nav-favorites-fixed" id="sidebar-nav-favorites-fixed"></nav>
+            <div class="menu-empty-hint" id="sidebar-fav-fixed-empty">Sem favoritos fixados.</div>
           </div>
 
           <!-- FAVORITOS -->
@@ -128,8 +142,8 @@
               </button>
               <nav class="sidebar-nav menu-section-body" hidden>
                 {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#resumo-financeiro" data-menu-key="financeiro_resumo" class="nav-link {% if request.endpoint == 'financeiro' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128200;</span><span>Resumo financeiro</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
-                {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#a-receber" data-menu-key="financeiro_receber" class="nav-link"><span class="menu-icon" aria-hidden="true">&#128179;</span><span>A receber</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
-                {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#a-pagar" data-menu-key="financeiro_pagar" class="nav-link"><span class="menu-icon" aria-hidden="true">&#128181;</span><span>A pagar</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#a-receber" data-menu-key="financeiro_receber" class="nav-link"><span class="menu-icon" aria-hidden="true">&#128179;</span><span>Contas a Receber</span><span class="menu-fav-toggle" title="Adicionar aos favoritos" aria-label="Adicionar aos favoritos">&#9734;</span></a>{% endif %}
+                {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#a-pagar" data-menu-key="financeiro_pagar" class="nav-link"><span class="menu-icon" aria-hidden="true">&#128181;</span><span>Contas a Pagar</span><span class="menu-fav-toggle" title="Adicionar aos favoritos" aria-label="Adicionar aos favoritos">&#9734;</span></a>{% endif %}
                 {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#lancamentos-financeiros" data-menu-key="financeiro_lancamentos" class="nav-link"><span class="menu-icon" aria-hidden="true">&#128221;</span><span>Lançamentos</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
                 {% if can_access('financeiro') %}<a href="{{ url_for('financeiro') }}#categoria-financeira" data-menu-key="financeiro_categorias" class="nav-link"><span class="menu-icon" aria-hidden="true">&#127991;</span><span>Categorias Financeiras</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
               </nav>
@@ -436,6 +450,7 @@
           var favoritesNav = document.getElementById('sidebar-nav-favorites');
           var favoritesEmpty = document.getElementById('sidebar-fav-empty');
           if (!nav) return;
+          var MAX_FAVORITES = 8;
 
           var account = '{{ session.get("account_id") or "global" }}';
           var user = '{{ session.get("user") or "anon" }}';
@@ -463,6 +478,8 @@
               link.classList.toggle('is-favorite', fav);
               if (star) {
                 star.textContent = fav ? '★' : '☆';
+                star.setAttribute('title', fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
+                star.setAttribute('aria-label', fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
               }
             });
 
@@ -475,11 +492,20 @@
                 link.classList.toggle('is-favorite', fav);
                 if (star) {
                   star.textContent = fav ? '★' : '☆';
+                  star.setAttribute('title', fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
+                  star.setAttribute('aria-label', fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
                 }
               });
             }
 
             rebuildFavoritesSection(favorites);
+            document.dispatchEvent(new CustomEvent('menu-favorites-rendered', {
+              detail: {
+                favorites: favorites,
+                count: favorites.length,
+                max: MAX_FAVORITES
+              }
+            }));
           }
 
           function rebuildFavoritesSection(favorites) {
@@ -522,9 +548,17 @@
             var key = link.getAttribute('data-menu-key');
             var favorites = loadFavorites();
             var index = favorites.indexOf(key);
+            if (star) {
+              star.classList.remove('is-burst');
+              star.offsetWidth;
+              star.classList.add('is-burst');
+            }
             if (index >= 0) {
               favorites.splice(index, 1);
             } else {
+              if (favorites.length >= MAX_FAVORITES) {
+                favorites.shift();
+              }
               favorites.push(key);
             }
             saveFavorites(favorites);
@@ -535,6 +569,73 @@
           document.addEventListener('click', handleFavoriteToggle);
 
           applyFavoriteStyles();
+        }
+
+        function bindSidebarFavoritesPinnedToggle() {
+          var sourceNav = document.getElementById('sidebar-nav-favorites');
+          var fixedWrap = document.getElementById('sidebar-favorites-fixed');
+          var fixedNav = document.getElementById('sidebar-nav-favorites-fixed');
+          var fixedEmpty = document.getElementById('sidebar-fav-fixed-empty');
+          var toggle = document.getElementById('sidebar-favorites-pin-toggle');
+          if (!sourceNav || !fixedWrap || !fixedNav || !toggle) return;
+
+          var account = '{{ session.get("account_id") or "global" }}';
+          var user = '{{ session.get("user") or "anon" }}';
+          var storageKey = 'menu_favorites_pinned_' + account + '_' + user;
+
+          function loadPinnedPreference() {
+            try {
+              var raw = localStorage.getItem(storageKey);
+              return raw === null ? true : raw === 'true';
+            } catch (e) {
+              return true;
+            }
+          }
+
+          function savePinnedPreference(value) {
+            try {
+              localStorage.setItem(storageKey, value ? 'true' : 'false');
+            } catch (e) {
+              return;
+            }
+          }
+
+          function renderFixedFavorites() {
+            var pinned = document.body.classList.contains('sidebar-favorites-pinned');
+            if (!pinned) {
+              fixedWrap.hidden = true;
+              return;
+            }
+
+            var hasFavorites = sourceNav.children.length > 0;
+            fixedNav.innerHTML = sourceNav.innerHTML;
+            fixedWrap.hidden = false;
+            if (fixedEmpty) {
+              fixedEmpty.style.display = hasFavorites ? 'none' : '';
+            }
+          }
+
+          function applyPinnedPreference(pinned) {
+            document.body.classList.toggle('sidebar-favorites-pinned', !!pinned);
+            toggle.checked = !!pinned;
+            toggle.setAttribute('aria-checked', pinned ? 'true' : 'false');
+            renderFixedFavorites();
+            document.dispatchEvent(new CustomEvent('sidebar-favorites-pin-changed', {
+              detail: { pinned: !!pinned }
+            }));
+          }
+
+          toggle.addEventListener('change', function () {
+            var pinned = !!toggle.checked;
+            savePinnedPreference(pinned);
+            applyPinnedPreference(pinned);
+          });
+
+          document.addEventListener('menu-favorites-changed', renderFixedFavorites);
+          document.addEventListener('menu-favorites-rendered', renderFixedFavorites);
+          window.addEventListener('resize', renderFixedFavorites);
+
+          applyPinnedPreference(loadPinnedPreference());
         }
 
         function bindSidebarFavoritesPanel() {
@@ -585,6 +686,7 @@
 
           function openPanel() {
             if (!isDesktop()) return;
+            if (document.body.classList.contains('sidebar-favorites-pinned')) return;
             renderPanelContent();
             positionPanel();
             panel.classList.add('is-visible');
@@ -644,6 +746,7 @@
           document.addEventListener('sidebar-flyout-opened', closePanel);
           document.addEventListener('sidebar-expanded', closePanel);
           document.addEventListener('sidebar-mobile-opened', closePanel);
+          document.addEventListener('sidebar-favorites-pin-changed', closePanel);
 
           window.addEventListener('resize', function () {
             if (!panel.classList.contains('is-visible')) return;
@@ -1173,6 +1276,7 @@
           document.addEventListener('DOMContentLoaded', function () {
             bindLanguageDropdownAutoDirection();
             bindMenuFavorites();
+            bindSidebarFavoritesPinnedToggle();
             bindSidebarFavoritesPanel();
             bindFlyoutMenu();
             bindUserMenuDropdown();
@@ -1182,6 +1286,7 @@
         } else {
           bindLanguageDropdownAutoDirection();
           bindMenuFavorites();
+          bindSidebarFavoritesPinnedToggle();
           bindSidebarFavoritesPanel();
           bindFlyoutMenu();
           bindUserMenuDropdown();
