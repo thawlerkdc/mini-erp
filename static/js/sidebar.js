@@ -206,13 +206,23 @@
 
   function onMouseEnter() {
     if (isMobile() || state.pinned) return;
-    clearHoverTimers();
+    clearTimeout(collapseTimer);
+    clearTimeout(expandTimer);
+
+    // Hover-intent: evita abrir quando o mouse apenas raspa na lateral.
+    expandTimer = setTimeout(function () {
+      if (!sidebar || isMobile() || state.pinned) return;
+      if (!sidebar.matches(':hover')) return;
+      state.hovered = true;
+      expand();
+    }, HOVER_OPEN_DELAY_MS);
   }
 
   function onMouseLeave() {
     if (isMobile() || state.pinned) return;
-    clearHoverTimers();
+    clearTimeout(expandTimer);
     state.hovered = false;
+    collapseTimer = setTimeout(collapse, HOVER_CLOSE_DELAY_MS);
   }
 
   /* ---------------------------------------------------------------

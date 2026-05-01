@@ -5448,10 +5448,6 @@ body.theme-dark .btn-download-template:hover {
   border-color: rgba(253, 186, 116, 0.7);
 }
 
-body.sidebar-favorites-pinned .sidebar-favorites-btn {
-  display: none;
-}
-
 #sidebar-favorites-panel {
   position: fixed;
   z-index: 9998;
