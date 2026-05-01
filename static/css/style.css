@@ -5479,9 +5479,12 @@ body.theme-dark .btn-download-template:hover {
   gap: 4px;
 }
 
-/* Oculta o botão pin quando colapsado (só aparece quando expandido) */
+/* Mantém o botão pin visível no modo colapsado para descoberta da função */
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-pin-btn {
-  display: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
 }
 
 .sidebar-actions {
@@ -5493,6 +5496,7 @@ body.theme-dark .btn-download-template:hover {
 
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-actions {
   margin-left: 0;
+  display: flex;
 }
 
 /* ---- 4. EXPANDIDO: revela textos e seções inline ---- */
