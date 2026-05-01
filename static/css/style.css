@@ -1437,6 +1437,7 @@ body.theme-dark .flash.info {
 
 .sidebar-search-block {
   position: relative;
+  order: 2;
 }
 
 .sidebar-search-label {
@@ -1585,6 +1586,7 @@ body.theme-dark .sidebar-search-empty {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  order: 4;
 }
 
 .sidebar-favorites-pref-label {
@@ -1657,6 +1659,7 @@ body.theme-dark .sidebar-search-empty {
   border-radius: 10px;
   border: 1px dashed rgba(251, 191, 36, 0.42);
   background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(255, 255, 255, 0.04));
+  order: 5;
 }
 
 .sidebar-favorites-fixed-title {
@@ -1673,6 +1676,38 @@ body.theme-dark .sidebar-search-empty {
 .sidebar-nav-favorites-fixed .nav-link {
   font-size: 0.9rem;
   min-height: 34px;
+}
+
+.sidebar-recent {
+  margin-top: 2px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(191, 219, 254, 0.24);
+  background: linear-gradient(135deg, rgba(191, 219, 254, 0.08), rgba(255, 255, 255, 0.03));
+  order: 6;
+}
+
+.sidebar-recent-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #c7d7f3;
+  font-weight: 700;
+  padding: 2px 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 6px;
+}
+
+.sidebar-nav-recent .nav-link {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #dbe7ff;
+}
+
+.sidebar-nav-recent .nav-link:hover {
+  background: rgba(191, 219, 254, 0.12);
+  border-color: rgba(191, 219, 254, 0.26);
 }
 
 .sidebar-nav-favorites {
@@ -1694,6 +1729,7 @@ body.theme-dark .sidebar-search-empty {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  order: 3;
 }
 
 .menu-section {
@@ -5314,6 +5350,7 @@ body.theme-dark .btn-download-template:hover {
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-search-block,
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-favorites-preferences,
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-favorites-fixed,
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-recent,
 .sidebar:not(.is-expanded):not(.mobile-open) .menu-group,
 .sidebar:not(.is-expanded):not(.mobile-open) .menu-empty-hint,
 .sidebar:not(.is-expanded):not(.mobile-open) .menu-fav-toggle,
@@ -5658,6 +5695,7 @@ body.sidebar-mobile-open #sidebar-favorites-panel {
   .sidebar.mobile-open .sidebar-search-block,
   .sidebar.mobile-open .sidebar-favorites-preferences,
   .sidebar.mobile-open .sidebar-favorites-fixed,
+  .sidebar.mobile-open .sidebar-recent,
   .sidebar.mobile-open .menu-group,
   .sidebar.mobile-open .menu-empty-hint,
   .sidebar.mobile-open .menu-fav-toggle,

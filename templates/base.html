@@ -23,7 +23,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux3') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux4') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
   </head>
@@ -84,6 +84,12 @@
             <div class="sidebar-favorites-fixed-title">&#11088; Favoritos</div>
             <nav class="sidebar-nav sidebar-nav-favorites sidebar-nav-favorites-fixed" id="sidebar-nav-favorites-fixed"></nav>
             <div class="menu-empty-hint" id="sidebar-fav-fixed-empty">Sem favoritos fixados.</div>
+          </div>
+
+          <div class="sidebar-recent" id="sidebar-recent">
+            <div class="sidebar-recent-title">&#128339; Recentes</div>
+            <nav class="sidebar-nav sidebar-nav-recent" id="sidebar-nav-recent"></nav>
+            <div class="menu-empty-hint" id="sidebar-recent-empty">Sem páginas recentes.</div>
           </div>
 
           <!-- FAVORITOS -->
@@ -636,6 +642,113 @@
           window.addEventListener('resize', renderFixedFavorites);
 
           applyPinnedPreference(loadPinnedPreference());
+        }
+
+        function bindSidebarRecentItems() {
+          var sectionsWrap = document.getElementById('sidebar-sections');
+          var recentWrap = document.getElementById('sidebar-recent');
+          var recentNav = document.getElementById('sidebar-nav-recent');
+          var recentEmpty = document.getElementById('sidebar-recent-empty');
+          if (!sectionsWrap || !recentWrap || !recentNav) return;
+
+          var account = '{{ session.get("account_id") or "global" }}';
+          var user = '{{ session.get("user") or "anon" }}';
+          var favoritesStorageKey = 'menu_favorites_' + account + '_' + user;
+          var storageKey = 'menu_recent_' + account + '_' + user;
+          var MAX_RECENT = 8;
+
+          function buildCatalog() {
+            var map = {};
+            sectionsWrap.querySelectorAll('.menu-section-body .nav-link[data-menu-key]').forEach(function (link) {
+              var key = link.getAttribute('data-menu-key');
+              if (!key || map[key]) return;
+              map[key] = link;
+            });
+            return map;
+          }
+
+          function loadRecent() {
+            try {
+              var parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+              return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+              return [];
+            }
+          }
+
+          function saveRecent(list) {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(list));
+            } catch (e) {
+              return;
+            }
+          }
+
+          function loadFavorites() {
+            try {
+              var parsed = JSON.parse(localStorage.getItem(favoritesStorageKey) || '[]');
+              return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+              return [];
+            }
+          }
+
+          function renderRecent() {
+            var catalog = buildCatalog();
+            var favoritesSet = {};
+            loadFavorites().forEach(function (key) {
+              favoritesSet[key] = true;
+            });
+
+            var list = loadRecent().filter(function (key) {
+              return !!catalog[key] && !favoritesSet[key];
+            }).slice(0, MAX_RECENT);
+
+            recentNav.innerHTML = '';
+            list.forEach(function (key) {
+              var source = catalog[key];
+              var clone = source.cloneNode(true);
+              var star = clone.querySelector('.menu-fav-toggle');
+              if (star) star.remove();
+              clone.classList.add('is-recent-link');
+              recentNav.appendChild(clone);
+            });
+
+            if (recentEmpty) {
+              recentEmpty.style.display = list.length ? 'none' : '';
+            }
+            recentWrap.hidden = false;
+          }
+
+          function addRecentByKey(key) {
+            if (!key) return;
+            var list = loadRecent().filter(function (item) { return item !== key; });
+            list.unshift(key);
+            if (list.length > MAX_RECENT) {
+              list = list.slice(0, MAX_RECENT);
+            }
+            saveRecent(list);
+            renderRecent();
+          }
+
+          function addCurrentActiveLink() {
+            var activeLink = sectionsWrap.querySelector('.menu-section-body .nav-link.active[data-menu-key]');
+            if (!activeLink) return;
+            addRecentByKey(activeLink.getAttribute('data-menu-key'));
+          }
+
+          document.addEventListener('click', function (event) {
+            var link = event.target.closest('.nav-link[data-menu-key]');
+            if (!link) return;
+            addRecentByKey(link.getAttribute('data-menu-key'));
+          });
+
+          document.addEventListener('menu-favorites-changed', renderRecent);
+          document.addEventListener('menu-favorites-rendered', renderRecent);
+          window.addEventListener('hashchange', addCurrentActiveLink);
+
+          addCurrentActiveLink();
+          renderRecent();
         }
 
         function bindSidebarFavoritesPanel() {
@@ -1277,6 +1390,7 @@
             bindLanguageDropdownAutoDirection();
             bindMenuFavorites();
             bindSidebarFavoritesPinnedToggle();
+            bindSidebarRecentItems();
             bindSidebarFavoritesPanel();
             bindFlyoutMenu();
             bindUserMenuDropdown();
@@ -1287,6 +1401,7 @@
           bindLanguageDropdownAutoDirection();
           bindMenuFavorites();
           bindSidebarFavoritesPinnedToggle();
+          bindSidebarRecentItems();
           bindSidebarFavoritesPanel();
           bindFlyoutMenu();
           bindUserMenuDropdown();
