@@ -23,7 +23,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260501ux9') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260501ux10') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
   </head>
@@ -1222,10 +1222,13 @@
               '#categoria-financeira': 'financeiro_categorias'
             };
 
-            var targetKey = keyByHash[hash] || 'financeiro_resumo';
-            var activeLink = financeSection.querySelector('.menu-section-body .nav-link[data-menu-key="' + targetKey + '"]');
-            if (activeLink) {
-              activeLink.classList.add('active');
+            var isOnFinanceiro = {{ 'true' if request.endpoint == 'financeiro' else 'false' }};
+            var targetKey = keyByHash[hash] || (isOnFinanceiro ? 'financeiro_resumo' : null);
+            if (targetKey) {
+              var activeLink = financeSection.querySelector('.menu-section-body .nav-link[data-menu-key="' + targetKey + '"]');
+              if (activeLink) {
+                activeLink.classList.add('active');
+              }
             }
 
             sectionsWrap.querySelectorAll('.menu-section').forEach(function (section) {
