@@ -1399,10 +1399,8 @@ body.theme-dark .flash.info {
 }
 
 .app-layout {
-  display: grid;
-  grid-template-columns: 64px 1fr;
+  display: block;
   min-height: 100vh;
-  transition: grid-template-columns 240ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar {
@@ -1415,14 +1413,15 @@ body.theme-dark .flash.info {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  position: sticky;
+  position: fixed;
+  left: 0;
   top: 0;
   height: 100vh;
   overflow-y: auto;
   overflow-x: hidden;
   width: 64px;
   transition: width var(--sidebar-close-duration) var(--sidebar-easing), box-shadow var(--sidebar-close-duration) var(--sidebar-easing);
-  z-index: 200;
+  z-index: 420;
 }
 
 .sidebar-brand {
@@ -1653,34 +1652,70 @@ body.theme-dark .sidebar-search-empty {
 }
 
 .sidebar-favorites-fixed {
-  margin-top: -2px;
-  margin-bottom: 8px;
-  padding: 8px;
-  border-radius: 10px;
-  border: 1px dashed rgba(251, 191, 36, 0.42);
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(255, 255, 255, 0.04));
-  order: 5;
+  display: none !important; /* replaced by sidebar-smart-nav */
 }
 
-.sidebar-favorites-fixed-title {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #ffe7a2;
-  font-weight: 700;
-  padding: 2px 4px 8px;
+/* ---- SIDEBAR SMART NAV — Favoritos & Recentes ---- */
+.sidebar-smart-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  order: 4;
+}
+
+.sidebar-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
   margin-bottom: 6px;
 }
 
-.sidebar-nav-favorites-fixed .nav-link {
-  font-size: 0.9rem;
-  min-height: 34px;
+.sidebar-block-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
+.sidebar-block-title {
+  flex: 1;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: #c9d7ff;
+}
+
+/* Seção de Favoritos */
+.sidebar-smart-header {
+  padding: 6px 4px 8px;
+  border-bottom: 1px solid rgba(251, 191, 36, 0.28);
+  margin-bottom: 4px;
+}
+
+.sidebar-smart-header .sidebar-block-icon { color: #fcd34d; }
+.sidebar-smart-header .sidebar-block-title { color: #ffe7a2; }
+
+.sidebar-fav-label { flex-shrink: 0; }
+
+.sidebar-fav-block {
+  padding: 0 4px 6px;
+  border-radius: 10px;
+}
+
+.sidebar-fav-block .sidebar-nav-favorites {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px dashed rgba(251, 191, 36, 0.4);
+  border-radius: 10px;
+  padding: 6px;
+}
+
+/* Seção de Recentes */
 .sidebar-recent {
-  margin-top: 2px;
-  margin-bottom: 8px;
+  margin-top: 0;
+  margin-bottom: 0;
   padding: 8px;
   border-radius: 10px;
   border: 1px solid rgba(191, 219, 254, 0.24);
@@ -1688,16 +1723,8 @@ body.theme-dark .sidebar-search-empty {
   order: 6;
 }
 
-.sidebar-recent-title {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #c7d7f3;
-  font-weight: 700;
-  padding: 2px 4px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  margin-bottom: 6px;
-}
+.sidebar-recent .sidebar-block-header .sidebar-block-icon { color: #93c5fd; }
+.sidebar-recent .sidebar-block-header .sidebar-block-title { color: #c7d7f3; }
 
 .sidebar-nav-recent .nav-link {
   background: rgba(255, 255, 255, 0.03);
@@ -1874,37 +1901,37 @@ body.sidebar-mobile-open .sidebar-tooltip {
 
 .menu-fav-toggle {
   margin-left: auto;
-  opacity: 0.7;
+  opacity: 0.5;
   font-size: 0.95rem;
   cursor: pointer;
   border-radius: 8px;
   padding: 2px 5px;
-  transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease;
+  color: #c9d7ff;
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .menu-fav-toggle:hover {
   opacity: 1;
-  transform: scale(1.08);
+  transform: scale(1.1);
   background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+/* Estrela preenchida: destaque dourado quando favorito */
+.nav-link.is-favorite .menu-fav-toggle {
+  color: #fbbf24;
+  opacity: 1;
+  text-shadow: 0 0 6px rgba(251, 191, 36, 0.55);
 }
 
 .menu-fav-toggle.is-burst {
-  animation: sidebar-fav-burst 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: sidebar-fav-burst 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes sidebar-fav-burst {
-  0% {
-    transform: scale(1);
-    opacity: 0.75;
-  }
-  45% {
-    transform: scale(1.35);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0%   { transform: scale(1);    opacity: 0.8; }
+  40%  { transform: scale(1.4);  opacity: 1;   }
+  100% { transform: scale(1);    opacity: 1;   }
 }
 
 .sidebar-nav .nav-link.is-favorite {
@@ -1991,10 +2018,9 @@ body.sidebar-mobile-open .sidebar-tooltip {
 .app-main-shell {
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  background: linear-gradient(180deg, rgba(244, 247, 253, 0.92), rgba(238, 243, 251, 0.96));
+  margin-left: 64px;
+  width: calc(100% - 64px);
+  min-height: 100vh;
 }
 
 .app-topbar {
@@ -2241,8 +2267,6 @@ body.theme-dark .user-menu-theme.active {
 
 .app-main-shell main {
   padding: 22px 26px;
-  width: 100%;
-  max-width: 100%;
 }
 
 .app-main-shell footer {
@@ -4711,9 +4735,7 @@ body.theme-dark .app-main-shell {
   color: #e5edf8;
 }
 
-body.theme-dark .app-main-shell {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.98));
-}
+
 
 body.theme-dark .form-card,
 body.theme-dark .table-card,
@@ -5315,7 +5337,7 @@ body.theme-dark .btn-download-template:hover {
 /* ---- 1. LAYOUT: expansão no grid quando fixada ---- */
 
 .app-layout.sidebar-is-pinned {
-  grid-template-columns: 64px 1fr;
+  /* sidebar always fixed overlay — layout never pushed */
 }
 
 /* ---- 2. SIDEBAR: largura e posição por estado ---- */
@@ -5365,6 +5387,7 @@ body.theme-dark .btn-download-template:hover {
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-search-block,
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-favorites-preferences,
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-favorites-fixed,
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-smart-nav,
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-recent,
 .sidebar:not(.is-expanded):not(.mobile-open) .menu-group,
 .sidebar:not(.is-expanded):not(.mobile-open) .menu-empty-hint,
@@ -5668,10 +5691,10 @@ body.sidebar-mobile-open #sidebar-favorites-panel {
 /* ---- 9. RESPONSIVIDADE MOBILE ---- */
 
 @media (max-width: 768px) {
-  /* Grid sem coluna de sidebar — sidebar é fixed */
-  .app-layout,
-  .app-layout.sidebar-is-pinned {
-    grid-template-columns: 1fr;
+  /* Sidebar é fixed fora da tela — conteúdo ocupa largura total */
+  .app-main-shell {
+    margin-left: 0;
+    width: 100%;
   }
 
   /* Hambúrguer visível */
@@ -5710,6 +5733,7 @@ body.sidebar-mobile-open #sidebar-favorites-panel {
   .sidebar.mobile-open .sidebar-search-block,
   .sidebar.mobile-open .sidebar-favorites-preferences,
   .sidebar.mobile-open .sidebar-favorites-fixed,
+  .sidebar.mobile-open .sidebar-smart-nav,
   .sidebar.mobile-open .sidebar-recent,
   .sidebar.mobile-open .menu-group,
   .sidebar.mobile-open .menu-empty-hint,

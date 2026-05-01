@@ -23,7 +23,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux4') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux5') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
   </head>
@@ -70,33 +70,6 @@
               aria-label="Buscar funcionalidades do sistema"
             >
             <div id="sidebar-search-results" class="sidebar-search-results" hidden></div>
-          </div>
-
-          <div class="sidebar-favorites-preferences">
-            <span class="sidebar-favorites-pref-label">Fixar favoritos</span>
-            <label class="sidebar-switch" for="sidebar-favorites-pin-toggle" title="Fixar favoritos no topo">
-              <input id="sidebar-favorites-pin-toggle" type="checkbox" role="switch" aria-label="Fixar favoritos no topo do menu">
-              <span class="sidebar-switch-slider" aria-hidden="true"></span>
-            </label>
-          </div>
-
-          <div class="sidebar-favorites-fixed" id="sidebar-favorites-fixed" hidden>
-            <div class="sidebar-favorites-fixed-title">&#11088; Favoritos</div>
-            <nav class="sidebar-nav sidebar-nav-favorites sidebar-nav-favorites-fixed" id="sidebar-nav-favorites-fixed"></nav>
-            <div class="menu-empty-hint" id="sidebar-fav-fixed-empty">Sem favoritos fixados.</div>
-          </div>
-
-          <div class="sidebar-recent" id="sidebar-recent">
-            <div class="sidebar-recent-title">&#128339; Recentes</div>
-            <nav class="sidebar-nav sidebar-nav-recent" id="sidebar-nav-recent"></nav>
-            <div class="menu-empty-hint" id="sidebar-recent-empty">Sem páginas recentes.</div>
-          </div>
-
-          <!-- FAVORITOS -->
-          <div class="menu-group menu-group-favorites-source" aria-hidden="true">
-            <div class="menu-group-title">&#11088; Favoritos</div>
-            <nav class="sidebar-nav sidebar-nav-favorites" id="sidebar-nav-favorites"></nav>
-            <div class="menu-empty-hint" id="sidebar-fav-empty">Marque com &#9734; para fixar atalhos aqui.</div>
           </div>
 
           <!-- SEÇÕES DO MENU (flyout) -->
@@ -197,6 +170,42 @@
             </div>
 
           </div><!-- /#sidebar-sections -->
+
+          <!-- ⭐ FAVORITOS & 🕘 RECENTES — abaixo do menu principal -->
+          <div class="sidebar-smart-nav" id="sidebar-smart-nav">
+
+            <!-- Header com toggle sempre visível quando expandido -->
+            <div class="sidebar-block-header sidebar-smart-header">
+              <span class="sidebar-block-icon" aria-hidden="true">&#9733;</span>
+              <span class="sidebar-block-title">Favoritos</span>
+              <label class="sidebar-switch sidebar-fav-label" for="sidebar-favorites-pin-toggle" title="Fixar favoritos na sidebar">
+                <input id="sidebar-favorites-pin-toggle" type="checkbox" role="switch" aria-label="Fixar favoritos na sidebar">
+                <span class="sidebar-switch-slider" aria-hidden="true"></span>
+              </label>
+            </div>
+
+            <!-- Lista de favoritos: aparece quando toggle está ON -->
+            <div class="sidebar-fav-block" id="sidebar-fav-block" hidden>
+              <nav class="sidebar-nav sidebar-nav-favorites" id="sidebar-nav-favorites"></nav>
+              <div class="menu-empty-hint" id="sidebar-fav-empty">Marque &#9734; para criar atalhos aqui.</div>
+            </div>
+
+            <!-- Recentes: atualizados automaticamente -->
+            <div class="sidebar-recent" id="sidebar-recent">
+              <div class="sidebar-block-header">
+                <span class="sidebar-block-icon" aria-hidden="true">&#128339;</span>
+                <span class="sidebar-block-title">Recentes</span>
+              </div>
+              <nav class="sidebar-nav sidebar-nav-recent" id="sidebar-nav-recent"></nav>
+              <div class="menu-empty-hint" id="sidebar-recent-empty">Sem páginas recentes.</div>
+            </div>
+
+            <!-- Compat: wrapper oculto referenciado pelo JS legado -->
+            <div id="sidebar-favorites-fixed" hidden style="display:none!important">
+              <nav id="sidebar-nav-favorites-fixed"></nav>
+              <div id="sidebar-fav-fixed-empty"></div>
+            </div>
+          </div><!-- /#sidebar-smart-nav -->
 
           <div class="sidebar-footer">
           </div>
@@ -578,12 +587,12 @@
         }
 
         function bindSidebarFavoritesPinnedToggle() {
-          var sourceNav = document.getElementById('sidebar-nav-favorites');
-          var fixedWrap = document.getElementById('sidebar-favorites-fixed');
-          var fixedNav = document.getElementById('sidebar-nav-favorites-fixed');
-          var fixedEmpty = document.getElementById('sidebar-fav-fixed-empty');
+          var favBlock = document.getElementById('sidebar-fav-block');
           var toggle = document.getElementById('sidebar-favorites-pin-toggle');
-          if (!sourceNav || !fixedWrap || !fixedNav || !toggle) return;
+          if (!favBlock || !toggle) return;
+
+          // compat refs (hidden wrappers still in DOM for legacy event handlers)
+          var fixedWrap = document.getElementById('sidebar-favorites-fixed');
 
           var account = '{{ session.get("account_id") or "global" }}';
           var user = '{{ session.get("user") or "anon" }}';
@@ -601,24 +610,15 @@
           function savePinnedPreference(value) {
             try {
               localStorage.setItem(storageKey, value ? 'true' : 'false');
-            } catch (e) {
-              return;
-            }
+            } catch (e) {}
           }
 
           function renderFixedFavorites() {
             var pinned = document.body.classList.contains('sidebar-favorites-pinned');
-            if (!pinned) {
-              fixedWrap.hidden = true;
-              return;
-            }
-
-            var hasFavorites = sourceNav.children.length > 0;
-            fixedNav.innerHTML = sourceNav.innerHTML;
-            fixedWrap.hidden = false;
-            if (fixedEmpty) {
-              fixedEmpty.style.display = hasFavorites ? 'none' : '';
-            }
+            // Show / hide the favorites list block
+            favBlock.hidden = !pinned;
+            // Keep compat wrapper always hidden
+            if (fixedWrap) fixedWrap.hidden = true;
           }
 
           function applyPinnedPreference(pinned) {
