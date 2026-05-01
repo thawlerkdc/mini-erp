@@ -23,7 +23,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260424ux1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux2') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
   </head>
@@ -38,15 +38,26 @@
             </span>
             <span class="brand-name">{{ global_settings.get('brand_name', 'Kdc Systems') }}</span>
             <span class="brand-subtitle">{{ global_settings.get('brand_subtitle', 'ERP') }}</span>
-            <!-- Botão de fixar/desafixar sidebar -->
-            <button
-              class="sidebar-pin-btn"
-              id="sidebar-pin-btn"
-              type="button"
-              aria-label="Fixar menu lateral"
-              aria-pressed="false"
-              title="Fixar menu"
-            >&#128204;</button>
+            <div class="sidebar-actions">
+              <!-- Botão de fixar/desafixar sidebar -->
+              <button
+                class="sidebar-pin-btn"
+                id="sidebar-pin-btn"
+                type="button"
+                aria-label="Fixar menu lateral"
+                aria-pressed="false"
+                title="Fixar menu"
+              >&#128204;</button>
+              <!-- Botão dedicado para favoritos (abre painel separado) -->
+              <button
+                class="sidebar-favorites-btn"
+                id="sidebar-favorites-btn"
+                type="button"
+                aria-label="Abrir favoritos"
+                aria-expanded="false"
+                title="Favoritos"
+              >&#11088;</button>
+            </div>
           </div>
 
           <div class="sidebar-search-block">
@@ -62,7 +73,7 @@
           </div>
 
           <!-- FAVORITOS -->
-          <div class="menu-group">
+          <div class="menu-group menu-group-favorites-source" aria-hidden="true">
             <div class="menu-group-title">&#11088; Favoritos</div>
             <nav class="sidebar-nav sidebar-nav-favorites" id="sidebar-nav-favorites"></nav>
             <div class="menu-empty-hint" id="sidebar-fav-empty">Marque com &#9734; para fixar atalhos aqui.</div>
@@ -526,6 +537,130 @@
           applyFavoriteStyles();
         }
 
+        function bindSidebarFavoritesPanel() {
+          var btn = document.getElementById('sidebar-favorites-btn');
+          var sidebar = document.getElementById('sidebar');
+          var favoritesNav = document.getElementById('sidebar-nav-favorites');
+          var favoritesEmpty = document.getElementById('sidebar-fav-empty');
+          if (!btn || !sidebar || !favoritesNav) return;
+
+          var panel = document.createElement('div');
+          panel.id = 'sidebar-favorites-panel';
+          panel.setAttribute('role', 'dialog');
+          panel.setAttribute('aria-hidden', 'true');
+          panel.innerHTML = [
+            '<div class="sidebar-favorites-panel-head">',
+              '<strong>&#11088; Favoritos</strong>',
+              '<button type="button" class="sidebar-favorites-panel-close" aria-label="Fechar favoritos" title="Fechar">&times;</button>',
+            '</div>',
+            '<div class="sidebar-favorites-panel-body"></div>'
+          ].join('');
+          document.body.appendChild(panel);
+
+          var panelBody = panel.querySelector('.sidebar-favorites-panel-body');
+          var closeBtn = panel.querySelector('.sidebar-favorites-panel-close');
+
+          function isDesktop() {
+            return window.innerWidth > 768;
+          }
+
+          function positionPanel() {
+            if (!isDesktop()) return;
+            var sidebarRect = sidebar.getBoundingClientRect();
+            var btnRect = btn.getBoundingClientRect();
+            panel.style.left = (sidebarRect.right + 12) + 'px';
+            panel.style.top = Math.max(10, Math.floor(btnRect.top - 10)) + 'px';
+            panel.style.maxHeight = (window.innerHeight - 20) + 'px';
+          }
+
+          function renderPanelContent() {
+            var hasFavorites = favoritesNav.children.length > 0;
+            if (hasFavorites) {
+              panelBody.innerHTML = favoritesNav.innerHTML;
+              return;
+            }
+            var emptyText = favoritesEmpty ? favoritesEmpty.textContent : 'Nenhum favorito ainda.';
+            panelBody.innerHTML = '<div class="sidebar-favorites-panel-empty">' + (emptyText || 'Nenhum favorito ainda.') + '</div>';
+          }
+
+          function openPanel() {
+            if (!isDesktop()) return;
+            renderPanelContent();
+            positionPanel();
+            panel.classList.add('is-visible');
+            panel.setAttribute('aria-hidden', 'false');
+            btn.setAttribute('aria-expanded', 'true');
+            document.dispatchEvent(new CustomEvent('sidebar-favorites-opened'));
+          }
+
+          function closePanel() {
+            panel.classList.remove('is-visible');
+            panel.setAttribute('aria-hidden', 'true');
+            btn.setAttribute('aria-expanded', 'false');
+          }
+
+          btn.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (panel.classList.contains('is-visible')) {
+              closePanel();
+            } else {
+              openPanel();
+            }
+          });
+
+          if (closeBtn) {
+            closeBtn.addEventListener('click', function (event) {
+              event.preventDefault();
+              closePanel();
+            });
+          }
+
+          panel.addEventListener('click', function (event) {
+            if (event.target.closest('.nav-link')) {
+              closePanel();
+            }
+          });
+
+          document.addEventListener('menu-favorites-changed', function () {
+            if (panel.classList.contains('is-visible')) {
+              renderPanelContent();
+              positionPanel();
+            }
+          });
+
+          document.addEventListener('click', function (event) {
+            if (!panel.classList.contains('is-visible')) return;
+            if (panel.contains(event.target) || btn.contains(event.target)) return;
+            closePanel();
+          });
+
+          document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+              closePanel();
+            }
+          });
+
+          document.addEventListener('sidebar-flyout-opened', closePanel);
+          document.addEventListener('sidebar-expanded', closePanel);
+          document.addEventListener('sidebar-mobile-opened', closePanel);
+
+          window.addEventListener('resize', function () {
+            if (!panel.classList.contains('is-visible')) return;
+            if (!isDesktop()) {
+              closePanel();
+              return;
+            }
+            positionPanel();
+          });
+
+          window.addEventListener('scroll', function () {
+            if (panel.classList.contains('is-visible')) {
+              positionPanel();
+            }
+          }, true);
+        }
+
         function bindUserMenuDropdown() {
           var dropdown = document.querySelector('.user-menu-dropdown');
           if (!dropdown) return;
@@ -575,6 +710,7 @@
           var sidebar = document.querySelector('.sidebar');
           var sectionsWrap = document.getElementById('sidebar-sections');
           if (!sidebar || !sectionsWrap) return;
+          var MOBILE_BREAKPOINT = 768;
 
           var flyout = document.createElement('div');
           flyout.id = 'sidebar-flyout';
@@ -584,6 +720,14 @@
 
           var hideTimer = null;
           var openSection = null;
+
+          function isMobileViewport() {
+            return window.innerWidth <= MOBILE_BREAKPOINT;
+          }
+
+          function shouldUseFlyout() {
+            return !isMobileViewport() && !sidebar.classList.contains('mobile-open');
+          }
 
           function isSidebarExpanded() {
             return sidebar.classList.contains('is-expanded') ||
@@ -597,8 +741,7 @@
           }
 
           function openFlyout(section) {
-            // Nunca abre flyout quando a sidebar ja esta expandida.
-            if (isSidebarExpanded()) {
+            if (!shouldUseFlyout()) {
               closeFlyout();
               return;
             }
@@ -633,6 +776,7 @@
             flyout.setAttribute('aria-hidden', 'false');
             section.classList.add('is-flyout-open');
             openSection = section;
+            document.dispatchEvent(new CustomEvent('sidebar-flyout-opened'));
 
             requestAnimationFrame(function () {
               var r = flyout.getBoundingClientRect();
@@ -653,7 +797,7 @@
           }
 
           function scheduleClose() {
-            hideTimer = setTimeout(closeFlyout, 150);
+            hideTimer = setTimeout(closeFlyout, 170);
           }
 
           sectionsWrap.querySelectorAll('.menu-section').forEach(function (section) {
@@ -661,29 +805,23 @@
             if (!header) return;
 
             section.addEventListener('mouseenter', function () {
-              /* Quando sidebar está expandida, não usa flyout */
-              if (isSidebarExpanded()) return;
+              if (!shouldUseFlyout()) return;
               openFlyout(section);
             });
             section.addEventListener('mouseleave', function () {
-              if (isSidebarExpanded()) return;
+              if (!shouldUseFlyout()) return;
               scheduleClose();
             });
 
-            header.addEventListener('click', function () {
-              /* Quando expandido, o accordion (sidebar.js) cuida do clique */
-              if (isSidebarExpanded()) return;
+            header.addEventListener('click', function (event) {
+              if (!shouldUseFlyout()) return;
 
               var links = getSectionLinks(section);
               if (links.length === 1) {
                 window.location.href = links[0].href;
                 return;
               }
-              if (flyout.classList.contains('is-visible') && openSection === section) {
-                closeFlyout();
-              } else {
-                openFlyout(section);
-              }
+              event.preventDefault();
             });
 
             // Highlight section when it contains the active page
@@ -747,6 +885,7 @@
           document.addEventListener('sidebar-expanded', closeFlyout);
           document.addEventListener('sidebar-pinned', closeFlyout);
           document.addEventListener('sidebar-mobile-opened', closeFlyout);
+          document.addEventListener('sidebar-favorites-opened', closeFlyout);
 
           /* ---- Tooltips para estado colapsado ---- */
           (function bindCollapsedTooltips() {
@@ -1034,6 +1173,7 @@
           document.addEventListener('DOMContentLoaded', function () {
             bindLanguageDropdownAutoDirection();
             bindMenuFavorites();
+            bindSidebarFavoritesPanel();
             bindFlyoutMenu();
             bindUserMenuDropdown();
             bindSidebarFeatureSearch();
@@ -1042,6 +1182,7 @@
         } else {
           bindLanguageDropdownAutoDirection();
           bindMenuFavorites();
+          bindSidebarFavoritesPanel();
           bindFlyoutMenu();
           bindUserMenuDropdown();
           bindSidebarFeatureSearch();
@@ -1054,6 +1195,6 @@
     <div id="sidebar-mobile-overlay" aria-hidden="true"></div>
 
     <!-- SidebarManager: colapso, hover, pin, mobile -->
-    <script src="{{ url_for('static', filename='js/sidebar.js', v='20260429a') }}"></script>
+    <script src="{{ url_for('static', filename='js/sidebar.js', v='20260430ux1') }}"></script>
   </body>
 </html>

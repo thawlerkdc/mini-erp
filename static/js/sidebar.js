@@ -19,14 +19,13 @@
   --------------------------------------------------------------- */
   var STORAGE_KEY      = 'mini_erp_sidebar_pinned';
   var BREAKPOINT_MOBILE = 768;  // px
-  var HOVER_OPEN_DELAY_MS = 160;
-  var HOVER_CLOSE_DELAY_MS = 90;
+  var HOVER_OPEN_DELAY_MS = 190;
+  var HOVER_CLOSE_DELAY_MS = 160;
 
   /* ---------------------------------------------------------------
      REFERÊNCIAS DOM (preenchidas em init)
   --------------------------------------------------------------- */
   var sidebar        = null;  // <aside class="sidebar">
-  var appLayout      = null;  // <div class="app-layout">
   var pinBtn         = null;  // botão de fixar/desafixar
   var hamburgerBtn   = null;  // botão hambúrguer (mobile)
   var mobileOverlay  = null;  // overlay escuro mobile
@@ -121,14 +120,12 @@
 
   /** Fixa a sidebar expandida permanentemente. */
   function pin() {
-    if (!sidebar || !pinBtn || !appLayout) return;
+    if (!sidebar || !pinBtn) return;
     state.pinned = true;
     clearHoverTimers();
 
-    /* Muda de overlay para posicionamento in-flow */
     sidebar.classList.add('is-pinned', 'is-expanded');
     sidebar.setAttribute('aria-expanded', 'true');
-    appLayout.classList.add('sidebar-is-pinned');
     syncBodySidebarState();
 
     /* Visual do botão pin */
@@ -143,13 +140,12 @@
 
   /** Desfixa a sidebar — volta ao comportamento de hover. */
   function unpin() {
-    if (!sidebar || !pinBtn || !appLayout) return;
+    if (!sidebar || !pinBtn) return;
     state.pinned = false;
     clearHoverTimers();
 
     sidebar.classList.remove('is-pinned', 'is-expanded');
     sidebar.setAttribute('aria-expanded', 'false');
-    appLayout.classList.remove('sidebar-is-pinned');
     syncBodySidebarState();
 
     pinBtn.classList.remove('is-active');
@@ -168,6 +164,7 @@
   function openMobile() {
     if (!sidebar || !mobileOverlay) return;
     state.mobileOpen = true;
+    closeAllInlineSections();
 
     sidebar.classList.add('mobile-open');
     mobileOverlay.classList.add('is-visible');
@@ -178,12 +175,14 @@
       hamburgerBtn.setAttribute('aria-expanded', 'true');
       hamburgerBtn.setAttribute('aria-label', 'Fechar menu lateral');
     }
+    openActiveSection();
     dispatch('mobile-opened');
   }
 
   function closeMobile() {
     if (!sidebar || !mobileOverlay) return;
     state.mobileOpen = false;
+    closeAllInlineSections();
 
     sidebar.classList.remove('mobile-open');
     mobileOverlay.classList.remove('is-visible');
@@ -207,23 +206,13 @@
 
   function onMouseEnter() {
     if (isMobile() || state.pinned) return;
-    clearTimeout(collapseTimer);
-    clearTimeout(expandTimer);
-
-    // Hover-intent: evita abrir quando o mouse apenas raspa na lateral.
-    expandTimer = setTimeout(function () {
-      if (!sidebar || isMobile() || state.pinned) return;
-      if (!sidebar.matches(':hover')) return;
-      state.hovered = true;
-      expand();
-    }, HOVER_OPEN_DELAY_MS);
+    clearHoverTimers();
   }
 
   function onMouseLeave() {
     if (isMobile() || state.pinned) return;
-    clearTimeout(expandTimer);
+    clearHoverTimers();
     state.hovered = false;
-    collapseTimer = setTimeout(collapse, HOVER_CLOSE_DELAY_MS);
   }
 
   /* ---------------------------------------------------------------
@@ -245,6 +234,7 @@
   --------------------------------------------------------------- */
 
   function openActiveSection() {
+    if (!isMobile()) return;
     if (!sidebar) return;
     var sectionsWrap = document.getElementById('sidebar-sections');
     if (!sectionsWrap) return;
@@ -287,7 +277,6 @@
 
   function init() {
     sidebar       = document.querySelector('.sidebar');
-    appLayout     = document.querySelector('.app-layout');
     pinBtn        = document.getElementById('sidebar-pin-btn');
     hamburgerBtn  = document.getElementById('sidebar-hamburger-btn');
     mobileOverlay = document.getElementById('sidebar-mobile-overlay');
@@ -304,7 +293,6 @@
     state.pinned = loadPinState();
     if (state.pinned && !isMobile()) {
       pin();
-      openActiveSection();
     }
 
     /* ----- Botão PIN ----- */
@@ -315,7 +303,11 @@
 
       pinBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (state.pinned) { unpin(); } else { pin(); openActiveSection(); }
+        if (state.pinned) {
+          unpin();
+        } else {
+          pin();
+        }
       });
 
       pinBtn.addEventListener('keydown', function (e) {
@@ -350,9 +342,8 @@
         var header = e.target.closest('.menu-section-header');
         if (!header) return;
 
-        var isExpanded = sidebar.classList.contains('is-expanded') ||
-                         sidebar.classList.contains('mobile-open');
-        if (!isExpanded) return; /* Flyout cuida disso quando colapsado */
+        var isAccordionMode = isMobile() && sidebar.classList.contains('mobile-open');
+        if (!isAccordionMode) return; /* No desktop o submenu é sempre flyout lateral */
 
         e.stopPropagation();
         var section = header.closest('.menu-section');
@@ -395,6 +386,9 @@
     window.addEventListener('resize', function () {
       if (!isMobile() && state.mobileOpen) {
         closeMobile();
+      }
+      if (!isMobile()) {
+        closeAllInlineSections();
       }
       /* Aplica pin state correto ao voltar para desktop */
       if (!isMobile() && state.pinned && !sidebar.classList.contains('is-pinned')) {
