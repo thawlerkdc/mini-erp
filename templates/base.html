@@ -1119,7 +1119,7 @@
 
             var sidebarRect = sidebar.getBoundingClientRect();
             var sectionRect = section.getBoundingClientRect();
-            flyout.style.left = (sidebarRect.right + 8) + 'px';
+            flyout.style.left = (sidebarRect.right - 1) + 'px';
             flyout.style.top = sectionRect.top + 'px';
             flyout.style.maxHeight = (window.innerHeight - 16) + 'px';
 
@@ -1148,7 +1148,7 @@
           }
 
           function scheduleClose() {
-            hideTimer = setTimeout(closeFlyout, 170);
+            hideTimer = setTimeout(closeFlyout, 320);
           }
 
           sectionsWrap.querySelectorAll('.menu-section').forEach(function (section) {

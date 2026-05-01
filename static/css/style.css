@@ -1849,6 +1849,15 @@ body.theme-dark .sidebar-search-empty {
   transition: opacity 0.22s var(--sidebar-easing), transform 0.22s var(--sidebar-easing);
 }
 
+#sidebar-flyout::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -10px;
+  width: 10px;
+  height: 100%;
+}
+
 #sidebar-flyout.is-visible {
   pointer-events: auto;
   opacity: 1;
