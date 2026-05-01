@@ -138,6 +138,13 @@
     pinBtn.setAttribute('title', 'Desafixar menu');
     pinBtn.setAttribute('aria-pressed', 'true');
 
+    /* Abre automaticamente a seção ativa ao fixar */
+    var sectionsWrap = document.getElementById('sidebar-sections');
+    if (sectionsWrap) {
+      var activeSection = sectionsWrap.querySelector('.menu-section.has-active');
+      if (activeSection) activeSection.classList.add('is-inline-open');
+    }
+
     savePinState(true);
     dispatch('pinned');
   }

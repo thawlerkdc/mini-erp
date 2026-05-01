@@ -23,7 +23,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260501ux8') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260501ux9') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
   </head>
@@ -1170,9 +1170,24 @@
             });
 
             header.addEventListener('click', function (event) {
-              if (!shouldUseFlyout()) return;
-
               var links = getSectionLinks(section);
+
+              if (!shouldUseFlyout()) {
+                // Pinned or expanded: accordion inline
+                if (links.length === 1) {
+                  window.location.href = links[0].href;
+                  return;
+                }
+                event.preventDefault();
+                var isOpen = section.classList.contains('is-inline-open');
+                // Close other sections
+                sectionsWrap.querySelectorAll('.menu-section.is-inline-open').forEach(function (s) {
+                  if (s !== section) s.classList.remove('is-inline-open');
+                });
+                section.classList.toggle('is-inline-open', !isOpen);
+                return;
+              }
+
               if (links.length === 1) {
                 window.location.href = links[0].href;
                 return;
@@ -1565,6 +1580,6 @@
     <div id="sidebar-mobile-overlay" aria-hidden="true"></div>
 
     <!-- SidebarManager: colapso, hover, pin, mobile -->
-    <script src="{{ url_for('static', filename='js/sidebar.js', v='20260501ux3') }}"></script>
+    <script src="{{ url_for('static', filename='js/sidebar.js', v='20260501ux4') }}"></script>
   </body>
 </html>

@@ -5510,8 +5510,9 @@ body.theme-dark .btn-download-template:hover {
 
 /* ---- 4. EXPANDIDO: revela textos e seções inline ---- */
 
-/* Seções abertas inline (accordion) quando expandido */
+/* Seções abertas inline (accordion) quando expandido ou fixado */
 .sidebar.is-expanded .menu-section.is-inline-open .menu-section-body,
+.sidebar.is-pinned .menu-section.is-inline-open .menu-section-body,
 .sidebar.mobile-open .menu-section.is-inline-open .menu-section-body {
   display: flex !important;
   flex-direction: column;
@@ -5525,8 +5526,9 @@ body.theme-dark .btn-download-template:hover {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Seta/indicador no header de seção quando expandido */
+/* Seta/indicador no header de seção quando expandido ou fixado */
 .sidebar.is-expanded .menu-section-header .section-icon,
+.sidebar.is-pinned .menu-section-header .section-icon,
 .sidebar.mobile-open .menu-section-header .section-icon {
   transition: transform 0.2s ease;
 }
