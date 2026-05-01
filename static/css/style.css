@@ -1992,6 +1992,9 @@ body.sidebar-mobile-open .sidebar-tooltip {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  background: linear-gradient(180deg, rgba(244, 247, 253, 0.92), rgba(238, 243, 251, 0.96));
 }
 
 .app-topbar {
@@ -2238,6 +2241,8 @@ body.theme-dark .user-menu-theme.active {
 
 .app-main-shell main {
   padding: 22px 26px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .app-main-shell footer {
@@ -2397,6 +2402,8 @@ body.theme-dark .user-menu-theme.active {
 .dashboard-shell {
   display: grid;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .dashboard-hero-panel {
@@ -2595,6 +2602,10 @@ body.theme-dark .user-menu-theme.active {
   grid-template-columns: minmax(0, 1.75fr) minmax(300px, 0.95fr);
   gap: 14px;
   align-items: start;
+}
+
+.dashboard-insights-grid > * {
+  min-width: 0;
 }
 
 .dashboard-async-panel {
@@ -4698,6 +4709,10 @@ body.theme-dark {
 body.theme-dark main,
 body.theme-dark .app-main-shell {
   color: #e5edf8;
+}
+
+body.theme-dark .app-main-shell {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.98));
 }
 
 body.theme-dark .form-card,
