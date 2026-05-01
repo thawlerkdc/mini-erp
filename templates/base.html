@@ -23,7 +23,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux5') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux6') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
   </head>
@@ -48,15 +48,6 @@
                 aria-pressed="false"
                 title="Fixar menu"
               >&#128204;</button>
-              <!-- Botão dedicado para favoritos (abre painel separado) -->
-              <button
-                class="sidebar-favorites-btn"
-                id="sidebar-favorites-btn"
-                type="button"
-                aria-label="Abrir favoritos"
-                aria-expanded="false"
-                title="Favoritos"
-              >&#11088;</button>
             </div>
           </div>
 
@@ -170,6 +161,20 @@
             </div>
 
           </div><!-- /#sidebar-sections -->
+
+          <div class="sidebar-favorites-launcher" id="sidebar-favorites-launcher">
+            <button
+              class="sidebar-favorites-btn"
+              id="sidebar-favorites-btn"
+              type="button"
+              aria-label="Abrir favoritos"
+              aria-expanded="false"
+              title="Favoritos"
+            >
+              <span class="menu-icon" aria-hidden="true">&#11088;</span>
+              <span class="sidebar-favorites-btn-label">Favoritos</span>
+            </button>
+          </div>
 
           <!-- ⭐ FAVORITOS & 🕘 RECENTES — abaixo do menu principal -->
           <div class="sidebar-smart-nav" id="sidebar-smart-nav">
@@ -653,9 +658,27 @@
 
           var account = '{{ session.get("account_id") or "global" }}';
           var user = '{{ session.get("user") or "anon" }}';
-          var favoritesStorageKey = 'menu_favorites_' + account + '_' + user;
           var storageKey = 'menu_recent_' + account + '_' + user;
           var MAX_RECENT = 8;
+
+          function normalizePath(path) {
+            var p = (path || '/').trim();
+            if (!p) p = '/';
+            p = p.replace(/\/+$/, '');
+            return p || '/';
+          }
+
+          function parseHref(href) {
+            try {
+              var parsed = new URL(href, window.location.origin);
+              return {
+                path: normalizePath(parsed.pathname),
+                hash: (parsed.hash || '').toLowerCase()
+              };
+            } catch (e) {
+              return null;
+            }
+          }
 
           function buildCatalog() {
             var map = {};
@@ -684,24 +707,10 @@
             }
           }
 
-          function loadFavorites() {
-            try {
-              var parsed = JSON.parse(localStorage.getItem(favoritesStorageKey) || '[]');
-              return Array.isArray(parsed) ? parsed : [];
-            } catch (e) {
-              return [];
-            }
-          }
-
           function renderRecent() {
             var catalog = buildCatalog();
-            var favoritesSet = {};
-            loadFavorites().forEach(function (key) {
-              favoritesSet[key] = true;
-            });
-
             var list = loadRecent().filter(function (key) {
-              return !!catalog[key] && !favoritesSet[key];
+              return !!catalog[key];
             }).slice(0, MAX_RECENT);
 
             recentNav.innerHTML = '';
@@ -720,6 +729,30 @@
             recentWrap.hidden = false;
           }
 
+          function resolveCurrentKeyByLocation() {
+            var catalog = buildCatalog();
+            var currentPath = normalizePath(window.location.pathname || '/');
+            var currentHash = (window.location.hash || '').toLowerCase();
+            var fallbackKey = null;
+
+            var keys = Object.keys(catalog);
+            for (var i = 0; i < keys.length; i++) {
+              var key = keys[i];
+              var href = catalog[key].getAttribute('href') || '';
+              var parsed = parseHref(href);
+              if (!parsed || parsed.path !== currentPath) continue;
+
+              if (!parsed.hash && !fallbackKey) {
+                fallbackKey = key;
+              }
+              if (parsed.hash && parsed.hash === currentHash) {
+                return key;
+              }
+            }
+
+            return fallbackKey;
+          }
+
           function addRecentByKey(key) {
             if (!key) return;
             var list = loadRecent().filter(function (item) { return item !== key; });
@@ -733,8 +766,11 @@
 
           function addCurrentActiveLink() {
             var activeLink = sectionsWrap.querySelector('.menu-section-body .nav-link.active[data-menu-key]');
-            if (!activeLink) return;
-            addRecentByKey(activeLink.getAttribute('data-menu-key'));
+            if (activeLink) {
+              addRecentByKey(activeLink.getAttribute('data-menu-key'));
+              return;
+            }
+            addRecentByKey(resolveCurrentKeyByLocation());
           }
 
           document.addEventListener('click', function (event) {
@@ -773,6 +809,7 @@
 
           var panelBody = panel.querySelector('.sidebar-favorites-panel-body');
           var closeBtn = panel.querySelector('.sidebar-favorites-panel-close');
+          var closeTimer = null;
 
           function isDesktop() {
             return window.innerWidth > 768;
@@ -800,6 +837,7 @@
           function openPanel() {
             if (!isDesktop()) return;
             if (document.body.classList.contains('sidebar-favorites-pinned')) return;
+            clearTimeout(closeTimer);
             renderPanelContent();
             positionPanel();
             panel.classList.add('is-visible');
@@ -809,9 +847,15 @@
           }
 
           function closePanel() {
+            clearTimeout(closeTimer);
             panel.classList.remove('is-visible');
             panel.setAttribute('aria-hidden', 'true');
             btn.setAttribute('aria-expanded', 'false');
+          }
+
+          function scheduleClose() {
+            clearTimeout(closeTimer);
+            closeTimer = setTimeout(closePanel, 160);
           }
 
           btn.addEventListener('click', function (event) {
@@ -823,6 +867,16 @@
               openPanel();
             }
           });
+
+          btn.addEventListener('mouseenter', openPanel);
+          btn.addEventListener('mouseleave', scheduleClose);
+          btn.addEventListener('focus', openPanel);
+          btn.addEventListener('blur', scheduleClose);
+
+          panel.addEventListener('mouseenter', function () {
+            clearTimeout(closeTimer);
+          });
+          panel.addEventListener('mouseleave', scheduleClose);
 
           if (closeBtn) {
             closeBtn.addEventListener('click', function (event) {
@@ -858,6 +912,7 @@
 
           document.addEventListener('sidebar-flyout-opened', closePanel);
           document.addEventListener('sidebar-expanded', closePanel);
+          document.addEventListener('sidebar-collapsed', closePanel);
           document.addEventListener('sidebar-mobile-opened', closePanel);
           document.addEventListener('sidebar-favorites-pin-changed', closePanel);
 
@@ -1415,6 +1470,6 @@
     <div id="sidebar-mobile-overlay" aria-hidden="true"></div>
 
     <!-- SidebarManager: colapso, hover, pin, mobile -->
-    <script src="{{ url_for('static', filename='js/sidebar.js', v='20260430ux1') }}"></script>
+    <script src="{{ url_for('static', filename='js/sidebar.js', v='20260430ux2') }}"></script>
   </body>
 </html>

@@ -1661,7 +1661,25 @@ body.theme-dark .sidebar-search-empty {
   flex-direction: column;
   gap: 6px;
   margin-top: 4px;
+  order: 5;
+}
+
+.sidebar-favorites-launcher {
   order: 4;
+  margin-top: 2px;
+}
+
+.sidebar-favorites-launcher .sidebar-favorites-btn {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  font-weight: 700;
+}
+
+.sidebar-favorites-btn-label {
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
 }
 
 .sidebar-block-header {
@@ -2021,6 +2039,12 @@ body.sidebar-mobile-open .sidebar-tooltip {
   margin-left: 64px;
   width: calc(100% - 64px);
   min-height: 100vh;
+  transition: margin-left 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-layout.sidebar-is-pinned .app-main-shell {
+  margin-left: 260px;
+  width: calc(100% - 260px);
 }
 
 .app-topbar {
@@ -5395,6 +5419,22 @@ body.theme-dark .btn-download-template:hover {
 .sidebar:not(.is-expanded):not(.mobile-open) .brand-subtitle,
 .sidebar:not(.is-expanded):not(.mobile-open) .sidebar-brand .brand-name {
   display: none;
+}
+
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-favorites-btn-label {
+  display: none;
+}
+
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-favorites-launcher {
+  margin-top: 0;
+}
+
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-favorites-launcher .sidebar-favorites-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  justify-content: center;
+  margin: 0 auto;
 }
 
 /* Brand compacto: mostra só o ícone de brand quando colapsado */

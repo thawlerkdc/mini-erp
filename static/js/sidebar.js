@@ -26,6 +26,7 @@
      REFERÊNCIAS DOM (preenchidas em init)
   --------------------------------------------------------------- */
   var sidebar        = null;  // <aside class="sidebar">
+  var appLayout      = null;  // <div class="app-layout">
   var pinBtn         = null;  // botão de fixar/desafixar
   var hamburgerBtn   = null;  // botão hambúrguer (mobile)
   var mobileOverlay  = null;  // overlay escuro mobile
@@ -78,6 +79,11 @@
     document.body.classList.toggle('sidebar-expanded-state', expanded);
   }
 
+  function syncLayoutPinState() {
+    if (!appLayout) return;
+    appLayout.classList.toggle('sidebar-is-pinned', !!state.pinned && !isMobile());
+  }
+
   function setMotionState(mode) {
     if (!sidebar) return;
     clearTimeout(motionTimer);
@@ -127,6 +133,7 @@
     sidebar.classList.add('is-pinned', 'is-expanded');
     sidebar.setAttribute('aria-expanded', 'true');
     syncBodySidebarState();
+    syncLayoutPinState();
 
     /* Visual do botão pin */
     pinBtn.classList.add('is-active');
@@ -147,6 +154,7 @@
     sidebar.classList.remove('is-pinned', 'is-expanded');
     sidebar.setAttribute('aria-expanded', 'false');
     syncBodySidebarState();
+    syncLayoutPinState();
 
     pinBtn.classList.remove('is-active');
     pinBtn.setAttribute('aria-label', 'Fixar menu lateral');
@@ -286,6 +294,7 @@
   --------------------------------------------------------------- */
 
   function init() {
+    appLayout     = document.querySelector('.app-layout');
     sidebar       = document.querySelector('.sidebar');
     pinBtn        = document.getElementById('sidebar-pin-btn');
     hamburgerBtn  = document.getElementById('sidebar-hamburger-btn');
@@ -298,6 +307,7 @@
     sidebar.setAttribute('role', 'navigation');
     sidebar.setAttribute('aria-label', 'Menu lateral');
     syncBodySidebarState();
+    syncLayoutPinState();
 
     /* Restaura preferência do usuário */
     state.pinned = loadPinState();
@@ -404,6 +414,7 @@
       if (!isMobile() && state.pinned && !sidebar.classList.contains('is-pinned')) {
         pin();
       }
+      syncLayoutPinState();
     });
 
     /* ----- Escape fecha mobile ----- */
