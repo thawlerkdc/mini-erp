@@ -69,7 +69,7 @@
             <!-- VISÃO GERAL -->
             <div class="menu-section" data-section="visao-geral">
               <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Visão Geral">
-                <span class="section-icon" aria-hidden="true">&#129517;</span>
+                <span class="section-icon" aria-hidden="true">&#127968;</span>
                 <span class="section-title">Visão Geral</span>
               </button>
               <nav class="sidebar-nav menu-section-body" hidden>
@@ -80,7 +80,7 @@
             <!-- VENDAS -->
             <div class="menu-section" data-section="vendas">
               <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Vendas">
-                <span class="section-icon" aria-hidden="true">&#9889;</span>
+                <span class="section-icon" aria-hidden="true">&#128722;</span>
                 <span class="section-title">Vendas</span>
               </button>
               <nav class="sidebar-nav menu-section-body" hidden>
@@ -1151,6 +1151,10 @@
             hideTimer = setTimeout(closeFlyout, 320);
           }
 
+          function isMovingToFlyout(target) {
+            return !!(target && (flyout.contains(target) || sectionsWrap.contains(target) || sidebar.contains(target)));
+          }
+
           sectionsWrap.querySelectorAll('.menu-section').forEach(function (section) {
             var header = section.querySelector('.menu-section-header');
             if (!header) return;
@@ -1159,8 +1163,9 @@
               if (!shouldUseFlyout()) return;
               openFlyout(section);
             });
-            section.addEventListener('mouseleave', function () {
+            section.addEventListener('mouseleave', function (event) {
               if (!shouldUseFlyout()) return;
+              if (isMovingToFlyout(event.relatedTarget)) return;
               scheduleClose();
             });
 
@@ -1219,15 +1224,17 @@
           flyout.addEventListener('mouseenter', function () {
             clearTimeout(hideTimer);
           });
-          flyout.addEventListener('mouseleave', function () {
+          flyout.addEventListener('mouseleave', function (event) {
+            if (isMovingToFlyout(event.relatedTarget)) return;
             scheduleClose();
           });
 
-          sidebar.addEventListener('mouseleave', function () {
+          sidebar.addEventListener('mouseleave', function (event) {
             if (!shouldUseFlyout()) {
               closeFlyout();
               return;
             }
+            if (isMovingToFlyout(event.relatedTarget)) return;
             scheduleClose();
           });
 
