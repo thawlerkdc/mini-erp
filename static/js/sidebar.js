@@ -3,8 +3,7 @@
  *
  * Estados:
  *   1. Colapsado  — somente ícones (64px), estado padrão
- *   2. Hover      — expande suavemente ao passar o mouse (overlay, sem deslocar conteúdo)
- *   3. Fixado     — sidebar permanece expandida, ocupa espaço no layout
+ *   2. Fixado     — sidebar permanece expandida quando o usuário fixa manualmente
  *
  * Persistência : localStorage  (chave STORAGE_KEY)
  * Mobile       : overlay tipo hambúrguer, sem hover
@@ -19,8 +18,6 @@
   --------------------------------------------------------------- */
   var STORAGE_KEY      = 'mini_erp_sidebar_pinned';
   var BREAKPOINT_MOBILE = 768;  // px
-  var HOVER_OPEN_DELAY_MS = 190;
-  var HOVER_CLOSE_DELAY_MS = 160;
 
   /* ---------------------------------------------------------------
      REFERÊNCIAS DOM (preenchidas em init)
@@ -36,12 +33,12 @@
   --------------------------------------------------------------- */
   var state = {
     pinned     : false,  // sidebar fixada permanentemente
-    hovered    : false,  // sidebar expandida apenas por hover
+    hovered    : false,  // reservado para compatibilidade de eventos
     mobileOpen : false   // menu mobile aberto
   };
 
-  var expandTimer = null;    // timer para expansão com hover-intent
-  var collapseTimer = null;  // timer para colapsar após mouse leave
+  var expandTimer = null;    // reservado para compatibilidade
+  var collapseTimer = null;  // reservado para compatibilidade
   var motionTimer = null;    // limpa classes transitórias de animação
 
   /* ---------------------------------------------------------------
@@ -208,29 +205,19 @@
     if (state.mobileOpen) { closeMobile(); } else { openMobile(); }
   }
 
-  /* ---------------------------------------------------------------
-     HOVER HANDLERS (somente desktop)
-  --------------------------------------------------------------- */
+    /* ---------------------------------------------------------------
+      HOVER HANDLERS (somente desktop)
+      Sidebar não expande mais por hover: expansão ocorre apenas com pin.
+    --------------------------------------------------------------- */
 
   function onMouseEnter() {
     if (isMobile() || state.pinned) return;
-    clearTimeout(collapseTimer);
-    clearTimeout(expandTimer);
-
-    // Hover-intent: evita abrir quando o mouse apenas raspa na lateral.
-    expandTimer = setTimeout(function () {
-      if (!sidebar || isMobile() || state.pinned) return;
-      if (!sidebar.matches(':hover')) return;
-      state.hovered = true;
-      expand();
-    }, HOVER_OPEN_DELAY_MS);
+    state.hovered = false;
   }
 
   function onMouseLeave() {
     if (isMobile() || state.pinned) return;
-    clearTimeout(expandTimer);
     state.hovered = false;
-    collapseTimer = setTimeout(collapse, HOVER_CLOSE_DELAY_MS);
   }
 
   /* ---------------------------------------------------------------

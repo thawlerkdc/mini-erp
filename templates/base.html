@@ -23,7 +23,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260430ux6') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260501ux7') }}">
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
   </head>
@@ -162,7 +162,7 @@
 
           </div><!-- /#sidebar-sections -->
 
-          <div class="sidebar-favorites-launcher" id="sidebar-favorites-launcher">
+          <div class="sidebar-quick-launchers" id="sidebar-quick-launchers">
             <button
               class="sidebar-favorites-btn"
               id="sidebar-favorites-btn"
@@ -173,6 +173,17 @@
             >
               <span class="menu-icon" aria-hidden="true">&#11088;</span>
               <span class="sidebar-favorites-btn-label">Favoritos</span>
+            </button>
+            <button
+              class="sidebar-favorites-btn sidebar-recent-btn"
+              id="sidebar-recent-btn"
+              type="button"
+              aria-label="Abrir recentes"
+              aria-expanded="false"
+              title="Recentes"
+            >
+              <span class="menu-icon" aria-hidden="true">&#128339;</span>
+              <span class="sidebar-favorites-btn-label">Recentes</span>
             </button>
           </div>
 
@@ -787,148 +798,214 @@
           renderRecent();
         }
 
-        function bindSidebarFavoritesPanel() {
-          var btn = document.getElementById('sidebar-favorites-btn');
+        function bindSidebarQuickPanels() {
           var sidebar = document.getElementById('sidebar');
+          var favoritesBtn = document.getElementById('sidebar-favorites-btn');
+          var recentBtn = document.getElementById('sidebar-recent-btn');
           var favoritesNav = document.getElementById('sidebar-nav-favorites');
+          var recentNav = document.getElementById('sidebar-nav-recent');
           var favoritesEmpty = document.getElementById('sidebar-fav-empty');
-          if (!btn || !sidebar || !favoritesNav) return;
+          var recentEmpty = document.getElementById('sidebar-recent-empty');
+          if (!sidebar || !favoritesBtn || !recentBtn || !favoritesNav || !recentNav) return;
 
-          var panel = document.createElement('div');
-          panel.id = 'sidebar-favorites-panel';
-          panel.setAttribute('role', 'dialog');
-          panel.setAttribute('aria-hidden', 'true');
-          panel.innerHTML = [
-            '<div class="sidebar-favorites-panel-head">',
-              '<strong>&#11088; Favoritos</strong>',
-              '<button type="button" class="sidebar-favorites-panel-close" aria-label="Fechar favoritos" title="Fechar">&times;</button>',
-            '</div>',
-            '<div class="sidebar-favorites-panel-body"></div>'
-          ].join('');
-          document.body.appendChild(panel);
-
-          var panelBody = panel.querySelector('.sidebar-favorites-panel-body');
-          var closeBtn = panel.querySelector('.sidebar-favorites-panel-close');
-          var closeTimer = null;
+          var panels = [];
 
           function isDesktop() {
             return window.innerWidth > 768;
           }
 
-          function positionPanel() {
-            if (!isDesktop()) return;
-            var sidebarRect = sidebar.getBoundingClientRect();
-            var btnRect = btn.getBoundingClientRect();
-            panel.style.left = (sidebarRect.right + 12) + 'px';
-            panel.style.top = Math.max(10, Math.floor(btnRect.top - 10)) + 'px';
-            panel.style.maxHeight = (window.innerHeight - 20) + 'px';
-          }
-
-          function renderPanelContent() {
-            var hasFavorites = favoritesNav.children.length > 0;
-            if (hasFavorites) {
-              panelBody.innerHTML = favoritesNav.innerHTML;
-              return;
+          function allowQuickPanelOpen() {
+            if (!isDesktop()) return false;
+            if (sidebar.classList.contains('is-expanded') || sidebar.classList.contains('is-pinned') || sidebar.classList.contains('mobile-open')) {
+              return false;
             }
-            var emptyText = favoritesEmpty ? favoritesEmpty.textContent : 'Nenhum favorito ainda.';
-            panelBody.innerHTML = '<div class="sidebar-favorites-panel-empty">' + (emptyText || 'Nenhum favorito ainda.') + '</div>';
+            return true;
           }
 
-          function openPanel() {
-            if (!isDesktop()) return;
-            if (document.body.classList.contains('sidebar-favorites-pinned')) return;
-            clearTimeout(closeTimer);
-            renderPanelContent();
-            positionPanel();
-            panel.classList.add('is-visible');
-            panel.setAttribute('aria-hidden', 'false');
-            btn.setAttribute('aria-expanded', 'true');
-            document.dispatchEvent(new CustomEvent('sidebar-favorites-opened'));
-          }
-
-          function closePanel() {
-            clearTimeout(closeTimer);
-            panel.classList.remove('is-visible');
-            panel.setAttribute('aria-hidden', 'true');
-            btn.setAttribute('aria-expanded', 'false');
-          }
-
-          function scheduleClose() {
-            clearTimeout(closeTimer);
-            closeTimer = setTimeout(closePanel, 160);
-          }
-
-          btn.addEventListener('click', function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            if (panel.classList.contains('is-visible')) {
-              closePanel();
-            } else {
-              openPanel();
-            }
-          });
-
-          btn.addEventListener('mouseenter', openPanel);
-          btn.addEventListener('mouseleave', scheduleClose);
-          btn.addEventListener('focus', openPanel);
-          btn.addEventListener('blur', scheduleClose);
-
-          panel.addEventListener('mouseenter', function () {
-            clearTimeout(closeTimer);
-          });
-          panel.addEventListener('mouseleave', scheduleClose);
-
-          if (closeBtn) {
-            closeBtn.addEventListener('click', function (event) {
-              event.preventDefault();
-              closePanel();
+          function closeAllPanels(exceptPanel) {
+            panels.forEach(function (entry) {
+              if (exceptPanel && entry.panel === exceptPanel) return;
+              clearTimeout(entry.closeTimer);
+              entry.panel.classList.remove('is-visible');
+              entry.panel.setAttribute('aria-hidden', 'true');
+              entry.button.setAttribute('aria-expanded', 'false');
             });
           }
 
-          panel.addEventListener('click', function (event) {
-            if (event.target.closest('.nav-link')) {
-              closePanel();
-            }
-          });
+          function createPanel(config) {
+            var panel = document.createElement('div');
+            panel.className = 'sidebar-quick-panel';
+            panel.setAttribute('role', 'dialog');
+            panel.setAttribute('aria-hidden', 'true');
+            panel.innerHTML = [
+              '<div class="sidebar-favorites-panel-head">',
+                '<strong>' + config.title + '</strong>',
+                '<button type="button" class="sidebar-favorites-panel-close" aria-label="Fechar" title="Fechar">&times;</button>',
+              '</div>',
+              '<div class="sidebar-favorites-panel-body"></div>'
+            ].join('');
+            document.body.appendChild(panel);
 
-          document.addEventListener('menu-favorites-changed', function () {
-            if (panel.classList.contains('is-visible')) {
+            var panelBody = panel.querySelector('.sidebar-favorites-panel-body');
+            var closeBtn = panel.querySelector('.sidebar-favorites-panel-close');
+            var entry = {
+              button: config.button,
+              panel: panel,
+              closeTimer: null
+            };
+            panels.push(entry);
+
+            function renderPanelContent() {
+              var hasItems = config.sourceNav.children.length > 0;
+              if (hasItems) {
+                panelBody.innerHTML = config.sourceNav.innerHTML;
+                return;
+              }
+              var emptyText = config.emptyNode ? config.emptyNode.textContent : config.emptyText;
+              panelBody.innerHTML = '<div class="sidebar-favorites-panel-empty">' + (emptyText || config.emptyText) + '</div>';
+            }
+
+            function positionPanel() {
+              if (!isDesktop()) return;
+              var sidebarRect = sidebar.getBoundingClientRect();
+              var btnRect = config.button.getBoundingClientRect();
+              panel.style.left = (sidebarRect.right + 12) + 'px';
+              panel.style.top = Math.max(10, Math.floor(btnRect.top - 10)) + 'px';
+              panel.style.maxHeight = (window.innerHeight - 20) + 'px';
+            }
+
+            function openPanel() {
+              if (!allowQuickPanelOpen()) return;
+              if (config.blockWhenPinnedFavorites && document.body.classList.contains('sidebar-favorites-pinned')) return;
+              clearTimeout(entry.closeTimer);
               renderPanelContent();
               positionPanel();
+              closeAllPanels(panel);
+              panel.classList.add('is-visible');
+              panel.setAttribute('aria-hidden', 'false');
+              config.button.setAttribute('aria-expanded', 'true');
+              document.dispatchEvent(new CustomEvent('sidebar-favorites-opened'));
             }
-          });
 
-          document.addEventListener('click', function (event) {
-            if (!panel.classList.contains('is-visible')) return;
-            if (panel.contains(event.target) || btn.contains(event.target)) return;
-            closePanel();
-          });
+            function closePanel() {
+              clearTimeout(entry.closeTimer);
+              panel.classList.remove('is-visible');
+              panel.setAttribute('aria-hidden', 'true');
+              config.button.setAttribute('aria-expanded', 'false');
+            }
 
-          document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape') {
+            function scheduleClose() {
+              clearTimeout(entry.closeTimer);
+              entry.closeTimer = setTimeout(closePanel, 160);
+            }
+
+            config.button.addEventListener('click', function (event) {
+              event.preventDefault();
+              event.stopPropagation();
+              if (panel.classList.contains('is-visible')) {
+                closePanel();
+              } else {
+                openPanel();
+              }
+            });
+
+            config.button.addEventListener('mouseenter', openPanel);
+            config.button.addEventListener('mouseleave', scheduleClose);
+            config.button.addEventListener('focus', openPanel);
+            config.button.addEventListener('blur', scheduleClose);
+
+            panel.addEventListener('mouseenter', function () {
+              clearTimeout(entry.closeTimer);
+            });
+            panel.addEventListener('mouseleave', scheduleClose);
+
+            if (closeBtn) {
+              closeBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                closePanel();
+              });
+            }
+
+            panel.addEventListener('click', function (event) {
+              if (event.target.closest('.nav-link')) {
+                closePanel();
+              }
+            });
+
+            document.addEventListener('click', function (event) {
+              if (!panel.classList.contains('is-visible')) return;
+              if (panel.contains(event.target) || config.button.contains(event.target)) return;
               closePanel();
-            }
+            });
+
+            document.addEventListener('keydown', function (event) {
+              if (event.key === 'Escape') {
+                closePanel();
+              }
+            });
+
+            config.refreshEvents.forEach(function (eventName) {
+              document.addEventListener(eventName, function () {
+                if (panel.classList.contains('is-visible')) {
+                  renderPanelContent();
+                  positionPanel();
+                }
+              });
+            });
+
+            return {
+              close: closePanel,
+              refresh: renderPanelContent,
+              reposition: positionPanel,
+              isOpen: function () { return panel.classList.contains('is-visible'); }
+            };
+          }
+
+          var favoritesPanel = createPanel({
+            button: favoritesBtn,
+            sourceNav: favoritesNav,
+            emptyNode: favoritesEmpty,
+            emptyText: 'Nenhum favorito ainda.',
+            title: '&#11088; Favoritos',
+            blockWhenPinnedFavorites: true,
+            refreshEvents: ['menu-favorites-changed', 'menu-favorites-rendered']
           });
 
-          document.addEventListener('sidebar-flyout-opened', closePanel);
-          document.addEventListener('sidebar-expanded', closePanel);
-          document.addEventListener('sidebar-collapsed', closePanel);
-          document.addEventListener('sidebar-mobile-opened', closePanel);
-          document.addEventListener('sidebar-favorites-pin-changed', closePanel);
+          var recentPanel = createPanel({
+            button: recentBtn,
+            sourceNav: recentNav,
+            emptyNode: recentEmpty,
+            emptyText: 'Sem páginas recentes.',
+            title: '&#128339; Recentes',
+            blockWhenPinnedFavorites: false,
+            refreshEvents: ['menu-favorites-changed', 'menu-favorites-rendered']
+          });
+
+          function closeQuickPanels() {
+            favoritesPanel.close();
+            recentPanel.close();
+          }
+
+          document.addEventListener('sidebar-flyout-opened', closeQuickPanels);
+          document.addEventListener('sidebar-expanded', closeQuickPanels);
+          document.addEventListener('sidebar-collapsed', closeQuickPanels);
+          document.addEventListener('sidebar-mobile-opened', closeQuickPanels);
+          document.addEventListener('sidebar-favorites-pin-changed', closeQuickPanels);
+          document.addEventListener('sidebar-pinned', closeQuickPanels);
+          document.addEventListener('sidebar-unpinned', closeQuickPanels);
 
           window.addEventListener('resize', function () {
-            if (!panel.classList.contains('is-visible')) return;
             if (!isDesktop()) {
-              closePanel();
+              closeQuickPanels();
               return;
             }
-            positionPanel();
+            if (favoritesPanel.isOpen()) favoritesPanel.reposition();
+            if (recentPanel.isOpen()) recentPanel.reposition();
           });
 
           window.addEventListener('scroll', function () {
-            if (panel.classList.contains('is-visible')) {
-              positionPanel();
-            }
+            if (favoritesPanel.isOpen()) favoritesPanel.reposition();
+            if (recentPanel.isOpen()) recentPanel.reposition();
           }, true);
         }
 
@@ -997,7 +1074,10 @@
           }
 
           function shouldUseFlyout() {
-            return !isMobileViewport() && !sidebar.classList.contains('mobile-open');
+            return !isMobileViewport() &&
+              !sidebar.classList.contains('mobile-open') &&
+              !sidebar.classList.contains('is-expanded') &&
+              !sidebar.classList.contains('is-pinned');
           }
 
           function isSidebarExpanded() {
@@ -1140,6 +1220,14 @@
             clearTimeout(hideTimer);
           });
           flyout.addEventListener('mouseleave', function () {
+            scheduleClose();
+          });
+
+          sidebar.addEventListener('mouseleave', function () {
+            if (!shouldUseFlyout()) {
+              closeFlyout();
+              return;
+            }
             scheduleClose();
           });
 
@@ -1446,7 +1534,7 @@
             bindMenuFavorites();
             bindSidebarFavoritesPinnedToggle();
             bindSidebarRecentItems();
-            bindSidebarFavoritesPanel();
+            bindSidebarQuickPanels();
             bindFlyoutMenu();
             bindUserMenuDropdown();
             bindSidebarFeatureSearch();
@@ -1457,7 +1545,7 @@
           bindMenuFavorites();
           bindSidebarFavoritesPinnedToggle();
           bindSidebarRecentItems();
-          bindSidebarFavoritesPanel();
+          bindSidebarQuickPanels();
           bindFlyoutMenu();
           bindUserMenuDropdown();
           bindSidebarFeatureSearch();
@@ -1470,6 +1558,6 @@
     <div id="sidebar-mobile-overlay" aria-hidden="true"></div>
 
     <!-- SidebarManager: colapso, hover, pin, mobile -->
-    <script src="{{ url_for('static', filename='js/sidebar.js', v='20260430ux2') }}"></script>
+    <script src="{{ url_for('static', filename='js/sidebar.js', v='20260501ux3') }}"></script>
   </body>
 </html>

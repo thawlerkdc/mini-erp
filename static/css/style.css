@@ -1664,12 +1664,15 @@ body.theme-dark .sidebar-search-empty {
   order: 5;
 }
 
-.sidebar-favorites-launcher {
+.sidebar-quick-launchers {
   order: 4;
   margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.sidebar-favorites-launcher .sidebar-favorites-btn {
+.sidebar-quick-launchers .sidebar-favorites-btn {
   width: 100%;
   justify-content: flex-start;
   gap: 8px;
@@ -5425,16 +5428,22 @@ body.theme-dark .btn-download-template:hover {
   display: none;
 }
 
-.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-favorites-launcher {
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-quick-launchers {
   margin-top: 0;
 }
 
-.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-favorites-launcher .sidebar-favorites-btn {
+.sidebar:not(.is-expanded):not(.mobile-open) .sidebar-quick-launchers .sidebar-favorites-btn {
   width: 40px;
   height: 40px;
   padding: 0;
   justify-content: center;
   margin: 0 auto;
+}
+
+.sidebar.is-expanded .sidebar-quick-launchers,
+.sidebar.is-pinned .sidebar-quick-launchers,
+.sidebar.mobile-open .sidebar-quick-launchers {
+  display: none;
 }
 
 /* Brand compacto: mostra só o ícone de brand quando colapsado */
@@ -5563,7 +5572,7 @@ body.theme-dark .btn-download-template:hover {
   border-color: rgba(253, 186, 116, 0.7);
 }
 
-#sidebar-favorites-panel {
+.sidebar-quick-panel {
   position: fixed;
   z-index: 9998;
   min-width: 230px;
@@ -5579,7 +5588,7 @@ body.theme-dark .btn-download-template:hover {
   transition: opacity 0.22s var(--sidebar-easing), transform 0.22s var(--sidebar-easing);
 }
 
-#sidebar-favorites-panel.is-visible {
+.sidebar-quick-panel.is-visible {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
@@ -5611,7 +5620,7 @@ body.theme-dark .btn-download-template:hover {
   padding: 8px;
 }
 
-#sidebar-favorites-panel .nav-link {
+.sidebar-quick-panel .nav-link {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -5626,12 +5635,12 @@ body.theme-dark .btn-download-template:hover {
   min-height: 34px;
 }
 
-#sidebar-favorites-panel .nav-link:hover {
+.sidebar-quick-panel .nav-link:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-#sidebar-favorites-panel .nav-link.active {
+.sidebar-quick-panel .nav-link.active {
   background: linear-gradient(135deg, #315fb8, #4f7fd6);
   border-color: rgba(255, 255, 255, 0.25);
   color: #fff;
@@ -5723,7 +5732,7 @@ body.sidebar-mobile-open {
   overflow: hidden;
 }
 
-body.sidebar-mobile-open #sidebar-favorites-panel {
+body.sidebar-mobile-open .sidebar-quick-panel {
   opacity: 0 !important;
   pointer-events: none !important;
 }
