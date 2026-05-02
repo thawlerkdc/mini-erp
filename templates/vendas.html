@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv7') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv8') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -67,9 +67,9 @@
                 <div class="sale-row-col">
                   <span class="sale-row-label">Quantidade</span>
                   <div class="qty-stepper">
-                    <button type="button" class="qty-stepper-btn qty-stepper-btn-minus" onclick="changeQuantity(this, -1)">-</button>
+                    <button type="button" class="qty-stepper-btn qty-stepper-btn-minus" onclick="changeQuantity(this, -1)" title="Remover quantidade" aria-label="Remover quantidade"><span aria-hidden="true">&#8722;</span></button>
                     <input name="quantity[]" type="number" min="1" step="1" value="1" required oninput="updateLineTotal(this)">
-                    <button type="button" class="qty-stepper-btn qty-stepper-btn-plus" onclick="changeQuantity(this, 1)">+</button>
+                    <button type="button" class="qty-stepper-btn qty-stepper-btn-plus" onclick="changeQuantity(this, 1)" title="Adicionar quantidade" aria-label="Adicionar quantidade"><span aria-hidden="true">&#43;</span></button>
                   </div>
                 </div>
                 <div class="sale-row-col">

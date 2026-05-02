@@ -918,6 +918,14 @@
   color: rgba(203, 213, 225, 0.76);
 }
 
+[data-theme="light"] .sales-shortcut-hint {
+  color: #475569;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
 .sales-shortcuts-btn {
   min-height: 36px;
   padding: 0 10px;
@@ -1204,6 +1212,17 @@ body.theme-dark .sales-toolbar-pdv.active:focus-visible {
 
 [data-theme="light"] .sales-payment-mode-btn.active {
   color: var(--text-primary);
+}
+
+[data-theme="light"] .sales-payment-mode-btn:hover:not(.active) {
+  color: #334155;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .sales-payment-mode-btn.active:hover,
+[data-theme="light"] .sales-payment-mode-btn.active:focus-visible {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.32);
 }
 
 .sales-shortcuts-modal-content {
