@@ -531,14 +531,14 @@
     }
 
     .qty-stepper-btn-plus {
-      border-color: rgba(29, 78, 216, 0.95);
-      background: #2dd4bf;
+      border-color: rgba(22, 163, 74, 0.95);
+      background: #22c55e;
       color: #020617;
     }
 
     .qty-stepper-btn-plus:hover {
-      border-color: rgba(59, 130, 246, 1);
-      background: #33dbc6;
+      border-color: rgba(21, 128, 61, 1);
+      background: #16a34a;
       color: #020617;
       transform: translateY(-1px);
       filter: saturate(1.05);
@@ -838,13 +838,13 @@
       color: #020617;
     }
     [data-theme="light"] .qty-stepper-btn-plus {
-      background: #31d6c1;
-      border-color: #2563eb;
+      background: #22c55e;
+      border-color: #16a34a;
       color: #020617;
     }
     [data-theme="light"] .qty-stepper-btn-plus:hover {
-      background: #43deca;
-      border-color: #3b82f6;
+      background: #16a34a;
+      border-color: #15803d;
       color: #020617;
     }
     [data-theme="light"] .qty-stepper-btn:not(.qty-stepper-btn-minus):not(.qty-stepper-btn-plus):hover {
