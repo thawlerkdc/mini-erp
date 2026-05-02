@@ -502,6 +502,13 @@
       cursor: pointer;
     }
 
+    .qty-stepper-btn-icon {
+      width: 14px;
+      height: 14px;
+      display: block;
+      margin: 0 auto;
+    }
+
     .qty-stepper-btn-minus {
       border-color: rgba(252, 165, 165, 0.45);
       background: rgba(153, 27, 27, 0.45);
