@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv5') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv6') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -275,8 +275,12 @@
     var SALES_PDV_MODE_KEY = 'mini_erp_sales_pdv_mode';
     var SALES_SHORTCUTS_SEEN_KEY = 'mini_erp_sales_shortcuts_seen';
     var SPLIT_PAYMENT_METHODS_KEY = 'mini_erp_sales_split_methods_{{ session.get("account_id") or "global" }}_{{ session.get("user") or "anon" }}';
+    var SALES_DRAFT_KEY = 'mini_erp_sales_draft_{{ session.get("account_id") or "global" }}_{{ session.get("user") or "anon" }}';
     var PAYMENT_METHOD_OPTIONS = ['Dinheiro', 'Pix', 'Debito', 'Crédito'];
+    var SAVE_DRAFT_DEBOUNCE_MS = 250;
     var NO_CLIENT_BYPASS = false;
+    var saleDraftTimer = null;
+    var restoringSaleDraft = false;
 
     function getSelectedPaymentMethod() {
       return ACTIVE_PAYMENT_METHOD || 'Dinheiro';
@@ -350,6 +354,169 @@
       let primary = normalizePaymentMethod(getSelectedPaymentMethod()) || 'Dinheiro';
       let secondary = getFallbackSplitMethod(primary);
       return [primary, secondary];
+    }
+
+    function clearSaleDraft() {
+      try {
+        localStorage.removeItem(SALES_DRAFT_KEY);
+      } catch (e) {}
+    }
+
+    function serializeCurrentSaleDraft() {
+      let items = Array.from(document.querySelectorAll('#sale-items .sale-row')).map(function (row) {
+        return {
+          product_id: row.querySelector('input[name="product_id[]"]').value,
+          quantity: parseNumber(row.querySelector('input[name="quantity[]"]').value),
+          unit_price: parseNumber(row.querySelector('input[name="unit_price[]"]').value)
+        };
+      }).filter(function (item) {
+        return !!item.product_id && item.quantity > 0;
+      });
+
+      if (!items.length) return null;
+
+      let splitRows = Array.from(document.querySelectorAll('#payment-rows .payment-row')).map(function (row) {
+        let method = row.querySelector('select[name="pay_method[]"]');
+        let installments = row.querySelector('select[name="pay_installments[]"]');
+        let amount = row.querySelector('input[name="pay_amount[]"]');
+        return {
+          method: method ? method.value : 'Dinheiro',
+          installments: installments ? (parseInt(installments.value, 10) || 1) : 1,
+          amount: amount ? parseNumber(amount.value) : 0
+        };
+      });
+
+      return {
+        version: 1,
+        updated_at: Date.now(),
+        items: items,
+        client_id: (document.getElementById('sale-client-select') || {}).value || '',
+        discount: parseNumber((document.querySelector('input[name="discount"]') || {}).value),
+        payment_received: parseNumber((document.querySelector('input[name="payment_received"]') || {}).value),
+        payment_method: getSelectedPaymentMethod(),
+        installments: parseInt((document.getElementById('installments-select') || {}).value, 10) || 1,
+        split_enabled: !!SPLIT_PAYMENT_EXPANDED,
+        split_rows: splitRows
+      };
+    }
+
+    function saveSaleDraftNow() {
+      if (restoringSaleDraft) return;
+      let draft = serializeCurrentSaleDraft();
+      if (!draft) {
+        clearSaleDraft();
+        return;
+      }
+      try {
+        localStorage.setItem(SALES_DRAFT_KEY, JSON.stringify(draft));
+      } catch (e) {}
+    }
+
+    function scheduleSaveSaleDraft() {
+      if (restoringSaleDraft) return;
+      clearTimeout(saleDraftTimer);
+      saleDraftTimer = setTimeout(saveSaleDraftNow, SAVE_DRAFT_DEBOUNCE_MS);
+    }
+
+    function restoreSaleDraft() {
+      let raw = null;
+      try {
+        raw = localStorage.getItem(SALES_DRAFT_KEY);
+      } catch (e) {
+        raw = null;
+      }
+      if (!raw) return;
+
+      let draft = null;
+      try {
+        draft = JSON.parse(raw);
+      } catch (e) {
+        clearSaleDraft();
+        return;
+      }
+
+      if (!draft || !Array.isArray(draft.items) || !draft.items.length) {
+        clearSaleDraft();
+        return;
+      }
+
+      let saleItems = document.getElementById('sale-items');
+      if (!saleItems) return;
+
+      restoringSaleDraft = true;
+      try {
+        saleItems.innerHTML = '';
+
+        draft.items.forEach(function (item) {
+          let option = getPickerOptionByValue(item.product_id);
+          if (!option) return;
+          let row = buildSaleRow();
+          bindRowProduct(row, option);
+          row.querySelector('input[name="unit_price[]"]').value = formatNumber(item.unit_price || parseNumber(option.dataset.price || 0));
+          row.querySelector('input[name="quantity[]"]').value = String(Math.max(1, Math.round(item.quantity || 1)));
+          updateLineTotal(row.querySelector('input[name="quantity[]"]'));
+          saleItems.appendChild(row);
+        });
+
+        if (!saleItems.querySelector('.sale-row')) {
+          clearSaleDraft();
+          return;
+        }
+
+        let clientSelect = document.getElementById('sale-client-select');
+        if (clientSelect && typeof draft.client_id === 'string') {
+          let hasClientOption = Array.from(clientSelect.options).some(function (opt) { return opt.value === draft.client_id; });
+          clientSelect.value = hasClientOption ? draft.client_id : '';
+        }
+
+        let discountInput = document.querySelector('input[name="discount"]');
+        if (discountInput) discountInput.value = formatNumber(draft.discount || 0);
+
+        let receivedInput = document.querySelector('input[name="payment_received"]');
+        if (receivedInput) receivedInput.value = formatNumber(draft.payment_received || 0);
+
+        let installmentsSelect = document.getElementById('installments-select');
+        let installments = Math.max(1, parseInt(draft.installments, 10) || 1);
+        if (installmentsSelect) {
+          let hasInstallment = Array.from(installmentsSelect.options).some(function (opt) {
+            return parseInt(opt.value, 10) === installments;
+          });
+          installmentsSelect.value = hasInstallment ? String(installments) : '1';
+        }
+
+        setSelectedPaymentMethod(displayPaymentMethod(draft.payment_method || 'Dinheiro'));
+
+        if (PAYMENT_UI_SETTINGS.allow_multi && !!draft.split_enabled) {
+          setPaymentMode(true);
+          let rowsWrap = document.getElementById('payment-rows');
+          if (rowsWrap) {
+            rowsWrap.innerHTML = '';
+            let rows = Array.isArray(draft.split_rows) ? draft.split_rows : [];
+            if (!rows.length) {
+              rows = [
+                { method: getSelectedPaymentMethod(), installments: installments, amount: getOrderTotal() },
+                { method: getFallbackSplitMethod(getSelectedPaymentMethod()), installments: 1, amount: 0 }
+              ];
+            }
+            rows.forEach(function (entry) {
+              let method = displayPaymentMethod(entry.method || 'Dinheiro');
+              let rowInstallments = Math.max(1, parseInt(entry.installments, 10) || 1);
+              let amount = parseNumber(entry.amount);
+              buildPaymentRow(method, rowInstallments, amount);
+            });
+          }
+          syncSplitRowsEditability();
+          rememberCurrentSplitMethods();
+        } else {
+          setPaymentMode(false);
+        }
+
+        onPaymentMethodChange(getSelectedPaymentMethod());
+        applyCardSurcharge();
+        updateTotals();
+      } finally {
+        restoringSaleDraft = false;
+      }
     }
 
     function setSelectedPaymentMethod(method) {
@@ -740,6 +907,7 @@
       syncSplitRowsEditability();
       applyCardSurcharge();
       rememberCurrentSplitMethods();
+      scheduleSaveSaleDraft();
     }
 
     function syncPaymentModeButtons() {
@@ -786,6 +954,7 @@
       syncPaymentModeButtons();
       onPaymentMethodChange(getSelectedPaymentMethod());
       applyCardSurcharge();
+      scheduleSaveSaleDraft();
     }
 
     function openShortcutsModal() {
@@ -826,6 +995,7 @@
     function selectPaymentMethod(method) {
       setSelectedPaymentMethod(method);
       onPaymentMethodChange(method);
+      scheduleSaveSaleDraft();
     }
 
     function updatePaymentFeeHint(row) {
@@ -859,6 +1029,7 @@
       syncSplitRowsEditability();
       onPaymentMethodChange(getSelectedPaymentMethod());
       applyCardSurcharge();
+      scheduleSaveSaleDraft();
     }
 
     function onPaymentAmountInput(input) {
@@ -877,6 +1048,7 @@
         rebalanceSplitRows();
       }
       applyCardSurcharge();
+      scheduleSaveSaleDraft();
     }
 
     function rebalanceSplitRows() {
@@ -927,6 +1099,7 @@
       updatePaymentFeeHint(row);
       applyCardSurcharge();
       rememberCurrentSplitMethods();
+      scheduleSaveSaleDraft();
     }
 
     function computeSurchargeForSplit() {
@@ -1144,6 +1317,7 @@
           focusProductPicker(true);
         }
         updateTotals();
+        scheduleSaveSaleDraft();
         return;
       }
       let newRow = buildSaleRow();
@@ -1157,6 +1331,7 @@
         focusProductPicker(true);
       }
       updateTotals();
+      scheduleSaveSaleDraft();
     }
 
     function adjustSaleItemCount(delta) {
@@ -1189,6 +1364,7 @@
       if (!row) return;
       row.remove();
       applyCardSurcharge();
+      scheduleSaveSaleDraft();
     }
 
     function clearSaleData() {
@@ -1218,6 +1394,7 @@
       onPaymentMethodChange('Dinheiro');
       updateEmptyState();
       updateTotals();
+      clearSaleDraft();
     }
 
     function openClearSaleModal() {
@@ -1488,6 +1665,7 @@
     function confirmPixAndSubmit() {
       document.getElementById('pix-confirmed').value = '1';
       document.getElementById('pix-modal').style.display = 'none';
+      clearSaleDraft();
       document.getElementById('sale-form').submit();
     }
 
@@ -1537,6 +1715,11 @@
       if (event.target.matches('input[name="surcharge"]')) {
         updateTotals();
       }
+      scheduleSaveSaleDraft();
+    });
+
+    document.addEventListener('change', function() {
+      scheduleSaveSaleDraft();
     });
 
     document.addEventListener('keydown', function(event) {
@@ -1656,6 +1839,7 @@
         event.preventDefault();
         selectedRow.remove();
         applyCardSurcharge();
+        scheduleSaveSaleDraft();
       }
     });
 
@@ -1678,6 +1862,7 @@
       NO_CLIENT_BYPASS = false;
 
       if (!shouldOpenPixModal()) {
+        clearSaleDraft();
         return;
       }
 
@@ -1735,6 +1920,10 @@
       });
     })();
 
+    window.addEventListener('beforeunload', function () {
+      saveSaleDraftNow();
+    });
+
     syncPaymentMethodCards();
     syncPaymentModeButtons();
 
@@ -1743,6 +1932,7 @@
     onPaymentMethodChange(getSelectedPaymentMethod());
     updateEmptyState();
     bindPixCopyActions();
+    restoreSaleDraft();
     maybeShowShortcutsHint();
   </script>
 {% endblock %}

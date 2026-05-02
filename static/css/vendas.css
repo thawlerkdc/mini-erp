@@ -901,15 +901,15 @@
 }
 
 body.theme-dark .sales-toolbar-pdv.active {
-  border-color: rgba(248, 113, 113, 0.9) !important;
-  background: linear-gradient(135deg, rgba(153, 27, 27, 0.88), rgba(220, 38, 38, 0.86)) !important;
-  color: #fee2e2 !important;
+  border-color: rgba(96, 165, 250, 0.9) !important;
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.9), rgba(29, 78, 216, 0.88)) !important;
+  color: #dbeafe !important;
 }
 
 body.theme-dark .sales-toolbar-pdv.active:hover,
 body.theme-dark .sales-toolbar-pdv.active:focus-visible {
-  border-color: rgba(252, 165, 165, 1) !important;
-  background: linear-gradient(135deg, rgba(185, 28, 28, 0.95), rgba(239, 68, 68, 0.9)) !important;
+  border-color: rgba(125, 211, 252, 1) !important;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(14, 165, 233, 0.86)) !important;
   color: #fff !important;
 }
 
