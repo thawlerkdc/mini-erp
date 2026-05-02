@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv3') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv4') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -713,11 +713,31 @@
       return row;
     }
 
+    function syncSplitRowsEditability() {
+      let rows = Array.from(document.querySelectorAll('#payment-rows .payment-row'));
+      rows.forEach(function(row, index) {
+        let amountInput = row.querySelector('input[name="pay_amount[]"]');
+        if (!amountInput) return;
+        if (rows.length === 2 && index === 1) {
+          amountInput.readOnly = true;
+          amountInput.classList.add('is-auto-amount');
+          amountInput.setAttribute('aria-readonly', 'true');
+          amountInput.setAttribute('title', 'Valor calculado automaticamente pela primeira forma de pagamento.');
+        } else {
+          amountInput.readOnly = false;
+          amountInput.classList.remove('is-auto-amount');
+          amountInput.removeAttribute('aria-readonly');
+          amountInput.removeAttribute('title');
+        }
+      });
+    }
+
     function addPaymentRow() {
       let defaultMethod = getSelectedPaymentMethod();
       buildPaymentRow(defaultMethod, 1, 0);
       setPaymentMode(true);
       onPaymentMethodChange(getSelectedPaymentMethod());
+      syncSplitRowsEditability();
       applyCardSurcharge();
       rememberCurrentSplitMethods();
     }
@@ -758,9 +778,11 @@
           let firstFinal = rowBaseToFinal(orderBase, firstMethod, firstInstallments);
           buildPaymentRow(firstMethod, firstInstallments, firstFinal);
           buildPaymentRow(secondMethod, secondInstallments, 0);
+          syncSplitRowsEditability();
           rememberCurrentSplitMethods();
         }
       }
+      syncSplitRowsEditability();
       syncPaymentModeButtons();
       onPaymentMethodChange(getSelectedPaymentMethod());
       applyCardSurcharge();
@@ -834,6 +856,7 @@
       if (rows.length) {
         rebalanceSplitRows();
       }
+      syncSplitRowsEditability();
       onPaymentMethodChange(getSelectedPaymentMethod());
       applyCardSurcharge();
     }
@@ -850,7 +873,7 @@
         return;
       }
       let index = rows.indexOf(row);
-      if (index > 0) {
+      if (rows.length === 2 || index > 0) {
         rebalanceSplitRows();
       }
       applyCardSurcharge();
@@ -860,6 +883,24 @@
       let rows = Array.from(document.querySelectorAll('#payment-rows .payment-row'));
       if (!rows.length) return;
       let orderBase = getOrderBase();
+
+      if (rows.length === 2) {
+        let firstRow = rows[0];
+        let secondRow = rows[1];
+
+        let firstMethod = firstRow.querySelector('select[name="pay_method[]"]').value;
+        let firstInstallments = parseInt(firstRow.querySelector('select[name="pay_installments[]"]').value) || 1;
+        let firstFinal = parseNumber(firstRow.querySelector('input[name="pay_amount[]"]').value);
+        let firstBase = rowFinalToBase(firstFinal, firstMethod, firstInstallments);
+
+        let remainingBase = Math.max(orderBase - firstBase, 0);
+        let secondMethod = secondRow.querySelector('select[name="pay_method[]"]').value;
+        let secondInstallments = parseInt(secondRow.querySelector('select[name="pay_installments[]"]').value) || 1;
+        let secondFinal = rowBaseToFinal(remainingBase, secondMethod, secondInstallments);
+        secondRow.querySelector('input[name="pay_amount[]"]').value = formatNumber(secondFinal);
+        return;
+      }
+
       let consumedBase = 0;
       rows.forEach((row, index) => {
         if (index === 0) return;
@@ -881,6 +922,8 @@
       let method = row.querySelector('select[name="pay_method[]"]').value;
       let installmentWrap = row.querySelector('.pay-installments-wrap');
       installmentWrap.style.display = method === 'Crédito' ? '' : 'none';
+      syncSplitRowsEditability();
+      rebalanceSplitRows();
       updatePaymentFeeHint(row);
       applyCardSurcharge();
       rememberCurrentSplitMethods();
