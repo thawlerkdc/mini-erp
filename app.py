@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_from_directory
 from dotenv import load_dotenv
 import os
 from werkzeug.utils import secure_filename
@@ -2891,6 +2891,14 @@ def dashboard():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.route("/sw.js")
+def service_worker():
+    response = send_from_directory(app.static_folder, "sw.js")
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.route("/admin/system-settings", methods=["GET", "POST"])

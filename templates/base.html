@@ -2,8 +2,22 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{{ global_settings.get('brand_name', 'Kdc Systems') }} - {{ title if title else global_settings.get('browser_title_suffix', 'ERP') }}</title>
+
+    <!-- PWA: Manifest e ícones -->
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/img/pwa-icon-192.png">
+
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mini ERP">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="application-name" content="Mini ERP">
+    <meta name="description" content="Sistema de gestão empresarial simplificado">
     <script>
       (function() {
         var THEME_KEY = 'mini_erp_app_theme';
@@ -20,12 +34,15 @@
         root.setAttribute('data-theme', theme);
         if (theme === 'dark') {
           root.classList.add('theme-dark-pending');
+          // Bloqueia renderização visual até o CSS estar pronto (anti-flicker)
+          root.style.visibility = 'hidden';
         }
       })();
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260501ux10') }}">
-    <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}"></script>
-    <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260502pwa1') }}">
+    <script>document.documentElement.style.visibility = '';</script>
+    <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}" defer></script>
   </head>
   <body>
     {% if session.get('user') %}
@@ -1596,5 +1613,162 @@
 
     <!-- SidebarManager: colapso, hover, pin, mobile -->
     <script src="{{ url_for('static', filename='js/sidebar.js', v='20260501ux4') }}"></script>
+
+    <!-- ═══════════════════════════════════════════════════
+         PWA: Componente de instalação + Service Worker
+    ════════════════════════════════════════════════════ -->
+
+    <!-- Banner de instalação Android (beforeinstallprompt) -->
+    <div id="pwa-install-banner" role="dialog" aria-label="Instalar aplicativo" style="display:none">
+      <div class="pwa-banner-icon">📲</div>
+      <div class="pwa-banner-text">
+        <strong>Instalar Mini ERP</strong>
+        <span>Acesse direto da tela inicial, sem navegador</span>
+      </div>
+      <div class="pwa-banner-actions">
+        <button type="button" id="pwa-install-btn" class="pwa-btn-install">Instalar</button>
+        <button type="button" id="pwa-install-dismiss" class="pwa-btn-dismiss" aria-label="Fechar">✕</button>
+      </div>
+    </div>
+
+    <!-- Guia de instalação iOS (Safari) -->
+    <div id="pwa-ios-guide" role="dialog" aria-label="Instalar no iPhone" style="display:none">
+      <div class="pwa-ios-header">
+        <strong>📱 Instalar Mini ERP no iPhone</strong>
+        <button type="button" id="pwa-ios-close" class="pwa-btn-dismiss" aria-label="Fechar">✕</button>
+      </div>
+      <div class="pwa-ios-steps">
+        <div class="pwa-ios-step">
+          <span class="pwa-ios-step-num">1</span>
+          <span>Toque no botão <strong>Compartilhar</strong> <span class="pwa-ios-share-icon">⬆️</span> na barra do Safari</span>
+        </div>
+        <div class="pwa-ios-step">
+          <span class="pwa-ios-step-num">2</span>
+          <span>Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong></span>
+        </div>
+        <div class="pwa-ios-step">
+          <span class="pwa-ios-step-num">3</span>
+          <span>Toque em <strong>Adicionar</strong> — pronto! 🎉</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botão flutuante para mostrar o guia iOS / gatilho de install -->
+    <button type="button" id="pwa-fab" title="Instalar aplicativo" style="display:none" aria-label="Instalar aplicativo">
+      📲
+    </button>
+
+    <script>
+    (function () {
+      'use strict';
+
+      var PWA_DISMISSED_KEY = 'pwa_install_dismissed';
+      var deferredPrompt = null;
+
+      // ── Detecção iOS ──────────────────────────────────
+      function isIOS() {
+        return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      }
+      function isInStandaloneMode() {
+        return window.navigator.standalone === true ||
+               window.matchMedia('(display-mode: standalone)').matches;
+      }
+
+      // ── Elementos ────────────────────────────────────
+      var banner   = document.getElementById('pwa-install-banner');
+      var iosGuide = document.getElementById('pwa-ios-guide');
+      var fab      = document.getElementById('pwa-fab');
+      var installBtn = document.getElementById('pwa-install-btn');
+      var dismissBtn = document.getElementById('pwa-install-dismiss');
+      var iosClose   = document.getElementById('pwa-ios-close');
+
+      if (isInStandaloneMode()) return; // já instalado, nada a fazer
+
+      var dismissed = false;
+      try { dismissed = !!localStorage.getItem(PWA_DISMISSED_KEY); } catch(e) {}
+
+      // ── Android / Chrome ─────────────────────────────
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (!dismissed) {
+          banner.style.display = 'flex';
+        }
+        fab.style.display = 'flex';
+      });
+
+      if (installBtn) {
+        installBtn.addEventListener('click', function () {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(function (result) {
+            deferredPrompt = null;
+            banner.style.display = 'none';
+            fab.style.display = 'none';
+          });
+        });
+      }
+
+      if (dismissBtn) {
+        dismissBtn.addEventListener('click', function () {
+          banner.style.display = 'none';
+          try { localStorage.setItem(PWA_DISMISSED_KEY, '1'); } catch(e) {}
+        });
+      }
+
+      // ── iOS Safari ───────────────────────────────────
+      if (isIOS() && !isInStandaloneMode()) {
+        fab.style.display = 'flex';
+        fab.addEventListener('click', function () {
+          iosGuide.style.display = 'block';
+        });
+        if (!dismissed) {
+          setTimeout(function () { iosGuide.style.display = 'block'; }, 2500);
+        }
+      }
+
+      if (iosClose) {
+        iosClose.addEventListener('click', function () {
+          iosGuide.style.display = 'none';
+          try { localStorage.setItem(PWA_DISMISSED_KEY, '1'); } catch(e) {}
+        });
+      }
+
+      if (fab && !isIOS()) {
+        fab.addEventListener('click', function () {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(function () {
+              deferredPrompt = null;
+              fab.style.display = 'none';
+            });
+          }
+        });
+      }
+
+      // ── Registro do Service Worker ───────────────────
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(function (reg) {
+              // Verificar atualização disponível
+              reg.addEventListener('updatefound', function () {
+                var newWorker = reg.installing;
+                newWorker.addEventListener('statechange', function () {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // Nova versão disponível — opcional: mostrar toast
+                  }
+                });
+              });
+            })
+            .catch(function (err) {
+              console.warn('SW registration failed:', err);
+            });
+        });
+      }
+
+    })();
+    </script>
   </body>
 </html>

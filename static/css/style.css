@@ -5071,6 +5071,147 @@ body.theme-dark .dashboard-card.neutral .card-icon {
   background: #334155 !important;
 }
 
+/* ════════════════════════════════════════════════════════
+   PWA — Banner de instalação, FAB e guia iOS
+════════════════════════════════════════════════════════ */
+
+#pwa-install-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9900;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border-top: 1px solid rgba(99, 179, 237, 0.25);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+  animation: pwa-slide-up 0.35s ease;
+}
+@keyframes pwa-slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.pwa-banner-icon { font-size: 2rem; flex-shrink: 0; }
+.pwa-banner-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pwa-banner-text strong { color: #f1f5f9; font-size: 0.95rem; }
+.pwa-banner-text span   { color: #94a3b8; font-size: 0.8rem; }
+.pwa-banner-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.pwa-btn-install {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s;
+}
+.pwa-btn-install:hover { filter: brightness(1.1); }
+.pwa-btn-dismiss {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+.pwa-btn-dismiss:hover { background: rgba(255,255,255,0.08); color: #f1f5f9; }
+
+#pwa-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  z-index: 9800;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(37,99,235,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+#pwa-fab:hover { transform: translateY(-2px) scale(1.06); box-shadow: 0 12px 28px rgba(37,99,235,0.55); }
+
+#pwa-ios-guide {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9900;
+  background: linear-gradient(160deg, #1e293b, #0f172a);
+  border-top: 1px solid rgba(99, 179, 237, 0.2);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px 32px;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+  animation: pwa-slide-up 0.35s ease;
+}
+.pwa-ios-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.pwa-ios-header strong { color: #f1f5f9; font-size: 1rem; }
+.pwa-ios-steps { display: flex; flex-direction: column; gap: 14px; }
+.pwa-ios-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.pwa-ios-step-num {
+  background: #2563eb;
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.pwa-ios-share-icon { display: inline-block; background: rgba(37,99,235,0.2); border-radius: 6px; padding: 1px 4px; }
+.pwa-ios-step strong { color: #f1f5f9; }
+
+[data-theme="light"] #pwa-install-banner,
+[data-theme="light"] #pwa-ios-guide {
+  background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+  border-color: rgba(37, 99, 235, 0.2);
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+}
+[data-theme="light"] .pwa-banner-text strong,
+[data-theme="light"] .pwa-ios-header strong,
+[data-theme="light"] .pwa-ios-step strong { color: #0f172a; }
+[data-theme="light"] .pwa-banner-text span,
+[data-theme="light"] .pwa-ios-step { color: #475569; }
+[data-theme="light"] .pwa-btn-dismiss { color: #94a3b8; }
+[data-theme="light"] .pwa-btn-dismiss:hover { background: rgba(0,0,0,0.06); color: #1e293b; }
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  #pwa-install-banner,
+  #pwa-ios-guide { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+}
+
 body.theme-dark .report-table thead th,
 body.theme-dark .table-card thead,
 body.theme-dark .compact-status-table thead,
