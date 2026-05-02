@@ -280,52 +280,54 @@
                 title="Menu"
               >&#9776;</button>
               <h1>{{ title }}</h1>
-              <span class="account-badge">{% if session.get('role') == 'owner' %}<span class="badge-role-icon" title="Conta principal">&#128081;</span>{% else %}<span class="badge-role-icon" title="Conta dependente">&#128100;</span>{% endif %} {{ session.get('account_name') }}</span>
             </div>
-            <div class="user-menu-dropdown">
-              <button type="button" class="user-menu-trigger">
-                <span class="user-name">{{ session.get('user_name') or session.get('user') }}</span>
-                <span class="user-avatar">{{ (session.get('user_name') or session.get('user') or 'U')[0]|upper }}</span>
-              </button>
-              <div class="user-menu">
-                <div class="user-menu-header">
-                  <span class="user-menu-title">{{ session.get('user_name') or session.get('user') }}</span>
-                  <span class="user-menu-subtitle">{{ session.get('account_name') }}</span>
+            <div class="topbar-right">
+              <span class="account-badge">{% if session.get('role') == 'owner' %}<span class="badge-role-icon" title="Conta principal">&#128081;</span>{% else %}<span class="badge-role-icon" title="Conta dependente">&#128100;</span>{% endif %} {{ session.get('account_name') }}</span>
+              <div class="user-menu-dropdown">
+                <button type="button" class="user-menu-trigger">
+                  <span class="user-name">{{ session.get('user_name') or session.get('user') }}</span>
+                  <span class="user-avatar">{{ (session.get('user_name') or session.get('user') or 'U')[0]|upper }}</span>
+                </button>
+                <div class="user-menu">
+                  <div class="user-menu-header">
+                    <span class="user-menu-title">{{ session.get('user_name') or session.get('user') }}</span>
+                    <span class="user-menu-subtitle">{{ session.get('account_name') }}</span>
+                  </div>
+                  <hr class="user-menu-divider">
+                  <a href="{{ url_for('manual') }}" class="user-menu-item">
+                    <span class="menu-icon" aria-hidden="true">&#128214;</span>
+                    <span>{{ t('menu_manual') }}</span>
+                  </a>
+                  <div class="user-menu-item user-lang-section">
+                    <span class="menu-icon" aria-hidden="true">&#127760;</span>
+                    <span>{{ t('select_language') }}</span>
+                  </div>
+                  <div class="user-menu-languages">
+                    {% for code, label in languages.items() %}
+                      <a class="user-menu-lang {% if current_language == code %}active{% endif %}" href="{{ url_for('set_language', lang_code=code) }}">{{ label }}</a>
+                    {% endfor %}
+                  </div>
+                  <hr class="user-menu-divider">
+                  <div class="user-menu-item user-theme-section">
+                    <span class="menu-icon" aria-hidden="true">&#127761;</span>
+                    <span>Tema</span>
+                  </div>
+                  <div class="user-menu-themes">
+                    <button type="button" class="user-menu-theme active" id="theme-light-btn" onclick="switchTheme('light')">
+                      <span class="menu-icon" aria-hidden="true">☀️</span>
+                      <span>Claro</span>
+                    </button>
+                    <button type="button" class="user-menu-theme" id="theme-dark-btn" onclick="switchTheme('dark')">
+                      <span class="menu-icon" aria-hidden="true">🌙</span>
+                      <span>Escuro</span>
+                    </button>
+                  </div>
+                  <hr class="user-menu-divider">
+                  <a href="{{ url_for('logout') }}" class="user-menu-item user-menu-logout">
+                    <span class="menu-icon" aria-hidden="true">&#128681;</span>
+                    <span>{{ t('menu_logout') }}</span>
+                  </a>
                 </div>
-                <hr class="user-menu-divider">
-                <a href="{{ url_for('manual') }}" class="user-menu-item">
-                  <span class="menu-icon" aria-hidden="true">&#128214;</span>
-                  <span>{{ t('menu_manual') }}</span>
-                </a>
-                <div class="user-menu-item user-lang-section">
-                  <span class="menu-icon" aria-hidden="true">&#127760;</span>
-                  <span>{{ t('select_language') }}</span>
-                </div>
-                <div class="user-menu-languages">
-                  {% for code, label in languages.items() %}
-                    <a class="user-menu-lang {% if current_language == code %}active{% endif %}" href="{{ url_for('set_language', lang_code=code) }}">{{ label }}</a>
-                  {% endfor %}
-                </div>
-                <hr class="user-menu-divider">
-                <div class="user-menu-item user-theme-section">
-                  <span class="menu-icon" aria-hidden="true">&#127761;</span>
-                  <span>Tema</span>
-                </div>
-                <div class="user-menu-themes">
-                  <button type="button" class="user-menu-theme active" id="theme-light-btn" onclick="switchTheme('light')">
-                    <span class="menu-icon" aria-hidden="true">☀️</span>
-                    <span>Claro</span>
-                  </button>
-                  <button type="button" class="user-menu-theme" id="theme-dark-btn" onclick="switchTheme('dark')">
-                    <span class="menu-icon" aria-hidden="true">🌙</span>
-                    <span>Escuro</span>
-                  </button>
-                </div>
-                <hr class="user-menu-divider">
-                <a href="{{ url_for('logout') }}" class="user-menu-item user-menu-logout">
-                  <span class="menu-icon" aria-hidden="true">&#128681;</span>
-                  <span>{{ t('menu_logout') }}</span>
-                </a>
               </div>
             </div>
           </header>
@@ -1108,10 +1110,43 @@
           var menu = dropdown.querySelector('.user-menu');
           if (!trigger || !menu) return;
 
+          function positionUserMenu() {
+            dropdown.classList.remove('menu-open-up', 'menu-align-left');
+
+            var previousDisplay = menu.style.display;
+            var previousVisibility = menu.style.visibility;
+
+            menu.style.visibility = 'hidden';
+            menu.style.display = 'flex';
+
+            var triggerRect = trigger.getBoundingClientRect();
+            var menuRect = menu.getBoundingClientRect();
+            var spaceBelow = window.innerHeight - triggerRect.bottom;
+            var spaceAbove = triggerRect.top;
+
+            if (spaceBelow < (menuRect.height + 12) && spaceAbove > spaceBelow) {
+              dropdown.classList.add('menu-open-up');
+            }
+
+            var estimatedLeft = triggerRect.right - menuRect.width;
+            if (estimatedLeft < 8) {
+              dropdown.classList.add('menu-align-left');
+            }
+
+            var availableHeight = dropdown.classList.contains('menu-open-up')
+              ? (spaceAbove - 12)
+              : (spaceBelow - 12);
+            menu.style.maxHeight = Math.max(180, Math.floor(availableHeight)) + 'px';
+
+            menu.style.display = previousDisplay;
+            menu.style.visibility = previousVisibility;
+          }
+
           function closeSiblingDropdowns() {
             var allDropdowns = document.querySelectorAll('.user-menu-dropdown');
             allDropdowns.forEach(function(d) {
               d.querySelector('.user-menu').classList.remove('is-open');
+              d.classList.remove('menu-open-up', 'menu-align-left');
             });
           }
 
@@ -1121,8 +1156,10 @@
             var isOpen = menu.classList.contains('is-open');
             if (isOpen) {
               menu.classList.remove('is-open');
+              dropdown.classList.remove('menu-open-up', 'menu-align-left');
             } else {
               closeSiblingDropdowns();
+              positionUserMenu();
               menu.classList.add('is-open');
             }
           });
@@ -1136,14 +1173,28 @@
           document.addEventListener('click', function (event) {
             if (!dropdown.contains(event.target)) {
               menu.classList.remove('is-open');
+              dropdown.classList.remove('menu-open-up', 'menu-align-left');
             }
           });
 
           document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape' && menu.classList.contains('is-open')) {
               menu.classList.remove('is-open');
+              dropdown.classList.remove('menu-open-up', 'menu-align-left');
             }
           });
+
+          window.addEventListener('resize', function () {
+            if (menu.classList.contains('is-open')) {
+              positionUserMenu();
+            }
+          });
+
+          window.addEventListener('scroll', function () {
+            if (menu.classList.contains('is-open')) {
+              positionUserMenu();
+            }
+          }, true);
         }
 
         function bindFlyoutMenu() {

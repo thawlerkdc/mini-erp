@@ -2080,6 +2080,14 @@ body.sidebar-mobile-open .sidebar-tooltip {
   flex-wrap: wrap;
 }
 
+.topbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  min-width: 0;
+}
+
 .app-topbar h1 {
   margin: 0;
   font-size: 1.4rem;
@@ -2135,6 +2143,18 @@ body.sidebar-mobile-open .sidebar-tooltip {
   min-width: 240px;
   z-index: 9998;
   overflow: hidden;
+  max-height: min(78vh, 520px);
+  overflow-y: auto;
+}
+
+.user-menu-dropdown.menu-open-up .user-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+.user-menu-dropdown.menu-align-left .user-menu {
+  right: auto;
+  left: 0;
 }
 
 .user-menu.is-open {
@@ -5933,9 +5953,25 @@ body.sidebar-mobile-open .sidebar-quick-panel {
     text-overflow: ellipsis;
   }
 
-  .account-badge,
   .user-name {
     display: none;
+  }
+
+  .topbar-right {
+    gap: 8px;
+  }
+
+  .account-badge {
+    display: inline-flex;
+    max-width: min(44vw, 180px);
+    padding: 5px 10px;
+    font-size: 0.74rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .user-menu {
+    min-width: min(90vw, 280px);
   }
 
   /* Hambúrguer visível */
