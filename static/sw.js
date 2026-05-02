@@ -1,6 +1,6 @@
 // Mini ERP Service Worker
 // Versão: controla invalidação do cache
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.1.0';
 const STATIC_CACHE  = `erp-static-${CACHE_VERSION}`;
 const PAGES_CACHE   = `erp-pages-${CACHE_VERSION}`;
 
@@ -11,10 +11,15 @@ const STATIC_ASSETS = [
   '/static/js/themeManager.js',
   '/static/js/sidebar.js',
   '/static/js/dateValidation.js',
-  '/static/img/pwa-icon-192.png',
-  '/static/img/pwa-icon-512.png',
-  '/static/img/apple-touch-icon.png',
+  '/static/img/pwa-icon-light-192.png',
+  '/static/img/pwa-icon-light-512.png',
+  '/static/img/pwa-icon-dark-192.png',
+  '/static/img/pwa-icon-dark-512.png',
+  '/static/img/apple-touch-icon-light.png',
+  '/static/img/apple-touch-icon-dark.png',
   '/static/manifest.json',
+  '/static/manifest-light.json',
+  '/static/manifest-dark.json',
 ];
 
 // Página offline fallback

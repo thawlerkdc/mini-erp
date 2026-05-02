@@ -6,16 +6,16 @@
     <title>{{ global_settings.get('brand_name', 'Kdc Systems') }} - {{ title if title else global_settings.get('browser_title_suffix', 'ERP') }}</title>
 
     <!-- PWA: Manifest e ícones -->
-    <link rel="manifest" href="/static/manifest.json">
-    <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/static/img/pwa-icon-192.png">
+    <link rel="manifest" id="app-manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" id="app-apple-touch-icon" href="/static/img/apple-touch-icon-light.png">
+    <link rel="icon" id="app-favicon-192" type="image/png" sizes="192x192" href="/static/img/pwa-icon-light-192.png">
 
     <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Mini ERP">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#1e293b">
+    <meta name="theme-color" id="meta-theme-color" content="#1e293b">
     <meta name="application-name" content="Mini ERP">
     <meta name="description" content="Sistema de gestão empresarial simplificado">
     <script>
@@ -32,6 +32,32 @@
         var root = document.documentElement;
         root.classList.add('theme-init');
         root.setAttribute('data-theme', theme);
+        var themeAssets = {
+          light: {
+            manifest: '/static/manifest-light.json',
+            appleTouch: '/static/img/apple-touch-icon-light.png',
+            icon192: '/static/img/pwa-icon-light-192.png',
+            themeColor: '#d9e3ef'
+          },
+          dark: {
+            manifest: '/static/manifest-dark.json',
+            appleTouch: '/static/img/apple-touch-icon-dark.png',
+            icon192: '/static/img/pwa-icon-dark-192.png',
+            themeColor: '#05102a'
+          }
+        };
+
+        var selectedAssets = themeAssets[theme] || themeAssets.light;
+        var manifestLink = document.getElementById('app-manifest');
+        var appleTouchLink = document.getElementById('app-apple-touch-icon');
+        var favicon192 = document.getElementById('app-favicon-192');
+        var themeColorMeta = document.getElementById('meta-theme-color');
+
+        if (manifestLink) manifestLink.setAttribute('href', selectedAssets.manifest);
+        if (appleTouchLink) appleTouchLink.setAttribute('href', selectedAssets.appleTouch);
+        if (favicon192) favicon192.setAttribute('href', selectedAssets.icon192);
+        if (themeColorMeta) themeColorMeta.setAttribute('content', selectedAssets.themeColor);
+
         if (theme === 'dark') {
           root.classList.add('theme-dark-pending');
           // Bloqueia renderização visual até o CSS estar pronto (anti-flicker)

@@ -5,20 +5,20 @@
   "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#d9e3ef",
-  "background_color": "#d9e3ef",
+  "theme_color": "#05102a",
+  "background_color": "#05102a",
   "lang": "pt-BR",
   "scope": "/",
   "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/static/img/pwa-icon-light-192.png",
+      "src": "/static/img/pwa-icon-dark-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/static/img/pwa-icon-light-512.png",
+      "src": "/static/img/pwa-icon-dark-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -29,13 +29,13 @@
       "name": "Vendas",
       "short_name": "Vendas",
       "url": "/vendas",
-      "icons": [{ "src": "/static/img/pwa-icon-light-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/static/img/pwa-icon-dark-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/static/img/pwa-icon-light-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/static/img/pwa-icon-dark-192.png", "sizes": "192x192" }]
     }
   ]
 }
