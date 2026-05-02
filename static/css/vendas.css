@@ -1110,6 +1110,16 @@ body.theme-dark .sales-toolbar-pdv.active:focus-visible {
   }
 }
 
+@media (max-width: 768px) {
+  .sales-fixed-footer {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .sales-shell {
+    padding-bottom: 182px;
+  }
+}
+
 [data-theme="light"] .sales-empty-state {
   background: rgba(255, 255, 255, 0.72);
   color: var(--text-secondary);
