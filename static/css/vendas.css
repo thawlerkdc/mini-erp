@@ -889,8 +889,15 @@
 }
 
 .sales-toolbar-pdv.active {
-  border-color: rgba(56, 189, 248, 0.8);
-  color: #bfdbfe;
+  border-color: rgba(248, 113, 113, 0.72);
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.62), rgba(185, 28, 28, 0.68));
+  color: #fee2e2;
+}
+
+.sales-toolbar-pdv.active:hover {
+  border-color: rgba(252, 165, 165, 0.9);
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.72), rgba(220, 38, 38, 0.78));
+  color: #fff;
 }
 
 .sales-empty-state {
@@ -997,6 +1004,12 @@
 
 .app-layout.sales-pdv-mode .sidebar {
   display: none;
+}
+
+.app-layout.sales-pdv-mode .app-main-shell,
+.app-layout.sales-pdv-mode.sidebar-is-pinned .app-main-shell {
+  margin-left: 0;
+  width: 100%;
 }
 
 .app-layout.sales-pdv-mode .sales-fixed-footer {

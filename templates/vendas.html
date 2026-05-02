@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260428pdv2') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv3') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -274,14 +274,86 @@
     var ACTIVE_PAYMENT_METHOD = 'Dinheiro';
     var SALES_PDV_MODE_KEY = 'mini_erp_sales_pdv_mode';
     var SALES_SHORTCUTS_SEEN_KEY = 'mini_erp_sales_shortcuts_seen';
+    var SPLIT_PAYMENT_METHODS_KEY = 'mini_erp_sales_split_methods_{{ session.get("account_id") or "global" }}_{{ session.get("user") or "anon" }}';
+    var PAYMENT_METHOD_OPTIONS = ['Dinheiro', 'Pix', 'Debito', 'Crédito'];
     var NO_CLIENT_BYPASS = false;
 
     function getSelectedPaymentMethod() {
       return ACTIVE_PAYMENT_METHOD || 'Dinheiro';
     }
 
+    function normalizePaymentMethod(method) {
+      let value = String(method || '').trim();
+      if (!value) return '';
+      if (value === 'Débito') return 'Debito';
+      if (value === 'Debito') return 'Debito';
+      return value;
+    }
+
+    function displayPaymentMethod(method) {
+      let normalized = normalizePaymentMethod(method);
+      if (normalized === 'Debito') return 'Débito';
+      return normalized;
+    }
+
+    function getFallbackSplitMethod(primary) {
+      let normalizedPrimary = normalizePaymentMethod(primary) || 'Dinheiro';
+      if (normalizedPrimary !== 'Crédito') return 'Crédito';
+      return 'Pix';
+    }
+
+    function normalizeSplitMethods(methods) {
+      if (!Array.isArray(methods) || methods.length < 2) return null;
+      let first = normalizePaymentMethod(methods[0]);
+      let second = normalizePaymentMethod(methods[1]);
+      if (!PAYMENT_METHOD_OPTIONS.includes(first) || !PAYMENT_METHOD_OPTIONS.includes(second)) return null;
+      if (first === second) {
+        second = getFallbackSplitMethod(first);
+      }
+      return [first, second];
+    }
+
+    function loadSplitPaymentMethodsPreference() {
+      try {
+        let parsed = JSON.parse(localStorage.getItem(SPLIT_PAYMENT_METHODS_KEY) || 'null');
+        return normalizeSplitMethods(parsed);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function saveSplitPaymentMethodsPreference(methodA, methodB) {
+      let normalized = normalizeSplitMethods([methodA, methodB]);
+      if (!normalized) return;
+      try {
+        localStorage.setItem(SPLIT_PAYMENT_METHODS_KEY, JSON.stringify(normalized));
+      } catch (e) {}
+    }
+
+    function getCurrentSplitMethodsFromRows() {
+      let rows = Array.from(document.querySelectorAll('#payment-rows .payment-row'));
+      if (rows.length < 2) return null;
+      let first = normalizePaymentMethod(rows[0].querySelector('select[name="pay_method[]"]').value);
+      let second = normalizePaymentMethod(rows[1].querySelector('select[name="pay_method[]"]').value);
+      return normalizeSplitMethods([first, second]);
+    }
+
+    function rememberCurrentSplitMethods() {
+      let current = getCurrentSplitMethodsFromRows();
+      if (!current) return;
+      saveSplitPaymentMethodsPreference(current[0], current[1]);
+    }
+
+    function getSplitInitialMethods() {
+      let saved = loadSplitPaymentMethodsPreference();
+      if (saved) return saved;
+      let primary = normalizePaymentMethod(getSelectedPaymentMethod()) || 'Dinheiro';
+      let secondary = getFallbackSplitMethod(primary);
+      return [primary, secondary];
+    }
+
     function setSelectedPaymentMethod(method) {
-      ACTIVE_PAYMENT_METHOD = method || 'Dinheiro';
+      ACTIVE_PAYMENT_METHOD = displayPaymentMethod(method || 'Dinheiro');
       let input = document.getElementById('payment-method-input');
       if (input) {
         input.value = ACTIVE_PAYMENT_METHOD;
@@ -615,6 +687,7 @@
 
     function buildPaymentRow(method, installments, amount) {
       let container = document.getElementById('payment-rows');
+      let resolvedMethod = displayPaymentMethod(method || 'Dinheiro');
       let row = document.createElement('div');
       row.className = 'payment-row';
       row.innerHTML =
@@ -632,8 +705,8 @@
         '<button type="button" class="btn-delete btn-icon-del" onclick="removePaymentRow(this)">&#128465;</button>';
       container.appendChild(row);
       let methodSelect = row.querySelector('select[name="pay_method[]"]');
-      methodSelect.value = method || 'Dinheiro';
-      if ((method || 'Dinheiro') === 'Crédito') {
+      methodSelect.value = resolvedMethod;
+      if (resolvedMethod === 'Crédito') {
         row.querySelector('.pay-installments-wrap').style.display = '';
       }
       updatePaymentFeeHint(row);
@@ -646,6 +719,7 @@
       setPaymentMode(true);
       onPaymentMethodChange(getSelectedPaymentMethod());
       applyCardSurcharge();
+      rememberCurrentSplitMethods();
     }
 
     function syncPaymentModeButtons() {
@@ -674,12 +748,17 @@
       if (SPLIT_PAYMENT_EXPANDED) {
         let container = document.getElementById('payment-rows');
         if (container && container.querySelectorAll('.payment-row').length === 0) {
-          let defaultMethod = getSelectedPaymentMethod();
+          let splitMethods = getSplitInitialMethods();
           let defaultInstallments = parseInt(document.getElementById('installments-select').value) || 1;
           let orderBase = getOrderBase();
-          let firstFinal = rowBaseToFinal(orderBase, defaultMethod, defaultInstallments);
-          buildPaymentRow(defaultMethod, defaultInstallments, firstFinal);
-          buildPaymentRow(defaultMethod, 1, 0);
+          let firstMethod = displayPaymentMethod(splitMethods[0]);
+          let secondMethod = displayPaymentMethod(splitMethods[1]);
+          let firstInstallments = firstMethod === 'Crédito' ? defaultInstallments : 1;
+          let secondInstallments = secondMethod === 'Crédito' ? 1 : 1;
+          let firstFinal = rowBaseToFinal(orderBase, firstMethod, firstInstallments);
+          buildPaymentRow(firstMethod, firstInstallments, firstFinal);
+          buildPaymentRow(secondMethod, secondInstallments, 0);
+          rememberCurrentSplitMethods();
         }
       }
       syncPaymentModeButtons();
@@ -804,6 +883,7 @@
       installmentWrap.style.display = method === 'Crédito' ? '' : 'none';
       updatePaymentFeeHint(row);
       applyCardSurcharge();
+      rememberCurrentSplitMethods();
     }
 
     function computeSurchargeForSplit() {
