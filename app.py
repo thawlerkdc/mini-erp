@@ -69,12 +69,19 @@ import smtplib
 import unicodedata
 import xml.etree.ElementTree as ET
 from email.message import EmailMessage
+import time
 
 try:
     from cryptography.fernet import Fernet, InvalidToken
 except ImportError:
     Fernet = None
     InvalidToken = Exception
+
+from fiscal_provider import (
+    FiscalCompanyConfig,
+    FiscalProviderError,
+    create_fiscal_provider,
+)
 
 # Importar psycopg para PostgreSQL (opcional em desenvolvimento)
 try:
@@ -1477,11 +1484,16 @@ SETTINGS_DEFAULTS = {
     "default_profit_margin": "100",
     "default_stock_min_percent": "20",
     "habilitar_nota_fiscal": "0",
+    "provedor_fiscal": "focus",
     "ambiente_nf": "homologacao",
     "tipo_nota": "NFCE",
     "serie_nota": "1",
     "proximo_numero_nota": "1",
     "regime_tributario": "simples_nacional",
+    "token_api_enc": "",
+    "token_api_last4": "",
+    "nfe_emitted_count": "0",
+    "nfe_attempt_count": "0",
     "certificado_path": "",
     "certificado_password_enc": "",
     "certificado_uploaded_at": "",
@@ -1895,23 +1907,139 @@ def _build_fiscal_payload_for_sale(sale_id, sale_data, items, settings):
     }
 
 
-def _mock_emit_fiscal_document(payload):
-    key_suffix = secrets.token_hex(22).upper()[:44]
-    invoice_key = key_suffix
-    numero = int(payload.get("numero") or 1)
-    total_final = float(payload.get("total_final") or 0)
-    xml = (
-        f"<NFe><infNFe Id=\"NFe{invoice_key}\"><ide><nNF>{numero}</nNF></ide>"
-        f"<total><vNF>{total_final:.2f}</vNF></total></infNFe></NFe>"
+def _estimated_nf_cost(provider_name):
+    normalized = (provider_name or "focus").strip().lower()
+    if normalized == "focus":
+        return 0.12
+    if normalized == "nfeio":
+        return 0.15
+    if normalized == "tecnospeed":
+        return 0.18
+    return 0.12
+
+
+def _normalize_provider_status(status):
+    normalized = (status or "").strip().lower()
+    if normalized in {"emitida", "autorizado", "autorizada", "aprovada"}:
+        return "emitida"
+    if normalized in {"cancelada", "cancelado"}:
+        return "cancelada"
+    if normalized in {"erro", "rejeitada", "falha"}:
+        return "erro"
+    if normalized in {"pendente", "processando", "em_processamento", "aguardando"}:
+        return "pendente"
+    return "pendente"
+
+
+def _increment_account_counter(conn, account_id, key, delta=1):
+    current = conn.execute(
+        "SELECT setting_value FROM account_settings WHERE account_id = %s AND setting_key = %s LIMIT 1",
+        (account_id, key),
+    ).fetchone()
+    current_value = _safe_int((current or {}).get("setting_value"), 0)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        """
+        INSERT INTO account_settings (account_id, setting_key, setting_value, updated_at)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (account_id, setting_key)
+        DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = EXCLUDED.updated_at
+        """,
+        (account_id, key, str(max(0, current_value + int(delta))), now),
     )
-    pdf_url = f"/api/v1/nfe/{payload.get('sale_id')}/danfe"
+
+
+def _build_company_context(account_id, settings):
+    provider_name = (settings.get("provedor_fiscal") or "focus").strip().lower()
+    token_api = _decrypt_text(settings.get("token_api_enc") or "")
+    if not token_api:
+        raise RuntimeError("Token da API fiscal não configurado.")
+
+    conn = get_tenant_connection()
+    try:
+        account_row = conn.execute(
+            "SELECT cnpj, name FROM accounts WHERE id = %s LIMIT 1",
+            (account_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return FiscalCompanyConfig(
+        account_id=int(account_id),
+        provider=provider_name,
+        environment=_normalize_nf_environment(settings.get("ambiente_nf")),
+        token_api=token_api,
+        cnpj=(account_row.get("cnpj") if account_row else "") or "",
+        company_name=(account_row.get("name") if account_row else "") or "",
+    )
+
+
+def _register_fiscal_log(conn, account_id, sale_id, provider_name, provider_reference, operation, status, retries, response_time_ms, http_status=None, invoice_key="", error_message=""):
+    conn.execute(
+        """
+        INSERT INTO fiscal_emission_logs (
+            account_id, sale_id, provider_name, provider_reference, operation, status,
+            http_status, retries, response_time_ms, estimated_cost, invoice_key,
+            error_message, created_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            account_id,
+            sale_id,
+            provider_name,
+            provider_reference,
+            operation,
+            status,
+            http_status,
+            retries,
+            response_time_ms,
+            _estimated_nf_cost(provider_name),
+            invoice_key,
+            error_message[:500] if error_message else "",
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ),
+    )
+
+
+def _emit_with_provider(payload, company, max_retries=2):
+    provider = create_fiscal_provider(company.provider)
+    attempts = 0
+    last_error = ""
+    started = time.perf_counter()
+    while attempts <= max_retries:
+        attempts += 1
+        try:
+            result = provider.emitir_nota(payload, company)
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            result["attempts"] = attempts
+            result["response_time_ms"] = elapsed_ms
+            return result
+        except FiscalProviderError as exc:
+            last_error = str(exc)
+            if attempts > max_retries:
+                break
+        except Exception as exc:
+            last_error = str(exc)
+            if attempts > max_retries:
+                break
+
     return {
-        "status": "emitida",
-        "invoice_key": invoice_key,
-        "xml": xml,
-        "pdf_url": pdf_url,
-        "numero": numero,
+        "provider": company.provider,
+        "provider_reference": str(payload.get("sale_id") or ""),
+        "status": "pendente",
+        "invoice_key": "",
+        "xml": "",
+        "pdf_url": "",
+        "error_message": last_error or "Falha de emissão no provedor fiscal.",
+        "attempts": attempts,
+        "response_time_ms": int((time.perf_counter() - started) * 1000),
     }
+
+
+def _query_provider_status(reference, company):
+    provider = create_fiscal_provider(company.provider)
+    return provider.consultar_status(reference, company)
 
 
 def _upsert_sale_fiscal_document(conn, account_id, sale_id, payload, result, error_message=""):
@@ -1920,15 +2048,17 @@ def _upsert_sale_fiscal_document(conn, account_id, sale_id, payload, result, err
         """
         INSERT INTO sale_fiscal_documents (
             account_id, sale_id, emit_requested, status, environment, note_type,
-            serie, number, invoice_key, xml_content, pdf_url, error_message,
+            provider_name, provider_reference, serie, number, invoice_key, xml_content, pdf_url, error_message,
             attempts, created_at, updated_at
         )
-        VALUES (%s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, %s, %s)
+        VALUES (%s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, %s, %s)
         ON CONFLICT (sale_id) DO UPDATE SET
             emit_requested = 1,
             status = EXCLUDED.status,
             environment = EXCLUDED.environment,
             note_type = EXCLUDED.note_type,
+            provider_name = EXCLUDED.provider_name,
+            provider_reference = EXCLUDED.provider_reference,
             serie = EXCLUDED.serie,
             number = EXCLUDED.number,
             invoice_key = EXCLUDED.invoice_key,
@@ -1944,6 +2074,8 @@ def _upsert_sale_fiscal_document(conn, account_id, sale_id, payload, result, err
             (result or {}).get("status") or "pendente",
             payload.get("ambiente"),
             payload.get("tipo_nota"),
+            (result or {}).get("provider") or "focus",
+            (result or {}).get("provider_reference") or str(sale_id),
             payload.get("serie"),
             (result or {}).get("numero") or payload.get("numero"),
             (result or {}).get("invoice_key") or "",
@@ -2341,6 +2473,16 @@ def save_account_settings(account_id, form_data):
     keys = list(SETTINGS_DEFAULTS.keys())
     current_settings = get_account_settings(account_id)
     pix_key_type, pix_key_value = _sanitize_pix_key(form_data.get("pix_key_type"), form_data.get("pix_key_value"))
+    provider_name = (form_data.get("provedor_fiscal") or current_settings.get("provedor_fiscal") or "focus").strip().lower()
+    if provider_name not in {"focus", "nfeio", "tecnospeed"}:
+        provider_name = "focus"
+
+    token_plain = (form_data.get("token_api") or "").strip()
+    token_api_enc = current_settings.get("token_api_enc") or ""
+    token_last4 = current_settings.get("token_api_last4") or ""
+    if token_plain:
+        token_api_enc = _encrypt_text(token_plain)
+        token_last4 = token_plain[-4:]
     nf_enabled = _to_bool(form_data.get("habilitar_nota_fiscal"))
     print_note = _to_bool(form_data.get("imprimir_nota")) and nf_enabled
     next_number = max(1, _safe_int(form_data.get("proximo_numero_nota"), 1))
@@ -2377,11 +2519,16 @@ def save_account_settings(account_id, form_data):
         "po_footer_notes": (form_data.get("po_footer_notes") or "").strip(),
         "po_signature_label": (form_data.get("po_signature_label") or "").strip(),
         "habilitar_nota_fiscal": "1" if nf_enabled else "0",
+        "provedor_fiscal": provider_name,
         "ambiente_nf": _normalize_nf_environment(form_data.get("ambiente_nf")),
         "tipo_nota": _normalize_nf_type(form_data.get("tipo_nota")),
         "serie_nota": str(form_data.get("serie_nota") or "1").strip() or "1",
         "proximo_numero_nota": str(next_number),
         "regime_tributario": (form_data.get("regime_tributario") or "simples_nacional").strip(),
+        "token_api_enc": token_api_enc,
+        "token_api_last4": token_last4,
+        "nfe_emitted_count": str(max(0, _safe_int(current_settings.get("nfe_emitted_count"), 0))),
+        "nfe_attempt_count": str(max(0, _safe_int(current_settings.get("nfe_attempt_count"), 0))),
         "certificado_path": (form_data.get("certificado_path") or current_settings.get("certificado_path") or "").strip(),
         "certificado_password_enc": (form_data.get("certificado_password_enc") or current_settings.get("certificado_password_enc") or "").strip(),
         "certificado_uploaded_at": (form_data.get("certificado_uploaded_at") or current_settings.get("certificado_uploaded_at") or "").strip(),
@@ -4263,23 +4410,57 @@ def vendas():
             fiscal_payload = _build_fiscal_payload_for_sale(sale_id, sale_payload, items, settings)
             try:
                 _load_certificate_for_emission(settings)
-                fiscal_result = _mock_emit_fiscal_document(fiscal_payload)
+                company = _build_company_context(account_id, settings)
+                fiscal_result = _emit_with_provider(fiscal_payload, company, max_retries=2)
                 _upsert_sale_fiscal_document(conn, account_id, sale_id, fiscal_payload, fiscal_result)
+                _register_fiscal_log(
+                    conn,
+                    account_id,
+                    sale_id,
+                    fiscal_result.get("provider") or company.provider,
+                    fiscal_result.get("provider_reference") or str(sale_id),
+                    "emitir",
+                    fiscal_result.get("status") or "pendente",
+                    _safe_int(fiscal_result.get("attempts"), 1),
+                    _safe_int(fiscal_result.get("response_time_ms"), 0),
+                    fiscal_result.get("http_status"),
+                    invoice_key=fiscal_result.get("invoice_key") or "",
+                    error_message=fiscal_result.get("error_message") or "",
+                )
+                _increment_account_counter(conn, account_id, "nfe_attempt_count", 1)
+                if (fiscal_result.get("status") or "").strip().lower() == "emitida":
+                    _increment_account_counter(conn, account_id, "nfe_emitted_count", 1)
                 conn.execute(
                     "UPDATE sales SET fiscal_status = %s WHERE id = %s AND account_id = %s",
-                    ("emitida", sale_id, account_id),
+                    (fiscal_result.get("status") or "pendente", sale_id, account_id),
                 )
-                set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
-                flash(f"Nota fiscal emitida com sucesso. Chave: {fiscal_result.get('invoice_key')}", "success")
-            except Exception as fiscal_exc:
+                if (fiscal_result.get("status") or "").strip().lower() == "emitida":
+                    set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
+                    flash(f"Nota fiscal emitida com sucesso. Chave: {fiscal_result.get('invoice_key')}", "success")
+                else:
+                    flash("Venda concluída, mas a nota ficou pendente para reprocessamento.", "error")
+            except Exception:
                 _upsert_sale_fiscal_document(
                     conn,
                     account_id,
                     sale_id,
                     fiscal_payload,
-                    {"status": "pendente", "numero": fiscal_payload.get("numero")},
+                    {"status": "pendente", "numero": fiscal_payload.get("numero"), "provider": settings.get("provedor_fiscal") or "focus", "provider_reference": str(sale_id)},
                     error_message="Falha na emissão. Reprocessar manualmente.",
                 )
+                _register_fiscal_log(
+                    conn,
+                    account_id,
+                    sale_id,
+                    (settings.get("provedor_fiscal") or "focus").strip().lower(),
+                    str(sale_id),
+                    "emitir",
+                    "erro",
+                    1,
+                    0,
+                    error_message="Falha inesperada na emissão fiscal",
+                )
+                _increment_account_counter(conn, account_id, "nfe_attempt_count", 1)
                 conn.execute(
                     "UPDATE sales SET fiscal_status = %s WHERE id = %s AND account_id = %s",
                     ("pendente", sale_id, account_id),
@@ -4581,11 +4762,29 @@ def api_v1_vendas():
                     settings,
                 )
                 _load_certificate_for_emission(settings)
-                fiscal_result = _mock_emit_fiscal_document(fiscal_payload)
+                company = _build_company_context(account_id, settings)
+                fiscal_result = _emit_with_provider(fiscal_payload, company, max_retries=2)
                 _upsert_sale_fiscal_document(conn, account_id, sale_id, fiscal_payload, fiscal_result)
-                conn.execute("UPDATE sales SET fiscal_status = %s WHERE id = %s AND account_id = %s", ("emitida", sale_id, account_id))
-                set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
-                fiscal_status = "emitida"
+                _register_fiscal_log(
+                    conn,
+                    account_id,
+                    sale_id,
+                    fiscal_result.get("provider") or company.provider,
+                    fiscal_result.get("provider_reference") or str(sale_id),
+                    "emitir",
+                    fiscal_result.get("status") or "pendente",
+                    _safe_int(fiscal_result.get("attempts"), 1),
+                    _safe_int(fiscal_result.get("response_time_ms"), 0),
+                    fiscal_result.get("http_status"),
+                    invoice_key=fiscal_result.get("invoice_key") or "",
+                    error_message=fiscal_result.get("error_message") or "",
+                )
+                _increment_account_counter(conn, account_id, "nfe_attempt_count", 1)
+                if (fiscal_result.get("status") or "").strip().lower() == "emitida":
+                    _increment_account_counter(conn, account_id, "nfe_emitted_count", 1)
+                    set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
+                conn.execute("UPDATE sales SET fiscal_status = %s WHERE id = %s AND account_id = %s", (fiscal_result.get("status") or "pendente", sale_id, account_id))
+                fiscal_status = fiscal_result.get("status") or "pendente"
                 fiscal_key = fiscal_result.get("invoice_key") or ""
                 conn.commit()
             except Exception:
@@ -4594,9 +4793,22 @@ def api_v1_vendas():
                     account_id,
                     sale_id,
                     fiscal_payload,
-                    {"status": "pendente", "numero": fiscal_payload.get("numero")},
+                    {"status": "pendente", "numero": fiscal_payload.get("numero"), "provider": settings.get("provedor_fiscal") or "focus", "provider_reference": str(sale_id)},
                     error_message="Falha na emissão fiscal via API",
                 )
+                _register_fiscal_log(
+                    conn,
+                    account_id,
+                    sale_id,
+                    (settings.get("provedor_fiscal") or "focus").strip().lower(),
+                    str(sale_id),
+                    "emitir",
+                    "erro",
+                    1,
+                    0,
+                    error_message="Falha inesperada na emissão fiscal via API",
+                )
+                _increment_account_counter(conn, account_id, "nfe_attempt_count", 1)
                 conn.execute("UPDATE sales SET fiscal_status = %s WHERE id = %s AND account_id = %s", ("pendente", sale_id, account_id))
                 conn.commit()
                 fiscal_status = "pendente"
@@ -4670,21 +4882,53 @@ def api_v1_nfe():
 
         try:
             _load_certificate_for_emission(settings)
-            result = _mock_emit_fiscal_document(fiscal_payload)
+            company = _build_company_context(account_id, settings)
+            result = _emit_with_provider(fiscal_payload, company, max_retries=2)
             _upsert_sale_fiscal_document(conn, account_id, sale_id, fiscal_payload, result)
-            conn.execute("UPDATE sales SET nf_requested = 1, fiscal_status = %s WHERE id = %s AND account_id = %s", ("emitida", sale_id, account_id))
-            set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
+            _register_fiscal_log(
+                conn,
+                account_id,
+                sale_id,
+                result.get("provider") or company.provider,
+                result.get("provider_reference") or str(sale_id),
+                "emitir",
+                result.get("status") or "pendente",
+                _safe_int(result.get("attempts"), 1),
+                _safe_int(result.get("response_time_ms"), 0),
+                result.get("http_status"),
+                invoice_key=result.get("invoice_key") or "",
+                error_message=result.get("error_message") or "",
+            )
+            _increment_account_counter(conn, account_id, "nfe_attempt_count", 1)
+            if (result.get("status") or "").strip().lower() == "emitida":
+                _increment_account_counter(conn, account_id, "nfe_emitted_count", 1)
+                set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
+            conn.execute("UPDATE sales SET nf_requested = 1, fiscal_status = %s WHERE id = %s AND account_id = %s", (result.get("status") or "pendente", sale_id, account_id))
             conn.commit()
-            return jsonify({"ok": True, "status": "emitida", "invoice_key": result.get("invoice_key"), "xml": result.get("xml"), "pdf_url": result.get("pdf_url")})
+            http_code = 200 if (result.get("status") or "").strip().lower() == "emitida" else 202
+            return jsonify({"ok": True, "status": result.get("status") or "pendente", "invoice_key": result.get("invoice_key"), "xml": result.get("xml"), "pdf_url": result.get("pdf_url")}), http_code
         except Exception:
             _upsert_sale_fiscal_document(
                 conn,
                 account_id,
                 sale_id,
                 fiscal_payload,
-                {"status": "pendente", "numero": fiscal_payload.get("numero")},
+                {"status": "pendente", "numero": fiscal_payload.get("numero"), "provider": settings.get("provedor_fiscal") or "focus", "provider_reference": str(sale_id)},
                 error_message="Falha na emissão. Reprocessamento necessário.",
             )
+            _register_fiscal_log(
+                conn,
+                account_id,
+                sale_id,
+                (settings.get("provedor_fiscal") or "focus").strip().lower(),
+                str(sale_id),
+                "emitir",
+                "erro",
+                1,
+                0,
+                error_message="Falha inesperada em /api/v1/nfe",
+            )
+            _increment_account_counter(conn, account_id, "nfe_attempt_count", 1)
             conn.execute("UPDATE sales SET nf_requested = 1, fiscal_status = %s WHERE id = %s AND account_id = %s", ("pendente", sale_id, account_id))
             conn.commit()
             return jsonify({"ok": True, "status": "pendente", "message": "Venda mantida; nota pendente para reprocessamento."}), 202
@@ -4723,6 +4967,191 @@ def api_v1_nfe_danfe(sale_id):
             "</div></body></html>"
         )
         return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+    finally:
+        conn.close()
+
+
+@app.route("/nfe/emitir", methods=["POST"])
+def nfe_emitir_internal():
+    if not session.get("user"):
+        return jsonify({"ok": False, "error": "Sessão expirada."}), 401
+
+    account_id = get_current_account_id()
+    payload = request.get_json(silent=True) or request.form
+    sale_id = _safe_int(payload.get("sale_id"), 0)
+    if sale_id <= 0:
+        return jsonify({"ok": False, "error": "Informe sale_id válido."}), 400
+
+    settings = get_account_settings(account_id)
+    if not _is_nf_enabled_for_account(account_id, settings):
+        return jsonify({"ok": False, "error": "Nota fiscal desabilitada para esta conta/plano."}), 403
+
+    conn = get_tenant_connection()
+    try:
+        sale = conn.execute(
+            "SELECT id, subtotal_products, discount, surcharge, total FROM sales WHERE id = %s AND account_id = %s LIMIT 1",
+            (sale_id, account_id),
+        ).fetchone()
+        if not sale:
+            return jsonify({"ok": False, "error": "Venda não encontrada."}), 404
+
+        item_rows = conn.execute(
+            "SELECT si.product_id, si.quantity, si.unit_price, si.total_price, p.name AS product_name FROM sale_items si JOIN products p ON p.id = si.product_id WHERE si.sale_id = %s",
+            (sale_id,),
+        ).fetchall()
+        items = [
+            {
+                "product_id": int(row.get("product_id") or 0),
+                "product_name": row.get("product_name") or "Produto",
+                "quantity": float(row.get("quantity") or 0),
+                "unit_price": float(row.get("unit_price") or 0),
+                "total_price": float(row.get("total_price") or 0),
+            }
+            for row in item_rows
+        ]
+
+        fiscal_payload = _build_fiscal_payload_for_sale(
+            sale_id,
+            {
+                "subtotal_products": float(sale.get("subtotal_products") or 0),
+                "discount": float(sale.get("discount") or 0),
+                "surcharge": float(sale.get("surcharge") or 0),
+                "total": float(sale.get("total") or 0),
+            },
+            items,
+            settings,
+        )
+
+        try:
+            _load_certificate_for_emission(settings)
+            company = _build_company_context(account_id, settings)
+            result = _emit_with_provider(fiscal_payload, company, max_retries=2)
+            _upsert_sale_fiscal_document(conn, account_id, sale_id, fiscal_payload, result)
+            _register_fiscal_log(
+                conn,
+                account_id,
+                sale_id,
+                result.get("provider") or company.provider,
+                result.get("provider_reference") or str(sale_id),
+                "emitir",
+                result.get("status") or "pendente",
+                _safe_int(result.get("attempts"), 1),
+                _safe_int(result.get("response_time_ms"), 0),
+                result.get("http_status"),
+                invoice_key=result.get("invoice_key") or "",
+                error_message=result.get("error_message") or "",
+            )
+            _increment_account_counter(conn, account_id, "nfe_attempt_count", 1)
+            if (result.get("status") or "").strip().lower() == "emitida":
+                _increment_account_counter(conn, account_id, "nfe_emitted_count", 1)
+                set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
+            conn.execute("UPDATE sales SET nf_requested = 1, fiscal_status = %s WHERE id = %s AND account_id = %s", (result.get("status") or "pendente", sale_id, account_id))
+            conn.commit()
+            http_code = 200 if (result.get("status") or "").strip().lower() == "emitida" else 202
+            return jsonify({"ok": True, "status": result.get("status") or "pendente", "invoice_key": result.get("invoice_key"), "provider": result.get("provider"), "provider_reference": result.get("provider_reference"), "attempts": result.get("attempts")}), http_code
+        except Exception:
+            _upsert_sale_fiscal_document(
+                conn,
+                account_id,
+                sale_id,
+                fiscal_payload,
+                {"status": "pendente", "numero": fiscal_payload.get("numero"), "provider": settings.get("provedor_fiscal") or "focus", "provider_reference": str(sale_id)},
+                error_message="Falha na emissão. Reprocessamento necessário.",
+            )
+            _register_fiscal_log(
+                conn,
+                account_id,
+                sale_id,
+                (settings.get("provedor_fiscal") or "focus").strip().lower(),
+                str(sale_id),
+                "emitir",
+                "erro",
+                1,
+                0,
+                error_message="Falha inesperada em /nfe/emitir",
+            )
+            _increment_account_counter(conn, account_id, "nfe_attempt_count", 1)
+            conn.execute("UPDATE sales SET nf_requested = 1, fiscal_status = %s WHERE id = %s AND account_id = %s", ("pendente", sale_id, account_id))
+            conn.commit()
+            return jsonify({"ok": True, "status": "pendente", "message": "Venda mantida; nota pendente para reprocessamento."}), 202
+    finally:
+        conn.close()
+
+
+@app.route("/nfe/status", methods=["GET"])
+def nfe_status_internal():
+    if not session.get("user"):
+        return jsonify({"ok": False, "error": "Sessão expirada."}), 401
+
+    account_id = get_current_account_id()
+    sale_id = _safe_int(request.args.get("sale_id"), 0)
+    reference = (request.args.get("reference") or "").strip()
+
+    settings = get_account_settings(account_id)
+    if not _is_nf_enabled_for_account(account_id, settings):
+        return jsonify({"ok": False, "error": "Nota fiscal desabilitada para esta conta/plano."}), 403
+
+    conn = get_tenant_connection()
+    try:
+        doc = None
+        if sale_id > 0:
+            doc = conn.execute(
+                "SELECT sale_id, provider_name, provider_reference, status, invoice_key FROM sale_fiscal_documents WHERE account_id = %s AND sale_id = %s LIMIT 1",
+                (account_id, sale_id),
+            ).fetchone()
+        if not doc and reference:
+            doc = conn.execute(
+                "SELECT sale_id, provider_name, provider_reference, status, invoice_key FROM sale_fiscal_documents WHERE account_id = %s AND provider_reference = %s LIMIT 1",
+                (account_id, reference),
+            ).fetchone()
+        if not doc:
+            return jsonify({"ok": False, "error": "Documento fiscal não encontrado."}), 404
+
+        provider_reference = (doc.get("provider_reference") or str(doc.get("sale_id") or "")).strip()
+        company = _build_company_context(account_id, settings)
+        provider_name = (doc.get("provider_name") or company.provider or "focus").strip().lower()
+        company.provider = provider_name
+        status_result = _query_provider_status(provider_reference, company)
+
+        normalized_status = _normalize_provider_status(status_result.get("status") or doc.get("status") or "pendente")
+        conn.execute(
+            "UPDATE sale_fiscal_documents SET status = %s, updated_at = %s WHERE account_id = %s AND sale_id = %s",
+            (normalized_status, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), account_id, int(doc.get("sale_id") or 0)),
+        )
+        conn.execute(
+            "UPDATE sales SET fiscal_status = %s WHERE account_id = %s AND id = %s",
+            (normalized_status, account_id, int(doc.get("sale_id") or 0)),
+        )
+        _register_fiscal_log(
+            conn,
+            account_id,
+            int(doc.get("sale_id") or 0),
+            provider_name,
+            provider_reference,
+            "status",
+            normalized_status,
+            1,
+            0,
+            error_message="" if normalized_status != "erro" else (status_result.get("error_message") or ""),
+        )
+        conn.commit()
+
+        return jsonify(
+            {
+                "ok": True,
+                "sale_id": int(doc.get("sale_id") or 0),
+                "provider": provider_name,
+                "provider_reference": provider_reference,
+                "status": normalized_status,
+                "invoice_key": status_result.get("invoice_key") or doc.get("invoice_key") or "",
+            }
+        )
+    except RuntimeError as exc:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception:
+        conn.rollback()
+        return jsonify({"ok": False, "error": "Falha ao consultar status fiscal."}), 500
     finally:
         conn.close()
 

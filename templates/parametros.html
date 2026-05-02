@@ -148,6 +148,26 @@
             </select>
           </div>
           <div>
+            <label>Provedor fiscal</label>
+            <select name="provedor_fiscal">
+              <option value="focus" {% if settings.get('provedor_fiscal', 'focus') == 'focus' %}selected{% endif %}>Focus NFe (padrão)</option>
+              <option value="nfeio" {% if settings.get('provedor_fiscal') == 'nfeio' %}selected{% endif %}>NFe.io</option>
+              <option value="tecnospeed" {% if settings.get('provedor_fiscal') == 'tecnospeed' %}selected{% endif %}>TecnoSpeed</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="param-inline-grid">
+          <div>
+            <label>Token da API fiscal</label>
+            <input type="password" name="token_api" value="" autocomplete="new-password" placeholder="Informe para cadastrar/atualizar o token">
+            {% if settings.get('token_api_last4') %}
+            <p class="param-hint-small">Token salvo (final {{ settings.get('token_api_last4') }}).</p>
+            {% else %}
+            <p class="param-hint-small">Nenhum token fiscal cadastrado.</p>
+            {% endif %}
+          </div>
+          <div>
             <label>Tipo de nota</label>
             <select name="tipo_nota">
               <option value="NFE" {% if settings.get('tipo_nota') == 'NFE' %}selected{% endif %}>NFE</option>

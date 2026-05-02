@@ -269,6 +269,8 @@ _TENANT_STATEMENTS = [
         sale_id INTEGER NOT NULL REFERENCES sales(id),
         emit_requested INTEGER DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'nao_solicitada',
+        provider_name TEXT,
+        provider_reference TEXT,
         environment TEXT,
         note_type TEXT,
         serie TEXT,
@@ -281,6 +283,24 @@ _TENANT_STATEMENTS = [
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         UNIQUE (sale_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS fiscal_emission_logs (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        sale_id INTEGER REFERENCES sales(id),
+        provider_name TEXT NOT NULL,
+        provider_reference TEXT,
+        operation TEXT NOT NULL,
+        status TEXT NOT NULL,
+        http_status INTEGER,
+        retries INTEGER DEFAULT 0,
+        response_time_ms INTEGER,
+        estimated_cost DOUBLE PRECISION DEFAULT 0,
+        invoice_key TEXT,
+        error_message TEXT,
+        created_at TEXT NOT NULL
     )
     """,
     """
@@ -388,7 +408,11 @@ _TENANT_MIGRATIONS = [
     "ALTER TABLE sales ADD COLUMN IF NOT EXISTS nf_requested INTEGER DEFAULT 0",
     "ALTER TABLE sales ADD COLUMN IF NOT EXISTS fiscal_status TEXT DEFAULT 'nao_solicitada'",
     "CREATE TABLE IF NOT EXISTS sale_fiscal_documents (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), sale_id INTEGER NOT NULL REFERENCES sales(id), emit_requested INTEGER DEFAULT 0, status TEXT NOT NULL DEFAULT 'nao_solicitada', environment TEXT, note_type TEXT, serie TEXT, number INTEGER, invoice_key TEXT, xml_content TEXT, pdf_url TEXT, error_message TEXT, attempts INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "ALTER TABLE sale_fiscal_documents ADD COLUMN IF NOT EXISTS provider_name TEXT",
+    "ALTER TABLE sale_fiscal_documents ADD COLUMN IF NOT EXISTS provider_reference TEXT",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_sale_fiscal_documents_sale_unique ON sale_fiscal_documents (sale_id)",
+    "CREATE TABLE IF NOT EXISTS fiscal_emission_logs (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), sale_id INTEGER REFERENCES sales(id), provider_name TEXT NOT NULL, provider_reference TEXT, operation TEXT NOT NULL, status TEXT NOT NULL, http_status INTEGER, retries INTEGER DEFAULT 0, response_time_ms INTEGER, estimated_cost DOUBLE PRECISION DEFAULT 0, invoice_key TEXT, error_message TEXT, created_at TEXT NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS idx_fiscal_emission_logs_account_created ON fiscal_emission_logs (account_id, created_at)",
     "UPDATE products SET conversion_factor = GREATEST(1, ROUND(COALESCE(conversion_factor, 1))) WHERE conversion_factor IS NULL OR conversion_factor <> ROUND(conversion_factor)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_account_product_code_unique ON products (account_id, product_code) WHERE product_code IS NOT NULL AND BTRIM(product_code) <> ''",
 ]
