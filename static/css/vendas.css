@@ -3,6 +3,11 @@
       flex-direction: column;
       gap: 18px;
     }
+
+    /* Remove o footer global na tela de vendas para evitar faixa clara sob a barra fixa */
+    body:has(.sales-shell) .app-main-shell > footer {
+      display: none;
+    }
     .sales-shell .sale-card {
       padding: 0;
       overflow: hidden;
@@ -633,7 +638,9 @@
     .sales-actions-stack .sale-report-btn,
     .sales-actions-stack .btn-close-cash {
       width: 100%;
+      display: flex;
       justify-content: center;
+      text-align: center;
     }
     .pix-modal-content {
       background: linear-gradient(135deg, #f8fafc, #eef4ff);
