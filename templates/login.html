@@ -33,12 +33,10 @@
       <div class="login-card modern-auth-card">
         <h3>{{ t('login_title') }}</h3>
 
-        {% if quick_access_user %}
-          <div class="quick-access-login">
-            <p>Continuar como <strong>{{ quick_access_user.name }}</strong> ({{ quick_access_user.account_name }})</p>
-            <form method="post" action="{{ url_for('quick_access_login') }}">
-              <button type="submit" id="quick-access-login-btn">Entrar rápido neste dispositivo</button>
-            </form>
+        {% if webauthn_available %}
+          <div class="quick-access-login" id="webauthn-login-wrap" hidden>
+            <p>Use autenticação real com Face ID / Digital neste dispositivo.</p>
+            <button type="button" id="quick-access-login-btn">Entrar com Face ID / Digital</button>
           </div>
         {% endif %}
 
@@ -687,15 +685,40 @@
     (function () {
       var quickBtn = document.getElementById('quick-access-login-btn');
       if (!quickBtn) return;
-      if (!window.PublicKeyCredential || !window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) return;
+      if (!window.MiniERPWebAuthn || !window.MiniERPWebAuthn.isSupported()) return;
 
-      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-        .then(function (supported) {
-          if (supported) {
-            quickBtn.textContent = 'Entrar com biometria';
+      var wrap = document.getElementById('webauthn-login-wrap');
+      var previouslyEnabled = false;
+      try {
+        previouslyEnabled = localStorage.getItem('mini_erp_webauthn_enabled') === '1';
+      } catch (e) {
+        previouslyEnabled = false;
+      }
+
+      fetch('/webauthn/login/availability', { credentials: 'same-origin' })
+        .then(function (resp) { return resp.json(); })
+        .then(function (data) {
+          if (data && data.available && previouslyEnabled && wrap) {
+            wrap.hidden = false;
           }
         })
         .catch(function () {});
+
+      quickBtn.addEventListener('click', function () {
+        quickBtn.disabled = true;
+        window.MiniERPWebAuthn.login()
+          .then(function (result) {
+            if (result && result.redirect) {
+              window.location.href = result.redirect;
+              return;
+            }
+            window.location.href = '/dashboard';
+          })
+          .catch(function (err) {
+            quickBtn.disabled = false;
+            alert((err && err.message) || 'Falha ao autenticar com Face ID / Digital.');
+          });
+      });
     })();
   </script>
 {% endblock %}

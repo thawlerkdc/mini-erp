@@ -37,7 +37,7 @@
             manifest: '/static/manifest-light.json',
             appleTouch: '/static/img/apple-touch-icon-light.png',
             icon192: '/static/img/pwa-icon-light-192.png',
-            themeColor: '#d9e3ef'
+            themeColor: '#0b4a82'
           },
           dark: {
             manifest: '/static/manifest-dark.json',
@@ -69,6 +69,7 @@
     <script>document.documentElement.style.visibility = '';</script>
     <script src="{{ url_for('static', filename='js/dateValidation.js', v='20260418c') }}" defer></script>
     <script src="{{ url_for('static', filename='js/themeManager.js', v='20260424a') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/webauthn.js', v='20260502a') }}" defer></script>
   </head>
   <body>
     {% if session.get('user') %}
@@ -381,13 +382,13 @@
             </button>
           </nav>
 
-          {% if session.get('quick_access_prompt_pending') %}
-            <div id="quick-access-modal" class="quick-access-modal" role="dialog" aria-modal="true" aria-label="Ativar acesso rápido" hidden>
+          {% if session.get('webauthn_prompt_pending') %}
+            <div id="quick-access-modal" class="quick-access-modal" role="dialog" aria-modal="true" aria-label="Ativar Face ID ou Digital" hidden>
               <div class="quick-access-card">
-                <h3>Ativar acesso rápido neste dispositivo?</h3>
-                <p>Use entrada rápida sem senha nas próximas sessões. Você pode desativar quando quiser.</p>
+                <h3>Ativar Face ID / Digital neste dispositivo?</h3>
+                <p>Seu dispositivo criará uma credencial protegida por criptografia. Nenhum dado biométrico é enviado ao servidor.</p>
                 <div class="quick-access-actions">
-                  <button type="button" id="quick-access-enable-btn" class="btn-add">Ativar</button>
+                  <button type="button" id="quick-access-enable-btn" class="btn-add">Ativar Face ID / Digital</button>
                   <button type="button" id="quick-access-skip-btn" class="btn-secondary">Agora não</button>
                 </div>
               </div>
@@ -1715,24 +1716,26 @@
         if (quickEnable) {
           quickEnable.addEventListener('click', function () {
             quickEnable.disabled = true;
-            postQuickAccess('/quick-access/enable')
-              .then(function (resp) { return resp.json(); })
-              .then(function (data) {
-                if (!data || !data.ok) {
-                  throw new Error((data && data.message) || 'Falha ao ativar.');
-                }
+            if (!window.MiniERPWebAuthn || !window.MiniERPWebAuthn.isSupported()) {
+              quickEnable.disabled = false;
+              alert('Face ID / Digital não está disponível neste dispositivo ou navegador.');
+              return;
+            }
+
+            window.MiniERPWebAuthn.register()
+              .then(function () {
                 closePrompt();
               })
               .catch(function () {
                 quickEnable.disabled = false;
-                alert('Não foi possível ativar o acesso rápido agora.');
+                alert('Não foi possível ativar Face ID / Digital agora.');
               });
           });
         }
 
         if (quickSkip) {
           quickSkip.addEventListener('click', function () {
-            postQuickAccess('/quick-access/prompt-dismiss').finally(closePrompt);
+            postQuickAccess('/webauthn/prompt-dismiss').finally(closePrompt);
           });
         }
       })();

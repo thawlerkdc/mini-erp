@@ -11,6 +11,7 @@ psycopg[binary]==3.2.12
 python-dotenv==1.1.1
 Werkzeug==3.1.3
 cryptography==45.0.6
+webauthn==2.7.1
 
 # Reporting/import dependencies
 pandas==2.2.3

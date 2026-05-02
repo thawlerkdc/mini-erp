@@ -77,6 +77,31 @@ except ImportError:
     Fernet = None
     InvalidToken = Exception
 
+try:
+    from webauthn import (
+        generate_authentication_options,
+        generate_registration_options,
+        verify_authentication_response,
+        verify_registration_response,
+    )
+    from webauthn.helpers import options_to_json
+    from webauthn.helpers.structs import (
+        AuthenticatorSelectionCriteria,
+        PublicKeyCredentialDescriptor,
+        ResidentKeyRequirement,
+        UserVerificationRequirement,
+    )
+except ImportError:
+    generate_authentication_options = None
+    generate_registration_options = None
+    verify_authentication_response = None
+    verify_registration_response = None
+    options_to_json = None
+    AuthenticatorSelectionCriteria = None
+    PublicKeyCredentialDescriptor = None
+    ResidentKeyRequirement = None
+    UserVerificationRequirement = None
+
 from fiscal_provider import (
     FiscalCompanyConfig,
     FiscalProviderError,
@@ -96,10 +121,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "kdc_systems_secret_key")
 
-QUICK_ACCESS_COOKIE = "mini_erp_quick_access"
-QUICK_ACCESS_DAYS_DEFAULT = 30
-QUICK_ACCESS_DAYS_MIN = 1
-QUICK_ACCESS_DAYS_MAX = 90
+WEBAUTHN_CHALLENGE_TTL_SECONDS = 180
 
 # Registrar blueprints disponíveis
 if export_bp:
@@ -2856,23 +2878,284 @@ def _is_secure_request():
     return bool(request.is_secure or proto == "https")
 
 
-def _quick_access_days():
+def _is_webauthn_supported():
+    return all([
+        generate_registration_options,
+        generate_authentication_options,
+        verify_registration_response,
+        verify_authentication_response,
+        options_to_json,
+        AuthenticatorSelectionCriteria,
+        PublicKeyCredentialDescriptor,
+        ResidentKeyRequirement,
+        UserVerificationRequirement,
+    ])
+
+
+def _is_localhost_host(host):
+    value = (host or "").split(":")[0].strip().lower()
+    return value in {"localhost", "127.0.0.1", "::1"}
+
+
+def _is_webauthn_origin_allowed():
+    return bool(_is_secure_request() or _is_localhost_host(request.host))
+
+
+def _get_webauthn_rp_id():
+    configured = (os.environ.get("WEBAUTHN_RP_ID") or "").strip()
+    if configured:
+        return configured
+    return (request.host or "").split(":")[0].strip().lower()
+
+
+def _get_webauthn_origin():
+    configured = (os.environ.get("WEBAUTHN_ORIGIN") or "").strip()
+    if configured:
+        return configured.rstrip("/")
+    return request.host_url.rstrip("/")
+
+
+def _b64url_to_bytes(value):
+    if not value:
+        return b""
+    padded = value + ("=" * ((4 - len(value) % 4) % 4))
+    return base64.urlsafe_b64decode(padded.encode("ascii"))
+
+
+def _bytes_to_b64url(value):
+    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+
+
+def _load_user_by_id(account_id, user_id):
+    conn = None
     try:
-        parsed = int(float(os.environ.get("QUICK_ACCESS_DAYS", QUICK_ACCESS_DAYS_DEFAULT)))
-    except (TypeError, ValueError):
-        parsed = QUICK_ACCESS_DAYS_DEFAULT
-    return max(QUICK_ACCESS_DAYS_MIN, min(QUICK_ACCESS_DAYS_MAX, parsed))
+        conn = get_auth_connection()
+        return conn.execute(
+            """
+            SELECT u.id, u.username, u.name, u.role, u.is_admin, u.account_id,
+                   a.name AS account_name, a.status AS account_status
+            FROM users u
+            JOIN accounts a ON a.id = u.account_id
+            WHERE u.id = %s AND u.account_id = %s AND u.is_active = 1
+            LIMIT 1
+            """,
+            (user_id, account_id),
+        ).fetchone()
+    finally:
+        if conn:
+            conn.close()
 
 
-def _quick_access_max_age_seconds():
-    return _quick_access_days() * 24 * 60 * 60
+def _user_has_webauthn_credentials(user_id, account_id):
+    conn = None
+    try:
+        conn = get_auth_connection()
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM webauthn_credentials
+            WHERE user_id = %s AND account_id = %s AND revoked = 0
+            LIMIT 1
+            """,
+            (user_id, account_id),
+        ).fetchone()
+        return bool(row)
+    except Exception:
+        return False
+    finally:
+        if conn:
+            conn.close()
 
 
-def _hash_user_agent():
-    ua = (request.user_agent.string or "").strip().lower()
-    lang = (request.headers.get("Accept-Language") or "").strip().lower()
-    payload = f"{ua}|{lang}"
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+def _store_webauthn_challenge(account_id, user_id, purpose, challenge_b64, metadata=None):
+    conn = None
+    now = datetime.now()
+    try:
+        conn = get_auth_connection()
+        conn.execute(
+            """
+            INSERT INTO webauthn_challenges (
+                account_id,
+                user_id,
+                purpose,
+                challenge,
+                metadata_json,
+                created_at,
+                expires_at,
+                used
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 0)
+            """,
+            (
+                account_id,
+                user_id,
+                purpose,
+                challenge_b64,
+                json.dumps(metadata or {}, ensure_ascii=False),
+                now.strftime("%Y-%m-%d %H:%M:%S"),
+                (now + timedelta(seconds=WEBAUTHN_CHALLENGE_TTL_SECONDS)).strftime("%Y-%m-%d %H:%M:%S"),
+            ),
+        )
+        conn.commit()
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+
+def _consume_webauthn_challenge(account_id, purpose, challenge_b64, user_id=None):
+    conn = None
+    try:
+        conn = get_auth_connection()
+        if user_id and account_id is not None:
+            row = conn.execute(
+                """
+                SELECT id, expires_at
+                FROM webauthn_challenges
+                WHERE account_id = %s
+                  AND user_id = %s
+                  AND purpose = %s
+                  AND challenge = %s
+                  AND used = 0
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (account_id, user_id, purpose, challenge_b64),
+            ).fetchone()
+        elif account_id is not None:
+            row = conn.execute(
+                """
+                SELECT id, expires_at
+                FROM webauthn_challenges
+                WHERE account_id = %s
+                  AND purpose = %s
+                  AND challenge = %s
+                  AND used = 0
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (account_id, purpose, challenge_b64),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """
+                SELECT id, expires_at
+                FROM webauthn_challenges
+                WHERE account_id IS NULL
+                  AND purpose = %s
+                  AND challenge = %s
+                  AND used = 0
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (purpose, challenge_b64),
+            ).fetchone()
+
+        if not row:
+            return False
+
+        expires = _parse_iso(row.get("expires_at"))
+        if not expires or expires < datetime.now():
+            return False
+
+        conn.execute("UPDATE webauthn_challenges SET used = 1 WHERE id = %s", (row["id"],))
+        conn.commit()
+        return True
+    except Exception:
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
+def _upsert_webauthn_credential(user, credential_id_b64, public_key_bytes, sign_count, transports_json=None):
+    conn = None
+    now = _now_iso()
+    try:
+        conn = get_auth_connection()
+        existing = conn.execute(
+            "SELECT id FROM webauthn_credentials WHERE credential_id = %s LIMIT 1",
+            (credential_id_b64,),
+        ).fetchone()
+
+        public_key_b64 = _bytes_to_b64url(public_key_bytes)
+        if existing:
+            conn.execute(
+                """
+                UPDATE webauthn_credentials
+                SET user_id = %s,
+                    account_id = %s,
+                    public_key = %s,
+                    sign_count = %s,
+                    transports = %s,
+                    revoked = 0,
+                    last_used_at = %s
+                WHERE id = %s
+                """,
+                (
+                    user["id"],
+                    user["account_id"],
+                    public_key_b64,
+                    int(sign_count or 0),
+                    transports_json,
+                    now,
+                    existing["id"],
+                ),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO webauthn_credentials (
+                    account_id,
+                    user_id,
+                    credential_id,
+                    public_key,
+                    sign_count,
+                    transports,
+                    created_at,
+                    last_used_at,
+                    revoked
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)
+                """,
+                (
+                    user["account_id"],
+                    user["id"],
+                    credential_id_b64,
+                    public_key_b64,
+                    int(sign_count or 0),
+                    transports_json,
+                    now,
+                    now,
+                ),
+            )
+
+        conn.commit()
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+
+def _render_login(active_login_template, login_success=None, login_error=None):
+    webauthn_available = bool(_is_webauthn_supported() and _is_webauthn_origin_allowed())
+
+    return render_template(
+        active_login_template,
+        title=translate("login_title"),
+        hide_page_title=True,
+        login_success=login_success,
+        login_error=login_error,
+        webauthn_available=webauthn_available,
+    )
 
 
 def _touch_account_last_access(account_id):
@@ -2907,129 +3190,6 @@ def _apply_user_session(user):
         get_current_user_permissions()
 
 
-def _issue_quick_access_token(user_id, account_id):
-    token_plain = secrets.token_urlsafe(48)
-    token_hash = hashlib.sha256(token_plain.encode("utf-8")).hexdigest()
-    ua_hash = _hash_user_agent()
-    now = _now_iso()
-    expires = (datetime.now() + timedelta(days=_quick_access_days())).strftime("%Y-%m-%d %H:%M:%S")
-
-    conn = None
-    try:
-        conn = get_auth_connection()
-        conn.execute(
-            "UPDATE quick_access_tokens SET revoked = 1 WHERE user_id = %s AND account_id = %s AND user_agent_hash = %s AND revoked = 0",
-            (user_id, account_id, ua_hash),
-        )
-        conn.execute(
-            """
-            INSERT INTO quick_access_tokens (token_hash, user_id, account_id, user_agent_hash, created_at, expires_at, revoked)
-            VALUES (%s, %s, %s, %s, %s, %s, 0)
-            """,
-            (token_hash, user_id, account_id, ua_hash, now, expires),
-        )
-        conn.commit()
-        return token_plain
-    except Exception as exc:
-        if conn:
-            conn.rollback()
-        logger.exception("Falha ao emitir token de acesso rápido: %s", exc)
-        return None
-    finally:
-        if conn:
-            conn.close()
-
-
-def _get_quick_access_user_from_cookie():
-    raw_token = (request.cookies.get(QUICK_ACCESS_COOKIE) or "").strip()
-    if not raw_token:
-        return None
-
-    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
-    conn = None
-    try:
-        conn = get_auth_connection()
-        row = conn.execute(
-            """
-            SELECT
-                qat.id,
-                qat.account_id,
-                qat.user_id,
-                qat.user_agent_hash,
-                qat.expires_at,
-                qat.revoked,
-                u.username,
-                u.name,
-                u.role,
-                u.is_admin,
-                a.name AS account_name,
-                a.status AS account_status
-            FROM quick_access_tokens qat
-            JOIN users u ON u.id = qat.user_id AND u.account_id = qat.account_id
-            JOIN accounts a ON a.id = qat.account_id
-            WHERE qat.token_hash = %s
-            LIMIT 1
-            """,
-            (token_hash,),
-        ).fetchone()
-    except Exception as exc:
-        logger.exception("Falha ao validar token de acesso rápido: %s", exc)
-        row = None
-    finally:
-        if conn:
-            conn.close()
-
-    if not row:
-        return None
-    if row.get("revoked"):
-        return None
-    if row.get("user_agent_hash") and row.get("user_agent_hash") != _hash_user_agent():
-        return None
-
-    expires_at = _parse_iso(row.get("expires_at"))
-    if not expires_at or expires_at < datetime.now():
-        return None
-
-    account_status = (row.get("account_status") or "ativa").strip().lower()
-    if account_status in {"suspensa", "bloqueada", "inativa"}:
-        return None
-
-    return {
-        "token_id": row["id"],
-        "user": {
-            "id": row["user_id"],
-            "username": row["username"],
-            "name": row.get("name"),
-            "account_id": row["account_id"],
-            "account_name": row["account_name"],
-            "role": row["role"],
-            "is_admin": row.get("is_admin"),
-            "account_status": row.get("account_status"),
-        },
-    }
-
-
-def _render_login(active_login_template, login_success=None, login_error=None):
-    quick_access = _get_quick_access_user_from_cookie()
-    quick_access_user = None
-    if quick_access and quick_access.get("user"):
-        ua = quick_access["user"]
-        quick_access_user = {
-            "name": ua.get("name") or ua.get("username"),
-            "username": ua.get("username"),
-            "account_name": ua.get("account_name"),
-        }
-
-    return render_template(
-        active_login_template,
-        title=translate("login_title"),
-        hide_page_title=True,
-        login_success=login_success,
-        login_error=login_error,
-        quick_access_user=quick_access_user,
-    )
-
-
 @app.route("/set_language/<lang_code>")
 def set_language(lang_code):
     if lang_code in LANGUAGES:
@@ -3061,35 +3221,243 @@ def login():
 
             _touch_account_last_access(user["account_id"])
             _apply_user_session(user)
-            session["quick_access_prompt_pending"] = True
+            session["webauthn_prompt_pending"] = not _user_has_webauthn_credentials(user["id"], user["account_id"])
             return redirect(get_default_route_for_current_user())
         return _render_login(active_login_template, login_error=translate("invalid_login"))
     return _render_login(active_login_template, login_success=login_success)
 
 
-@app.route("/quick-access/login", methods=["POST"])
-def quick_access_login():
-    if session.get("user"):
-        return redirect(get_default_route_for_current_user())
+@app.route("/webauthn/login/availability", methods=["GET"])
+def webauthn_login_availability():
+    return jsonify({
+        "ok": True,
+        "available": bool(_is_webauthn_supported() and _is_webauthn_origin_allowed()),
+    })
 
-    quick_access = _get_quick_access_user_from_cookie()
-    if not quick_access or not quick_access.get("user"):
-        flash("Não foi possível validar o acesso rápido deste dispositivo.", "error")
-        response = redirect(url_for("login"))
-        response.delete_cookie(QUICK_ACCESS_COOKIE, path="/")
-        return response
 
-    user = quick_access["user"]
+@app.route("/webauthn/register/options", methods=["POST"])
+def webauthn_register_options():
+    if not session.get("user"):
+        return jsonify({"ok": False, "message": "Sessão expirada."}), 401
+    if not _is_webauthn_supported():
+        return jsonify({"ok": False, "message": "WebAuthn indisponível no servidor."}), 503
+    if not _is_webauthn_origin_allowed():
+        return jsonify({"ok": False, "message": "WebAuthn requer HTTPS."}), 400
+
+    account_id = session.get("account_id")
+    user_id = session.get("user_id")
+    user = _load_user_by_id(account_id, user_id)
+    if not user:
+        return jsonify({"ok": False, "message": "Usuário inválido para registro WebAuthn."}), 400
+
+    conn = None
+    exclude_credentials = []
+    try:
+        conn = get_auth_connection()
+        existing = conn.execute(
+            """
+            SELECT credential_id
+            FROM webauthn_credentials
+            WHERE account_id = %s AND user_id = %s AND revoked = 0
+            """,
+            (account_id, user_id),
+        ).fetchall()
+        for row in existing:
+            exclude_credentials.append(
+                PublicKeyCredentialDescriptor(id=_b64url_to_bytes(row["credential_id"]))
+            )
+    finally:
+        if conn:
+            conn.close()
+
+    settings = get_global_settings()
+    rp_name = settings.get("brand_name") or "Mini ERP"
+    rp_id = _get_webauthn_rp_id()
+
+    options = generate_registration_options(
+        rp_id=rp_id,
+        rp_name=rp_name,
+        user_id=f"{account_id}:{user_id}".encode("utf-8"),
+        user_name=user["username"],
+        user_display_name=user.get("name") or user["username"],
+        timeout=60000,
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.REQUIRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        ),
+        exclude_credentials=exclude_credentials,
+    )
+
+    public_key = json.loads(options_to_json(options))
+    challenge_b64 = public_key.get("challenge") or ""
+    _store_webauthn_challenge(account_id, user_id, "register", challenge_b64, {"rp_id": rp_id})
+
+    return jsonify({"ok": True, "publicKey": public_key})
+
+
+@app.route("/webauthn/register/verify", methods=["POST"])
+def webauthn_register_verify():
+    if not session.get("user"):
+        return jsonify({"ok": False, "message": "Sessão expirada."}), 401
+    if not _is_webauthn_supported():
+        return jsonify({"ok": False, "message": "WebAuthn indisponível no servidor."}), 503
+
+    body = request.get_json(silent=True) or {}
+    challenge_b64 = (body.get("challenge") or "").strip()
+    credential = body.get("credential") or {}
+
+    if not challenge_b64 or not credential:
+        return jsonify({"ok": False, "message": "Dados inválidos para registro WebAuthn."}), 400
+
+    account_id = session.get("account_id")
+    user_id = session.get("user_id")
+    if not _consume_webauthn_challenge(account_id, "register", challenge_b64, user_id=user_id):
+        return jsonify({"ok": False, "message": "Desafio WebAuthn expirado ou inválido."}), 400
+
+    try:
+        verification = verify_registration_response(
+            credential=credential,
+            expected_challenge=_b64url_to_bytes(challenge_b64),
+            expected_rp_id=_get_webauthn_rp_id(),
+            expected_origin=_get_webauthn_origin(),
+            require_user_verification=True,
+        )
+    except Exception as exc:
+        logger.exception("Falha na validação WebAuthn (registro): %s", exc)
+        return jsonify({"ok": False, "message": "Não foi possível validar a credencial biométrica."}), 400
+
+    user = _load_user_by_id(account_id, user_id)
+    if not user:
+        return jsonify({"ok": False, "message": "Usuário inválido para salvar credencial."}), 400
+
+    transports = None
+    if isinstance(credential, dict):
+        response_data = credential.get("response") or {}
+        if isinstance(response_data, dict) and response_data.get("transports"):
+            transports = json.dumps(response_data.get("transports"), ensure_ascii=False)
+
+    _upsert_webauthn_credential(
+        user,
+        credential_id_b64=_bytes_to_b64url(verification.credential_id),
+        public_key_bytes=verification.credential_public_key,
+        sign_count=verification.sign_count,
+        transports_json=transports,
+    )
+
+    session["webauthn_prompt_pending"] = False
+    return jsonify({"ok": True, "message": "Face ID / Digital ativado neste dispositivo."})
+
+
+@app.route("/webauthn/login/options", methods=["POST"])
+def webauthn_login_options():
+    if not _is_webauthn_supported():
+        return jsonify({"ok": False, "message": "WebAuthn indisponível no servidor."}), 503
+    if not _is_webauthn_origin_allowed():
+        return jsonify({"ok": False, "message": "WebAuthn requer HTTPS."}), 400
+
+    options = generate_authentication_options(
+        rp_id=_get_webauthn_rp_id(),
+        timeout=60000,
+        user_verification=UserVerificationRequirement.REQUIRED,
+    )
+
+    public_key = json.loads(options_to_json(options))
+    challenge_b64 = public_key.get("challenge") or ""
+    _store_webauthn_challenge(None, None, "authenticate", challenge_b64, {"rp_id": _get_webauthn_rp_id()})
+
+    return jsonify({"ok": True, "publicKey": public_key})
+
+
+@app.route("/webauthn/login/verify", methods=["POST"])
+def webauthn_login_verify():
+    if not _is_webauthn_supported():
+        return jsonify({"ok": False, "message": "WebAuthn indisponível no servidor."}), 503
+
+    body = request.get_json(silent=True) or {}
+    challenge_b64 = (body.get("challenge") or "").strip()
+    credential = body.get("credential") or {}
+    credential_id_b64 = ""
+    if isinstance(credential, dict):
+        credential_id_b64 = (credential.get("id") or credential.get("rawId") or "").strip()
+
+    if not challenge_b64 or not credential_id_b64:
+        return jsonify({"ok": False, "message": "Dados inválidos para autenticação biométrica."}), 400
+
+    if not _consume_webauthn_challenge(None, "authenticate", challenge_b64):
+        return jsonify({"ok": False, "message": "Desafio WebAuthn expirado ou inválido."}), 400
+
+    conn = None
+    credential_row = None
+    try:
+        conn = get_auth_connection()
+        credential_row = conn.execute(
+            """
+            SELECT
+                wc.id,
+                wc.credential_id,
+                wc.public_key,
+                wc.sign_count,
+                wc.account_id,
+                wc.user_id,
+                u.username,
+                u.name,
+                u.role,
+                u.is_admin,
+                a.name AS account_name,
+                a.status AS account_status
+            FROM webauthn_credentials wc
+            JOIN users u ON u.id = wc.user_id AND u.account_id = wc.account_id AND u.is_active = 1
+            JOIN accounts a ON a.id = wc.account_id
+            WHERE wc.credential_id = %s AND wc.revoked = 0
+            LIMIT 1
+            """,
+            (credential_id_b64,),
+        ).fetchone()
+    finally:
+        if conn:
+            conn.close()
+
+    if not credential_row:
+        return jsonify({"ok": False, "message": "Credencial biométrica não reconhecida."}), 401
+
+    account_status = (credential_row.get("account_status") or "ativa").strip().lower()
+    if account_status in {"suspensa", "bloqueada", "inativa"}:
+        return jsonify({"ok": False, "message": f"Esta conta está {account_status}."}), 403
+
+    try:
+        verification = verify_authentication_response(
+            credential=credential,
+            expected_challenge=_b64url_to_bytes(challenge_b64),
+            expected_rp_id=_get_webauthn_rp_id(),
+            expected_origin=_get_webauthn_origin(),
+            credential_public_key=_b64url_to_bytes(credential_row["public_key"]),
+            credential_current_sign_count=int(credential_row.get("sign_count") or 0),
+            require_user_verification=True,
+        )
+    except Exception as exc:
+        logger.exception("Falha na validação WebAuthn (autenticação): %s", exc)
+        return jsonify({"ok": False, "message": "Falha na autenticação com Face ID / Digital."}), 401
+
+    user = {
+        "id": credential_row["user_id"],
+        "username": credential_row["username"],
+        "name": credential_row.get("name"),
+        "account_id": credential_row["account_id"],
+        "account_name": credential_row["account_name"],
+        "role": credential_row["role"],
+        "is_admin": credential_row.get("is_admin"),
+    }
+
     _touch_account_last_access(user["account_id"])
     _apply_user_session(user)
-    session["quick_access_prompt_pending"] = False
+    session["webauthn_prompt_pending"] = False
 
     conn = None
     try:
         conn = get_auth_connection()
         conn.execute(
-            "UPDATE quick_access_tokens SET last_used_at = %s WHERE id = %s",
-            (_now_iso(), quick_access["token_id"]),
+            "UPDATE webauthn_credentials SET sign_count = %s, last_used_at = %s WHERE id = %s",
+            (int(verification.new_sign_count or 0), _now_iso(), credential_row["id"]),
         )
         conn.commit()
     except Exception:
@@ -3099,61 +3467,13 @@ def quick_access_login():
         if conn:
             conn.close()
 
-    return redirect(get_default_route_for_current_user())
+    return jsonify({"ok": True, "redirect": get_default_route_for_current_user()})
 
 
-@app.route("/quick-access/enable", methods=["POST"])
-def quick_access_enable():
-    if not session.get("user"):
-        return jsonify({"ok": False, "message": "Sessão expirada."}), 401
-
-    token_plain = _issue_quick_access_token(session.get("user_id"), session.get("account_id"))
-    if not token_plain:
-        return jsonify({"ok": False, "message": "Não foi possível ativar o acesso rápido."}), 500
-
-    session["quick_access_prompt_pending"] = False
-    response = jsonify({"ok": True, "message": "Acesso rápido ativado neste dispositivo."})
-    response.set_cookie(
-        QUICK_ACCESS_COOKIE,
-        token_plain,
-        max_age=_quick_access_max_age_seconds(),
-        httponly=True,
-        secure=_is_secure_request(),
-        samesite="Lax",
-        path="/",
-    )
-    return response
-
-
-@app.route("/quick-access/disable", methods=["POST"])
-def quick_access_disable():
-    raw_token = (request.cookies.get(QUICK_ACCESS_COOKIE) or "").strip()
-    if raw_token:
-        conn = None
-        try:
-            conn = get_auth_connection()
-            conn.execute(
-                "UPDATE quick_access_tokens SET revoked = 1 WHERE token_hash = %s",
-                (hashlib.sha256(raw_token.encode("utf-8")).hexdigest(),),
-            )
-            conn.commit()
-        except Exception:
-            if conn:
-                conn.rollback()
-        finally:
-            if conn:
-                conn.close()
-
-    session["quick_access_prompt_pending"] = False
-    response = jsonify({"ok": True, "message": "Acesso rápido removido deste dispositivo."})
-    response.delete_cookie(QUICK_ACCESS_COOKIE, path="/")
-    return response
-
-
-@app.route("/quick-access/prompt-dismiss", methods=["POST"])
-def quick_access_prompt_dismiss():
+@app.route("/webauthn/prompt-dismiss", methods=["POST"])
+def webauthn_prompt_dismiss():
     if session.get("user"):
-        session["quick_access_prompt_pending"] = False
+        session["webauthn_prompt_pending"] = False
     return jsonify({"ok": True})
 
 

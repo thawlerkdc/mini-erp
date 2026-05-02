@@ -71,6 +71,33 @@ _AUTH_STATEMENTS = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS webauthn_credentials (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        credential_id TEXT UNIQUE NOT NULL,
+        public_key TEXT NOT NULL,
+        sign_count INTEGER DEFAULT 0,
+        transports TEXT,
+        created_at TEXT NOT NULL,
+        last_used_at TEXT,
+        revoked INTEGER DEFAULT 0
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS webauthn_challenges (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER,
+        user_id INTEGER,
+        purpose TEXT NOT NULL,
+        challenge TEXT UNIQUE NOT NULL,
+        metadata_json TEXT,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used INTEGER DEFAULT 0
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS global_settings (
         setting_key TEXT PRIMARY KEY,
         setting_value TEXT,
