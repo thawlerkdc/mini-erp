@@ -391,6 +391,9 @@
 
     /* ----- Navegação mobile robusta ----- */
     sidebar.addEventListener('click', function (e) {
+      /* Clique na estrela de favorito: deixa o handler de favoritos processar */
+      if (e.target.closest('.menu-fav-toggle')) return;
+
       var navLink = e.target.closest('.nav-link[href]');
       if (!navLink || !isMobile()) return;
 

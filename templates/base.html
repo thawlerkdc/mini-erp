@@ -1265,18 +1265,24 @@
               var links = getSectionLinks(section);
 
               if (!shouldUseFlyout()) {
-                // Pinned or expanded: accordion inline
+                // Mobile / pinned / expanded: accordion inline
                 if (links.length === 1) {
                   window.location.href = links[0].href;
                   return;
                 }
                 event.preventDefault();
+                event.stopPropagation();
                 var isOpen = section.classList.contains('is-inline-open');
-                // Close other sections
+                var sBody = section.querySelector('.menu-section-body');
                 sectionsWrap.querySelectorAll('.menu-section.is-inline-open').forEach(function (s) {
-                  if (s !== section) s.classList.remove('is-inline-open');
+                  if (s !== section) {
+                    s.classList.remove('is-inline-open');
+                    var b = s.querySelector('.menu-section-body');
+                    if (b) b.hidden = true;
+                  }
                 });
                 section.classList.toggle('is-inline-open', !isOpen);
+                if (sBody) sBody.hidden = isOpen;
                 return;
               }
 
