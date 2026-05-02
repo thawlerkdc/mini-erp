@@ -62,10 +62,19 @@ import re
 import json
 import logging
 import secrets
+import hashlib
+import hmac
+import base64
 import smtplib
 import unicodedata
 import xml.etree.ElementTree as ET
 from email.message import EmailMessage
+
+try:
+    from cryptography.fernet import Fernet, InvalidToken
+except ImportError:
+    Fernet = None
+    InvalidToken = Exception
 
 # Importar psycopg para PostgreSQL (opcional em desenvolvimento)
 try:
@@ -1467,6 +1476,25 @@ SETTINGS_DEFAULTS = {
     "po_signature_label": "",
     "default_profit_margin": "100",
     "default_stock_min_percent": "20",
+    "habilitar_nota_fiscal": "0",
+    "ambiente_nf": "homologacao",
+    "tipo_nota": "NFCE",
+    "serie_nota": "1",
+    "proximo_numero_nota": "1",
+    "regime_tributario": "simples_nacional",
+    "certificado_path": "",
+    "certificado_password_enc": "",
+    "certificado_uploaded_at": "",
+    "imprimir_automaticamente": "0",
+    "tipo_impressao": "termica",
+    "imprimir_recibo": "1",
+    "imprimir_nota": "1",
+    "solicitar_nota_por_padrao": "0",
+    "permitir_desconto": "1",
+    "permitir_juros": "1",
+    "plan_requires_nf_feature": "0",
+    "api_key_hash": "",
+    "api_key_last4": "",
     "log_retention_days": "30",
 }
 
@@ -1650,6 +1678,282 @@ def _calculate_profit_margin(cost, selling_price):
 
 def _to_bool(value):
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _normalize_yes_no(value, default=False):
+    return "1" if _to_bool(value) else ("1" if default else "0")
+
+
+def _resolve_fernet_key_bytes():
+    base_secret = (os.environ.get("CERT_ENCRYPTION_KEY") or os.environ.get("SECRET_KEY") or "kdc_systems_secret_key").encode("utf-8")
+    digest = hashlib.sha256(base_secret).digest()
+    return base64.urlsafe_b64encode(digest)
+
+
+def _get_fernet_instance():
+    if Fernet is None:
+        raise RuntimeError("Dependência 'cryptography' não instalada para criptografia do certificado fiscal.")
+    return Fernet(_resolve_fernet_key_bytes())
+
+
+def _encrypt_text(value):
+    if value is None:
+        return ""
+    cipher = _get_fernet_instance()
+    return cipher.encrypt(str(value).encode("utf-8")).decode("utf-8")
+
+
+def _decrypt_text(value):
+    if not value:
+        return ""
+    cipher = _get_fernet_instance()
+    try:
+        return cipher.decrypt(str(value).encode("utf-8")).decode("utf-8")
+    except InvalidToken:
+        return ""
+
+
+def _encrypt_binary(content):
+    if not content:
+        return b""
+    cipher = _get_fernet_instance()
+    return cipher.encrypt(content)
+
+
+def _decrypt_binary(content):
+    if not content:
+        return b""
+    cipher = _get_fernet_instance()
+    try:
+        return cipher.decrypt(content)
+    except InvalidToken:
+        return b""
+
+
+def _load_certificate_for_emission(settings):
+    cert_path = (settings.get("certificado_path") or "").strip()
+    cert_password_enc = (settings.get("certificado_password_enc") or "").strip()
+    if not cert_path or not cert_password_enc:
+        raise RuntimeError("Certificado digital não configurado para emissão fiscal.")
+    if not os.path.exists(cert_path):
+        raise RuntimeError("Arquivo de certificado fiscal não encontrado.")
+
+    with open(cert_path, "rb") as cert_in:
+        encrypted_content = cert_in.read()
+    cert_bytes = _decrypt_binary(encrypted_content)
+    cert_password = _decrypt_text(cert_password_enc)
+    if not cert_bytes or not cert_password:
+        raise RuntimeError("Não foi possível descriptografar o certificado fiscal.")
+
+    # Não retorna dados para frontend/logs; uso exclusivo em memória na emissão.
+    return {
+        "bytes": cert_bytes,
+        "password": cert_password,
+    }
+
+
+def _normalize_nf_environment(raw):
+    env = (raw or "homologacao").strip().lower()
+    return env if env in {"homologacao", "producao"} else "homologacao"
+
+
+def _normalize_nf_type(raw):
+    note_type = (raw or "NFCE").strip().upper()
+    return note_type if note_type in {"NFE", "NFCE"} else "NFCE"
+
+
+def _normalize_print_type(raw):
+    mode = (raw or "termica").strip().lower()
+    return mode if mode in {"termica", "a4"} else "termica"
+
+
+def _account_plan_allows_nf(account_id):
+    conn = None
+    try:
+        conn = get_tenant_connection()
+        row = conn.execute(
+            "SELECT p.features_json FROM saas_subscriptions s JOIN saas_plans p ON p.id = s.plan_id WHERE s.account_id = %s LIMIT 1",
+            (account_id,),
+        ).fetchone()
+        if not row:
+            return True
+        features_json = (row.get("features_json") or "").strip()
+        if not features_json:
+            return True
+        try:
+            features = json.loads(features_json)
+        except Exception:
+            return True
+        if not isinstance(features, list) or not features:
+            return True
+
+        normalized_features = [str(item).strip().lower() for item in features if str(item).strip()]
+        nf_markers = {
+            "nota fiscal", "nfe", "nf-e", "nfce", "nfc-e",
+            "fiscal", "emissao nf", "emissao nfe", "emissao nfce",
+        }
+        deny_markers = {"sem_nf", "sem_nfe", "sem_nota_fiscal", "fiscal_bloqueado"}
+        if any(marker in normalized_features for marker in deny_markers):
+            return False
+        return any(marker in normalized_features for marker in nf_markers)
+    except Exception:
+        return True
+    finally:
+        if conn:
+            conn.close()
+
+
+def _is_nf_enabled_for_account(account_id, settings):
+    enabled = _to_bool(settings.get("habilitar_nota_fiscal"))
+    if not enabled:
+        return False
+    # Preparação para controle por plano SaaS: só aplica se a conta ativar explicitamente a checagem.
+    if _to_bool(settings.get("plan_requires_nf_feature")):
+        return _account_plan_allows_nf(account_id)
+    return True
+
+
+def _hash_api_key(raw_api_key):
+    secret = (os.environ.get("API_KEY_SIGNING_SECRET") or app.secret_key or "kdc_api_secret").encode("utf-8")
+    return hmac.new(secret, (raw_api_key or "").encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _generate_new_api_key_for_account(account_id):
+    raw = f"kdc_{account_id}_{secrets.token_urlsafe(28)}"
+    set_account_setting(account_id, "api_key_hash", _hash_api_key(raw))
+    set_account_setting(account_id, "api_key_last4", raw[-4:])
+    return raw
+
+
+def _resolve_account_id_from_api_key(raw_api_key):
+    if not raw_api_key:
+        return None
+    hashed = _hash_api_key(raw_api_key)
+    conn = get_tenant_connection()
+    try:
+        row = conn.execute(
+            "SELECT account_id FROM account_settings WHERE setting_key = %s AND setting_value = %s LIMIT 1",
+            ("api_key_hash", hashed),
+        ).fetchone()
+        return int(row["account_id"]) if row else None
+    finally:
+        conn.close()
+
+
+def _extract_api_key_from_request():
+    auth_header = (request.headers.get("Authorization") or "").strip()
+    x_api_key = (request.headers.get("X-API-Key") or "").strip()
+    if x_api_key:
+        return x_api_key
+    if auth_header.lower().startswith("bearer "):
+        return auth_header[7:].strip()
+    return ""
+
+
+def _build_fiscal_payload_for_sale(sale_id, sale_data, items, settings):
+    subtotal_products = float(sale_data.get("subtotal_products") or 0)
+    discount = float(sale_data.get("discount") or 0)
+    juros = float(sale_data.get("surcharge") or 0)
+    product_total_nf = max(0.0, subtotal_products - discount)
+
+    product_lines = []
+    for item in items:
+        product_lines.append(
+            {
+                "descricao": item.get("product_name") or "Produto",
+                "quantidade": float(item.get("quantity") or 0),
+                "valor_unitario": float(item.get("unit_price") or 0),
+                "valor_total": float(item.get("total_price") or 0),
+            }
+        )
+
+    nfe_items = [
+        {
+            "descricao": "Produtos",
+            "valor": round(product_total_nf, 2),
+        }
+    ]
+    if juros > 0:
+        nfe_items.append({
+            "descricao": "Encargos financeiros (juros)",
+            "valor": round(juros, 2),
+        })
+
+    return {
+        "sale_id": sale_id,
+        "ambiente": _normalize_nf_environment(settings.get("ambiente_nf")),
+        "tipo_nota": _normalize_nf_type(settings.get("tipo_nota")),
+        "serie": str(settings.get("serie_nota") or "1"),
+        "numero": int(_safe_int(settings.get("proximo_numero_nota"), 1)),
+        "regime_tributario": (settings.get("regime_tributario") or "simples_nacional").strip(),
+        "subtotal_produtos": round(subtotal_products, 2),
+        "desconto": round(discount, 2),
+        "juros": round(juros, 2),
+        "total_final": round(float(sale_data.get("total") or 0), 2),
+        "itens_produto": product_lines,
+        "itens_nf": nfe_items,
+    }
+
+
+def _mock_emit_fiscal_document(payload):
+    key_suffix = secrets.token_hex(22).upper()[:44]
+    invoice_key = key_suffix
+    numero = int(payload.get("numero") or 1)
+    total_final = float(payload.get("total_final") or 0)
+    xml = (
+        f"<NFe><infNFe Id=\"NFe{invoice_key}\"><ide><nNF>{numero}</nNF></ide>"
+        f"<total><vNF>{total_final:.2f}</vNF></total></infNFe></NFe>"
+    )
+    pdf_url = f"/api/v1/nfe/{payload.get('sale_id')}/danfe"
+    return {
+        "status": "emitida",
+        "invoice_key": invoice_key,
+        "xml": xml,
+        "pdf_url": pdf_url,
+        "numero": numero,
+    }
+
+
+def _upsert_sale_fiscal_document(conn, account_id, sale_id, payload, result, error_message=""):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        """
+        INSERT INTO sale_fiscal_documents (
+            account_id, sale_id, emit_requested, status, environment, note_type,
+            serie, number, invoice_key, xml_content, pdf_url, error_message,
+            attempts, created_at, updated_at
+        )
+        VALUES (%s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, %s, %s)
+        ON CONFLICT (sale_id) DO UPDATE SET
+            emit_requested = 1,
+            status = EXCLUDED.status,
+            environment = EXCLUDED.environment,
+            note_type = EXCLUDED.note_type,
+            serie = EXCLUDED.serie,
+            number = EXCLUDED.number,
+            invoice_key = EXCLUDED.invoice_key,
+            xml_content = EXCLUDED.xml_content,
+            pdf_url = EXCLUDED.pdf_url,
+            error_message = EXCLUDED.error_message,
+            attempts = sale_fiscal_documents.attempts + 1,
+            updated_at = EXCLUDED.updated_at
+        """,
+        (
+            account_id,
+            sale_id,
+            (result or {}).get("status") or "pendente",
+            payload.get("ambiente"),
+            payload.get("tipo_nota"),
+            payload.get("serie"),
+            (result or {}).get("numero") or payload.get("numero"),
+            (result or {}).get("invoice_key") or "",
+            (result or {}).get("xml") or "",
+            (result or {}).get("pdf_url") or "",
+            error_message,
+            now,
+            now,
+        ),
+    )
 
 
 def _sanitize_pix_key(raw_key_type, raw_key_value):
@@ -2035,7 +2339,11 @@ def save_account_settings(account_id, form_data):
         smtp_username = from_email
 
     keys = list(SETTINGS_DEFAULTS.keys())
+    current_settings = get_account_settings(account_id)
     pix_key_type, pix_key_value = _sanitize_pix_key(form_data.get("pix_key_type"), form_data.get("pix_key_value"))
+    nf_enabled = _to_bool(form_data.get("habilitar_nota_fiscal"))
+    print_note = _to_bool(form_data.get("imprimir_nota")) and nf_enabled
+    next_number = max(1, _safe_int(form_data.get("proximo_numero_nota"), 1))
 
     values = {
         "smtp_provider": provider,
@@ -2068,6 +2376,25 @@ def save_account_settings(account_id, form_data):
         "po_logo_url": (form_data.get("po_logo_url") or "").strip(),
         "po_footer_notes": (form_data.get("po_footer_notes") or "").strip(),
         "po_signature_label": (form_data.get("po_signature_label") or "").strip(),
+        "habilitar_nota_fiscal": "1" if nf_enabled else "0",
+        "ambiente_nf": _normalize_nf_environment(form_data.get("ambiente_nf")),
+        "tipo_nota": _normalize_nf_type(form_data.get("tipo_nota")),
+        "serie_nota": str(form_data.get("serie_nota") or "1").strip() or "1",
+        "proximo_numero_nota": str(next_number),
+        "regime_tributario": (form_data.get("regime_tributario") or "simples_nacional").strip(),
+        "certificado_path": (form_data.get("certificado_path") or current_settings.get("certificado_path") or "").strip(),
+        "certificado_password_enc": (form_data.get("certificado_password_enc") or current_settings.get("certificado_password_enc") or "").strip(),
+        "certificado_uploaded_at": (form_data.get("certificado_uploaded_at") or current_settings.get("certificado_uploaded_at") or "").strip(),
+        "imprimir_automaticamente": _normalize_yes_no(form_data.get("imprimir_automaticamente")),
+        "tipo_impressao": _normalize_print_type(form_data.get("tipo_impressao")),
+        "imprimir_recibo": _normalize_yes_no(form_data.get("imprimir_recibo"), default=True),
+        "imprimir_nota": "1" if print_note else "0",
+        "solicitar_nota_por_padrao": _normalize_yes_no(form_data.get("solicitar_nota_por_padrao")),
+        "permitir_desconto": _normalize_yes_no(form_data.get("permitir_desconto"), default=True),
+        "permitir_juros": _normalize_yes_no(form_data.get("permitir_juros"), default=True),
+        "plan_requires_nf_feature": _normalize_yes_no(form_data.get("plan_requires_nf_feature")),
+        "api_key_hash": (form_data.get("api_key_hash") or current_settings.get("api_key_hash") or "").strip(),
+        "api_key_last4": (form_data.get("api_key_last4") or current_settings.get("api_key_last4") or "").strip(),
         "log_retention_days": str(max(1, min(3650, int(form_data.get("log_retention_days") or 30)))),
     }
 
@@ -3114,7 +3441,38 @@ def parametros():
                 flash(f"Falha no teste SMTP: {err}", "error")
             return redirect(url_for("parametros"))
 
+        if request.form.get("action") == "generate_api_key":
+            new_key = _generate_new_api_key_for_account(account_id)
+            flash(f"Nova API Key gerada com sucesso: {new_key}", "success")
+            flash("Guarde esta chave agora. Ela não será exibida novamente.", "info")
+            return redirect(url_for("parametros"))
+
         save_account_settings(account_id, request.form)
+
+        cert_file = request.files.get("arquivo_certificado")
+        cert_password = (request.form.get("senha_certificado") or "").strip()
+        if cert_file and cert_file.filename:
+            cert_filename = secure_filename(cert_file.filename)
+            cert_ext = os.path.splitext(cert_filename)[1].lower()
+            if cert_ext != ".pfx":
+                flash("Certificado inválido. Envie um arquivo .pfx", "error")
+                return redirect(url_for("parametros"))
+            if not cert_password:
+                flash("Informe a senha do certificado para salvar o arquivo A1.", "error")
+                return redirect(url_for("parametros"))
+
+            cert_dir = os.path.join(app.root_path, "data", "tenants", str(account_id), "certs")
+            os.makedirs(cert_dir, exist_ok=True)
+            cert_path = os.path.join(cert_dir, "certificado_a1.enc")
+
+            encrypted_bytes = _encrypt_binary(cert_file.read())
+            with open(cert_path, "wb") as cert_out:
+                cert_out.write(encrypted_bytes)
+
+            set_account_setting(account_id, "certificado_path", cert_path)
+            set_account_setting(account_id, "certificado_password_enc", _encrypt_text(cert_password))
+            set_account_setting(account_id, "certificado_uploaded_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            flash("Certificado digital A1 salvo com segurança.", "success")
 
         logo_file = request.files.get("po_logo_file")
         if logo_file and logo_file.filename:
@@ -3136,7 +3494,18 @@ def parametros():
         return redirect(url_for("parametros"))
 
     settings = get_account_settings(account_id)
-    return render_template("parametros.html", title="Parâmetros", settings=settings, read_only=read_only)
+    nf_plan_allowed = _account_plan_allows_nf(account_id)
+    can_configure_fiscal = _to_bool(settings.get("habilitar_nota_fiscal")) and (
+        not _to_bool(settings.get("plan_requires_nf_feature")) or nf_plan_allowed
+    )
+    return render_template(
+        "parametros.html",
+        title="Parâmetros",
+        settings=settings,
+        read_only=read_only,
+        nf_plan_allowed=nf_plan_allowed,
+        can_configure_fiscal=can_configure_fiscal,
+    )
 
 
 @app.route("/cadastro/<entity>", methods=["GET", "POST"])
@@ -3665,6 +4034,7 @@ def vendas():
     pix_code = None
     cash_summary = None
     settings = get_account_settings(account_id)
+    nf_enabled_for_account = _is_nf_enabled_for_account(account_id, settings)
     card_settings_json = json.dumps({
         "credit_enabled": settings.get("card_credit_surcharge_enabled") == "1",
         "debit_enabled": settings.get("card_debit_surcharge_enabled") == "1",
@@ -3678,13 +4048,27 @@ def vendas():
         "pix_receiver_name": settings.get("pix_receiver_name") or (session.get("account_name") or "KDC SYSTEMS"),
         "pix_receiver_city": settings.get("pix_receiver_city") or "SAO PAULO",
     })
+    sales_rules_json = json.dumps(
+        {
+            "nf_enabled": nf_enabled_for_account,
+            "nf_default": settings.get("solicitar_nota_por_padrao") == "1",
+            "allow_discount": settings.get("permitir_desconto", "1") == "1",
+            "allow_interest": settings.get("permitir_juros", "1") == "1",
+            "print_receipt": settings.get("imprimir_recibo", "1") == "1",
+            "print_note": nf_enabled_for_account and settings.get("imprimir_nota") == "1",
+        },
+        ensure_ascii=False,
+    )
 
     if request.method == "POST":
         product_ids = request.form.getlist("product_id[]")
         quantities = request.form.getlist("quantity[]")
         unit_prices = request.form.getlist("unit_price[]")
-        discount = _safe_float(request.form.get("discount") or 0)
-        surcharge = _safe_float(request.form.get("surcharge") or 0)
+        allow_discount = settings.get("permitir_desconto", "1") == "1"
+        allow_interest = settings.get("permitir_juros", "1") == "1"
+        discount = _safe_float(request.form.get("discount") or 0) if allow_discount else 0.0
+        surcharge = _safe_float(request.form.get("surcharge") or 0) if allow_interest else 0.0
+        emitir_nota = nf_enabled_for_account and _to_bool(request.form.get("emitir_nota"))
         payment_method = request.form.get("payment_method") or "Dinheiro"
         payment_received = _safe_float(request.form.get("payment_received") or 0)
         installments_single = _safe_int(request.form.get("installments") or 1, 1)
@@ -3728,7 +4112,8 @@ def vendas():
             conn.close()
             return redirect(url_for("vendas"))
 
-        total = total - discount + surcharge
+        subtotal_products = total
+        total = subtotal_products - discount + surcharge
         if total <= 0:
             flash("O total final da venda precisa ser maior que zero.", "error")
             conn.close()
@@ -3793,8 +4178,20 @@ def vendas():
         sale_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         conn.execute(
-            "INSERT INTO sales (account_id, date, client_id, payment_method, discount, surcharge, total, profit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (account_id, sale_date, client_id, payment_method, discount, surcharge, total, profit),
+            "INSERT INTO sales (account_id, date, client_id, payment_method, discount, surcharge, subtotal_products, nf_requested, fiscal_status, total, profit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (
+                account_id,
+                sale_date,
+                client_id,
+                payment_method,
+                discount,
+                surcharge,
+                subtotal_products,
+                1 if emitir_nota else 0,
+                "pendente" if emitir_nota else "nao_solicitada",
+                total,
+                profit,
+            ),
         )
         sale_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('sales', 'id'))").fetchone()[0]
 
@@ -3855,6 +4252,48 @@ def vendas():
             )
 
         conn.commit()
+
+        if emitir_nota:
+            sale_payload = {
+                "subtotal_products": subtotal_products,
+                "discount": discount,
+                "surcharge": surcharge,
+                "total": total,
+            }
+            fiscal_payload = _build_fiscal_payload_for_sale(sale_id, sale_payload, items, settings)
+            try:
+                _load_certificate_for_emission(settings)
+                fiscal_result = _mock_emit_fiscal_document(fiscal_payload)
+                _upsert_sale_fiscal_document(conn, account_id, sale_id, fiscal_payload, fiscal_result)
+                conn.execute(
+                    "UPDATE sales SET fiscal_status = %s WHERE id = %s AND account_id = %s",
+                    ("emitida", sale_id, account_id),
+                )
+                set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
+                flash(f"Nota fiscal emitida com sucesso. Chave: {fiscal_result.get('invoice_key')}", "success")
+            except Exception as fiscal_exc:
+                _upsert_sale_fiscal_document(
+                    conn,
+                    account_id,
+                    sale_id,
+                    fiscal_payload,
+                    {"status": "pendente", "numero": fiscal_payload.get("numero")},
+                    error_message="Falha na emissão. Reprocessar manualmente.",
+                )
+                conn.execute(
+                    "UPDATE sales SET fiscal_status = %s WHERE id = %s AND account_id = %s",
+                    ("pendente", sale_id, account_id),
+                )
+                flash("Venda concluída, mas a nota ficou pendente para reprocessamento.", "error")
+            conn.commit()
+
+        if _to_bool(settings.get("imprimir_automaticamente")):
+            tipo_impressao = _normalize_print_type(settings.get("tipo_impressao"))
+            if tipo_impressao == "termica" and _to_bool(settings.get("imprimir_recibo", "1")):
+                flash("Impressão automática: recibo térmico preparado.", "info")
+            if tipo_impressao == "a4" and emitir_nota and _to_bool(settings.get("imprimir_nota")):
+                flash("Impressão automática: DANFE A4 preparada.", "info")
+
         flash(translate("sale_success"), "success")
 
         if _to_bool(settings.get("send_sale_thank_you")) and client_id:
@@ -3954,7 +4393,338 @@ def vendas():
         cash_summary=cash_summary,
         card_settings_json=card_settings_json,
         payment_ui_settings_json=payment_ui_settings_json,
+        sales_rules_json=sales_rules_json,
+        nf_enabled_for_account=nf_enabled_for_account,
     )
+
+
+def _api_unauthorized(message="API key inválida."):
+    return jsonify({"ok": False, "error": message}), 401
+
+
+def _resolve_api_account_or_response():
+    raw_key = _extract_api_key_from_request()
+    if not raw_key:
+        return None, _api_unauthorized("Informe X-API-Key ou Authorization: Bearer <token>.")
+    account_id = _resolve_account_id_from_api_key(raw_key)
+    if not account_id:
+        return None, _api_unauthorized()
+    return account_id, None
+
+
+@app.route("/api/v1/produtos", methods=["GET"])
+def api_v1_produtos():
+    account_id, err = _resolve_api_account_or_response()
+    if err:
+        return err
+
+    page = max(1, _safe_int(request.args.get("page"), 1))
+    per_page = min(100, max(1, _safe_int(request.args.get("per_page"), 20)))
+    offset = (page - 1) * per_page
+    search = (request.args.get("search") or "").strip().lower()
+
+    conn = get_tenant_connection()
+    try:
+        where = "WHERE account_id = %s"
+        params = [account_id]
+        if search:
+            where += " AND (LOWER(name) LIKE %s OR LOWER(COALESCE(product_code, '')) LIKE %s)"
+            params.extend([f"%{search}%", f"%{search}%"])
+
+        total_row = conn.execute(f"SELECT COUNT(*) AS total FROM products {where}", tuple(params)).fetchone()
+        rows = conn.execute(
+            f"SELECT id, name, product_code, price, stock, status FROM products {where} ORDER BY name LIMIT %s OFFSET %s",
+            tuple(params + [per_page, offset]),
+        ).fetchall()
+        data = [
+            {
+                "id": int(row["id"]),
+                "name": row["name"],
+                "product_code": row.get("product_code") or "",
+                "price": float(row.get("price") or 0),
+                "stock": float(row.get("stock") or 0),
+                "status": row.get("status") or "ativo",
+            }
+            for row in rows
+        ]
+        return jsonify(
+            {
+                "ok": True,
+                "page": page,
+                "per_page": per_page,
+                "total": int(total_row["total"] or 0),
+                "items": data,
+            }
+        )
+    finally:
+        conn.close()
+
+
+@app.route("/api/v1/vendas", methods=["POST"])
+def api_v1_vendas():
+    account_id, err = _resolve_api_account_or_response()
+    if err:
+        return err
+
+    payload = request.get_json(silent=True) or {}
+    sale_items = payload.get("items") or []
+    client_id = payload.get("client_id")
+    payment_method = (payload.get("payment_method") or "Dinheiro").strip() or "Dinheiro"
+    discount = _safe_float(payload.get("discount"), 0.0)
+    surcharge = _safe_float(payload.get("juros"), 0.0)
+
+    settings = get_account_settings(account_id)
+    if settings.get("permitir_desconto", "1") != "1":
+        discount = 0.0
+    if settings.get("permitir_juros", "1") != "1":
+        surcharge = 0.0
+
+    if not isinstance(sale_items, list) or not sale_items:
+        return jsonify({"ok": False, "error": "Informe itens da venda."}), 400
+
+    conn = get_tenant_connection()
+    try:
+        subtotal_products = 0.0
+        cost_total = 0.0
+        normalized_items = []
+        for item in sale_items:
+            product_id = _safe_int(item.get("product_id"), 0)
+            quantity = _safe_float(item.get("quantity"), 0)
+            if product_id <= 0 or quantity <= 0:
+                continue
+            product = conn.execute(
+                "SELECT id, name, stock, cost, price FROM products WHERE id = %s AND account_id = %s LIMIT 1",
+                (product_id, account_id),
+            ).fetchone()
+            if not product:
+                continue
+            if float(product.get("stock") or 0) < quantity:
+                return jsonify({"ok": False, "error": f"Estoque insuficiente para o produto {product.get('name')}."}), 400
+
+            unit_price = _safe_float(item.get("unit_price"), float(product.get("price") or 0))
+            line_total = quantity * unit_price
+            subtotal_products += line_total
+            cost_total += quantity * float(product.get("cost") or 0)
+            normalized_items.append(
+                {
+                    "product_id": int(product_id),
+                    "product_name": product.get("name") or "Produto",
+                    "quantity": float(quantity),
+                    "unit_price": float(unit_price),
+                    "total_price": float(line_total),
+                }
+            )
+
+        if not normalized_items:
+            return jsonify({"ok": False, "error": "Nenhum item válido encontrado."}), 400
+
+        total = subtotal_products - discount + surcharge
+        if total <= 0:
+            return jsonify({"ok": False, "error": "Total final inválido."}), 400
+
+        nf_enabled = _is_nf_enabled_for_account(account_id, settings)
+        emitir_nota = nf_enabled and _to_bool(payload.get("emitir_nota"))
+
+        sale_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        profit = total - cost_total
+        conn.execute(
+            "INSERT INTO sales (account_id, date, client_id, payment_method, discount, surcharge, subtotal_products, nf_requested, fiscal_status, total, profit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                account_id,
+                sale_date,
+                client_id,
+                payment_method,
+                discount,
+                surcharge,
+                subtotal_products,
+                1 if emitir_nota else 0,
+                "pendente" if emitir_nota else "nao_solicitada",
+                total,
+                profit,
+            ),
+        )
+        sale_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('sales', 'id'))").fetchone()[0]
+
+        for item in normalized_items:
+            conn.execute(
+                "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price) VALUES (%s, %s, %s, %s, %s)",
+                (sale_id, item["product_id"], item["quantity"], item["unit_price"], item["total_price"]),
+            )
+            conn.execute(
+                "UPDATE products SET stock = stock - %s WHERE id = %s AND account_id = %s",
+                (item["quantity"], item["product_id"], account_id),
+            )
+
+        conn.execute(
+            "INSERT INTO financial_entries (account_id, entry_type, description, client_id, amount, due_date, status, source, source_ref, created_at, paid_at) VALUES (%s, 'receivable', %s, %s, %s, %s, 'pago', 'sale', %s, %s, %s)",
+            (
+                account_id,
+                f"Venda #{sale_id} - API",
+                client_id,
+                total,
+                sale_date[:10],
+                str(sale_id),
+                sale_date,
+                sale_date,
+            ),
+        )
+        conn.commit()
+
+        fiscal_status = "nao_solicitada"
+        fiscal_key = ""
+        if emitir_nota:
+            try:
+                fiscal_payload = _build_fiscal_payload_for_sale(
+                    sale_id,
+                    {"subtotal_products": subtotal_products, "discount": discount, "surcharge": surcharge, "total": total},
+                    normalized_items,
+                    settings,
+                )
+                _load_certificate_for_emission(settings)
+                fiscal_result = _mock_emit_fiscal_document(fiscal_payload)
+                _upsert_sale_fiscal_document(conn, account_id, sale_id, fiscal_payload, fiscal_result)
+                conn.execute("UPDATE sales SET fiscal_status = %s WHERE id = %s AND account_id = %s", ("emitida", sale_id, account_id))
+                set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
+                fiscal_status = "emitida"
+                fiscal_key = fiscal_result.get("invoice_key") or ""
+                conn.commit()
+            except Exception:
+                _upsert_sale_fiscal_document(
+                    conn,
+                    account_id,
+                    sale_id,
+                    fiscal_payload,
+                    {"status": "pendente", "numero": fiscal_payload.get("numero")},
+                    error_message="Falha na emissão fiscal via API",
+                )
+                conn.execute("UPDATE sales SET fiscal_status = %s WHERE id = %s AND account_id = %s", ("pendente", sale_id, account_id))
+                conn.commit()
+                fiscal_status = "pendente"
+
+        return jsonify(
+            {
+                "ok": True,
+                "sale_id": int(sale_id),
+                "subtotal_produtos": round(subtotal_products, 2),
+                "desconto": round(discount, 2),
+                "juros": round(surcharge, 2),
+                "total_final": round(total, 2),
+                "fiscal_status": fiscal_status,
+                "invoice_key": fiscal_key,
+            }
+        ), 201
+    finally:
+        conn.close()
+
+
+@app.route("/api/v1/nfe", methods=["POST"])
+def api_v1_nfe():
+    account_id, err = _resolve_api_account_or_response()
+    if err:
+        return err
+
+    payload = request.get_json(silent=True) or {}
+    sale_id = _safe_int(payload.get("sale_id"), 0)
+    if sale_id <= 0:
+        return jsonify({"ok": False, "error": "Informe sale_id válido."}), 400
+
+    settings = get_account_settings(account_id)
+    if not _is_nf_enabled_for_account(account_id, settings):
+        return jsonify({"ok": False, "error": "Nota fiscal desabilitada para esta conta/plano."}), 403
+
+    conn = get_tenant_connection()
+    try:
+        sale = conn.execute(
+            "SELECT id, subtotal_products, discount, surcharge, total FROM sales WHERE id = %s AND account_id = %s LIMIT 1",
+            (sale_id, account_id),
+        ).fetchone()
+        if not sale:
+            return jsonify({"ok": False, "error": "Venda não encontrada."}), 404
+
+        item_rows = conn.execute(
+            "SELECT si.product_id, si.quantity, si.unit_price, si.total_price, p.name AS product_name FROM sale_items si JOIN products p ON p.id = si.product_id WHERE si.sale_id = %s",
+            (sale_id,),
+        ).fetchall()
+        items = [
+            {
+                "product_id": int(row.get("product_id") or 0),
+                "product_name": row.get("product_name") or "Produto",
+                "quantity": float(row.get("quantity") or 0),
+                "unit_price": float(row.get("unit_price") or 0),
+                "total_price": float(row.get("total_price") or 0),
+            }
+            for row in item_rows
+        ]
+
+        fiscal_payload = _build_fiscal_payload_for_sale(
+            sale_id,
+            {
+                "subtotal_products": float(sale.get("subtotal_products") or 0),
+                "discount": float(sale.get("discount") or 0),
+                "surcharge": float(sale.get("surcharge") or 0),
+                "total": float(sale.get("total") or 0),
+            },
+            items,
+            settings,
+        )
+
+        try:
+            _load_certificate_for_emission(settings)
+            result = _mock_emit_fiscal_document(fiscal_payload)
+            _upsert_sale_fiscal_document(conn, account_id, sale_id, fiscal_payload, result)
+            conn.execute("UPDATE sales SET nf_requested = 1, fiscal_status = %s WHERE id = %s AND account_id = %s", ("emitida", sale_id, account_id))
+            set_account_setting(account_id, "proximo_numero_nota", str(int(fiscal_payload.get("numero") or 1) + 1))
+            conn.commit()
+            return jsonify({"ok": True, "status": "emitida", "invoice_key": result.get("invoice_key"), "xml": result.get("xml"), "pdf_url": result.get("pdf_url")})
+        except Exception:
+            _upsert_sale_fiscal_document(
+                conn,
+                account_id,
+                sale_id,
+                fiscal_payload,
+                {"status": "pendente", "numero": fiscal_payload.get("numero")},
+                error_message="Falha na emissão. Reprocessamento necessário.",
+            )
+            conn.execute("UPDATE sales SET nf_requested = 1, fiscal_status = %s WHERE id = %s AND account_id = %s", ("pendente", sale_id, account_id))
+            conn.commit()
+            return jsonify({"ok": True, "status": "pendente", "message": "Venda mantida; nota pendente para reprocessamento."}), 202
+    finally:
+        conn.close()
+
+
+@app.route("/api/v1/nfe/<int:sale_id>/danfe", methods=["GET"])
+def api_v1_nfe_danfe(sale_id):
+    account_id, err = _resolve_api_account_or_response()
+    if err:
+        return err
+
+    conn = get_tenant_connection()
+    try:
+        doc = conn.execute(
+            "SELECT sfd.invoice_key, sfd.number, sfd.status, s.date, s.total FROM sale_fiscal_documents sfd JOIN sales s ON s.id = sfd.sale_id WHERE sfd.account_id = %s AND sfd.sale_id = %s LIMIT 1",
+            (account_id, sale_id),
+        ).fetchone()
+        if not doc:
+            return jsonify({"ok": False, "error": "DANFE não encontrado para esta venda."}), 404
+        if (doc.get("status") or "").strip().lower() != "emitida":
+            return jsonify({"ok": False, "error": "Nota ainda não emitida. Status pendente."}), 409
+
+        html = (
+            "<!doctype html><html><head><meta charset='utf-8'><title>DANFE Simplificado</title>"
+            "<style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}"
+            ".box{border:1px solid #cbd5e1;border-radius:12px;padding:16px;max-width:700px}"
+            "h1{font-size:1.2rem;margin:0 0 12px}p{margin:6px 0}</style></head><body>"
+            "<div class='box'><h1>DANFE Simplificado</h1>"
+            f"<p><strong>Venda:</strong> #{sale_id}</p>"
+            f"<p><strong>Número da nota:</strong> {doc.get('number') or '-'}</p>"
+            f"<p><strong>Chave:</strong> {doc.get('invoice_key') or '-'}</p>"
+            f"<p><strong>Data:</strong> {doc.get('date') or '-'}</p>"
+            f"<p><strong>Total:</strong> R$ {float(doc.get('total') or 0):.2f}</p>"
+            "</div></body></html>"
+        )
+        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+    finally:
+        conn.close()
 
 
 @app.route("/fechar_caixa")
@@ -3985,6 +4755,19 @@ def fechar_caixa():
     recipients = get_primary_notification_recipients(account_id)
     email_sent = False
     email_error = None
+    settings = get_account_settings(account_id)
+    nf_enabled_for_account = _is_nf_enabled_for_account(account_id, settings)
+    sales_rules_json = json.dumps(
+        {
+            "nf_enabled": nf_enabled_for_account,
+            "nf_default": settings.get("solicitar_nota_por_padrao") == "1",
+            "allow_discount": settings.get("permitir_desconto", "1") == "1",
+            "allow_interest": settings.get("permitir_juros", "1") == "1",
+            "print_receipt": settings.get("imprimir_recibo", "1") == "1",
+            "print_note": nf_enabled_for_account and settings.get("imprimir_nota") == "1",
+        },
+        ensure_ascii=False,
+    )
 
     if recipients:
         lines = [
@@ -4035,6 +4818,21 @@ def fechar_caixa():
         clients=clients,
         pix_code=None,
         cash_summary=cash_summary,
+        card_settings_json=json.dumps({
+            "credit_enabled": settings.get("card_credit_surcharge_enabled") == "1",
+            "debit_enabled": settings.get("card_debit_surcharge_enabled") == "1",
+            "debit_rate": float(settings.get("card_debit_rate") or 0),
+            "credit_rates": {str(i): float(settings.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
+        }),
+        payment_ui_settings_json=json.dumps({
+            "allow_multi": settings.get("allow_multi_payment_sale") == "1",
+            "pix_key_type": settings.get("pix_key_type") or "",
+            "pix_key_value": settings.get("pix_key_value") or "",
+            "pix_receiver_name": settings.get("pix_receiver_name") or (session.get("account_name") or "KDC SYSTEMS"),
+            "pix_receiver_city": settings.get("pix_receiver_city") or "SAO PAULO",
+        }),
+        sales_rules_json=sales_rules_json,
+        nf_enabled_for_account=nf_enabled_for_account,
     )
 
 

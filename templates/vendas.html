@@ -7,6 +7,7 @@
     <div class="form-card sale-card">
       <form method="post" action="{{ url_for('vendas') }}" id="sale-form" class="sales-layout">
         <input type="hidden" name="pix_confirmed" id="pix-confirmed" value="0">
+        <input type="hidden" name="emitir_nota" id="emitir-nota-input" value="0">
 
         <section class="sales-left-panel">
           <div class="sales-panel sales-items-panel">
@@ -122,6 +123,12 @@
                   <input name="surcharge" type="number" step="0.01" value="0.00" oninput="updateTotals()">
                 </div>
               </div>
+              {% if nf_enabled_for_account %}
+              <div class="param-check-row" style="margin-top:8px;">
+                <input type="checkbox" id="emitir-nota-toggle">
+                <label for="emitir-nota-toggle">Emitir nota fiscal?</label>
+              </div>
+              {% endif %}
             </div>
           </div>
 
@@ -197,6 +204,10 @@
 
           <div class="sales-actions-stack">
             <a class="outline-button sale-report-btn" href="{{ url_for('relatorios', section='vendas_periodo') }}">Imprimir orçamento</a>
+            <button type="button" class="outline-button sale-report-btn" onclick="window.print()">Imprimir recibo</button>
+            {% if nf_enabled_for_account %}
+            <button type="button" class="outline-button sale-report-btn" onclick="printLatestDanfe()">Imprimir nota</button>
+            {% endif %}
           </div>
         </aside>
       </form>
@@ -271,6 +282,7 @@
   <script>
     var CARD_SETTINGS = {{ card_settings_json|safe }};
     var PAYMENT_UI_SETTINGS = {{ payment_ui_settings_json|safe }};
+    var SALES_RULES = {{ (sales_rules_json or '{}')|safe }};
     var PIX_QR_INSTANCE = null;
     var SALE_ROW_TEMPLATE_HTML = '';
     var SALE_PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%231e293b'/%3E%3Cstop offset='100%25' stop-color='%230f172a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='20' fill='url(%23g)'/%3E%3Cpath d='M28 77l17-18 14 15 17-24 16 27H28z' fill='%235f7ea0' opacity='.9'/%3E%3Ccircle cx='45' cy='42' r='9' fill='%2393c5fd'/%3E%3C/svg%3E";
@@ -286,6 +298,48 @@
     var saleDraftTimer = null;
     var restoringSaleDraft = false;
     var SALE_SUBMITTING = false;
+
+    function applySalesRules() {
+      let allowDiscount = SALES_RULES.allow_discount !== false;
+      let allowInterest = SALES_RULES.allow_interest !== false;
+      let discountInput = document.querySelector('input[name="discount"]');
+      let surchargeInput = document.querySelector('input[name="surcharge"]');
+
+      if (discountInput) {
+        discountInput.disabled = !allowDiscount;
+        if (!allowDiscount) discountInput.value = '0.00';
+      }
+      if (surchargeInput) {
+        surchargeInput.disabled = !allowInterest;
+        if (!allowInterest) surchargeInput.value = '0.00';
+      }
+
+      let emitInput = document.getElementById('emitir-nota-input');
+      let emitToggle = document.getElementById('emitir-nota-toggle');
+      if (emitInput) {
+        if (!SALES_RULES.nf_enabled) {
+          emitInput.value = '0';
+        } else {
+          emitInput.value = SALES_RULES.nf_default ? '1' : '0';
+        }
+      }
+      if (emitToggle) {
+        emitToggle.checked = !!SALES_RULES.nf_default;
+        emitToggle.addEventListener('change', function() {
+          emitInput.value = emitToggle.checked ? '1' : '0';
+        });
+      }
+
+      updateTotals();
+    }
+
+    function printLatestDanfe() {
+      if (!SALES_RULES.nf_enabled) {
+        alert('Emissão de nota fiscal está desabilitada para esta conta.');
+        return;
+      }
+      alert('Após emitir uma venda com nota fiscal, utilize o endpoint /api/v1/nfe para obter o DANFE.');
+    }
 
     function getSelectedPaymentMethod() {
       return ACTIVE_PAYMENT_METHOD || 'Dinheiro';
@@ -1896,6 +1950,7 @@
     });
 
     captureSaleRowTemplate();
+    applySalesRules();
     setSelectedPaymentMethod('Dinheiro');
     initProductCombobox(getPickerSelect());
     let pickerSelect = getPickerSelect();

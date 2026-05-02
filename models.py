@@ -156,6 +156,9 @@ _TENANT_STATEMENTS = [
         payment_method TEXT,
         discount DOUBLE PRECISION DEFAULT 0,
         surcharge DOUBLE PRECISION DEFAULT 0,
+        subtotal_products DOUBLE PRECISION DEFAULT 0,
+        nf_requested INTEGER DEFAULT 0,
+        fiscal_status TEXT DEFAULT 'nao_solicitada',
         total DOUBLE PRECISION NOT NULL,
         profit DOUBLE PRECISION DEFAULT 0
     )
@@ -260,6 +263,27 @@ _TENANT_STATEMENTS = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS sale_fiscal_documents (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        sale_id INTEGER NOT NULL REFERENCES sales(id),
+        emit_requested INTEGER DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'nao_solicitada',
+        environment TEXT,
+        note_type TEXT,
+        serie TEXT,
+        number INTEGER,
+        invoice_key TEXT,
+        xml_content TEXT,
+        pdf_url TEXT,
+        error_message TEXT,
+        attempts INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (sale_id)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS purchase_orders (
         id SERIAL PRIMARY KEY,
         account_id INTEGER NOT NULL REFERENCES accounts(id),
@@ -360,6 +384,11 @@ _TENANT_MIGRATIONS = [
     "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS notes TEXT",
     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER",
     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS created_by_user_name TEXT",
+    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS subtotal_products DOUBLE PRECISION DEFAULT 0",
+    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS nf_requested INTEGER DEFAULT 0",
+    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS fiscal_status TEXT DEFAULT 'nao_solicitada'",
+    "CREATE TABLE IF NOT EXISTS sale_fiscal_documents (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), sale_id INTEGER NOT NULL REFERENCES sales(id), emit_requested INTEGER DEFAULT 0, status TEXT NOT NULL DEFAULT 'nao_solicitada', environment TEXT, note_type TEXT, serie TEXT, number INTEGER, invoice_key TEXT, xml_content TEXT, pdf_url TEXT, error_message TEXT, attempts INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_sale_fiscal_documents_sale_unique ON sale_fiscal_documents (sale_id)",
     "UPDATE products SET conversion_factor = GREATEST(1, ROUND(COALESCE(conversion_factor, 1))) WHERE conversion_factor IS NULL OR conversion_factor <> ROUND(conversion_factor)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_account_product_code_unique ON products (account_id, product_code) WHERE product_code IS NOT NULL AND BTRIM(product_code) <> ''",
 ]

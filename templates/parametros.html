@@ -38,8 +38,32 @@
         <h3>Vendas e pagamentos</h3>
 
         <div class="param-check-row">
+          <input type="checkbox" name="habilitar_nota_fiscal" id="habilitar_nota_fiscal" {% if settings.get('habilitar_nota_fiscal') == '1' %}checked{% endif %} onchange="toggleFiscalBlocks(this.checked)">
+          <label for="habilitar_nota_fiscal">Habilitar emissão de nota fiscal nesta empresa</label>
+        </div>
+
+        {% if not nf_plan_allowed and settings.get('plan_requires_nf_feature') == '1' %}
+          <p class="param-hint-small" style="color:#b91c1c;font-weight:600;">O plano SaaS atual não libera recursos fiscais. Ajuste o plano para ativar NF.</p>
+        {% endif %}
+
+        <div class="param-check-row">
           <input type="checkbox" name="allow_multi_payment_sale" id="allow_multi_payment_sale" {% if settings.get('allow_multi_payment_sale') == '1' %}checked{% endif %}>
           <label for="allow_multi_payment_sale">Permitir mais de um tipo de pagamento na venda</label>
+        </div>
+
+        <div class="param-check-row">
+          <input type="checkbox" name="permitir_desconto" id="permitir_desconto" {% if settings.get('permitir_desconto', '1') == '1' %}checked{% endif %}>
+          <label for="permitir_desconto">Permitir desconto na venda</label>
+        </div>
+
+        <div class="param-check-row">
+          <input type="checkbox" name="permitir_juros" id="permitir_juros" {% if settings.get('permitir_juros', '1') == '1' %}checked{% endif %}>
+          <label for="permitir_juros">Permitir juros/acréscimo na venda</label>
+        </div>
+
+        <div class="param-check-row">
+          <input type="checkbox" name="solicitar_nota_por_padrao" id="solicitar_nota_por_padrao" {% if settings.get('solicitar_nota_por_padrao') == '1' %}checked{% endif %}>
+          <label for="solicitar_nota_por_padrao">Quando NF estiver ativa, iniciar venda com "Emitir nota?" marcado</label>
         </div>
 
         <h4 class="param-subtitle">Acréscimo por cartão</h4>
@@ -109,6 +133,87 @@
             <label>Cidade (Pix)</label>
             <input type="text" name="pix_receiver_city" value="{{ settings.get('pix_receiver_city', 'SAO PAULO') }}" placeholder="SAO PAULO">
           </div>
+        </div>
+      </section>
+
+      <section class="param-section" id="fiscal-settings-block" style="{% if settings.get('habilitar_nota_fiscal') != '1' %}display:none{% endif %}">
+        <h3>Configurações fiscais (NF-e / NFC-e)</h3>
+
+        <div class="param-inline-grid">
+          <div>
+            <label>Ambiente</label>
+            <select name="ambiente_nf">
+              <option value="homologacao" {% if settings.get('ambiente_nf', 'homologacao') == 'homologacao' %}selected{% endif %}>Homologação</option>
+              <option value="producao" {% if settings.get('ambiente_nf') == 'producao' %}selected{% endif %}>Produção</option>
+            </select>
+          </div>
+          <div>
+            <label>Tipo de nota</label>
+            <select name="tipo_nota">
+              <option value="NFE" {% if settings.get('tipo_nota') == 'NFE' %}selected{% endif %}>NFE</option>
+              <option value="NFCE" {% if settings.get('tipo_nota', 'NFCE') == 'NFCE' %}selected{% endif %}>NFCE</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="param-inline-grid">
+          <div>
+            <label>Série da nota</label>
+            <input type="text" name="serie_nota" value="{{ settings.get('serie_nota', '1') }}">
+          </div>
+          <div>
+            <label>Próximo número da nota</label>
+            <input type="number" min="1" step="1" name="proximo_numero_nota" value="{{ settings.get('proximo_numero_nota', '1') }}">
+          </div>
+        </div>
+
+        <label>Regime tributário</label>
+        <select name="regime_tributario">
+          <option value="simples_nacional" {% if settings.get('regime_tributario', 'simples_nacional') == 'simples_nacional' %}selected{% endif %}>Simples Nacional</option>
+          <option value="lucro_presumido" {% if settings.get('regime_tributario') == 'lucro_presumido' %}selected{% endif %}>Lucro Presumido</option>
+          <option value="lucro_real" {% if settings.get('regime_tributario') == 'lucro_real' %}selected{% endif %}>Lucro Real</option>
+        </select>
+
+        <div class="param-check-row">
+          <input type="checkbox" name="plan_requires_nf_feature" id="plan_requires_nf_feature" {% if settings.get('plan_requires_nf_feature') == '1' %}checked{% endif %}>
+          <label for="plan_requires_nf_feature">Exigir liberação de recurso fiscal pelo plano SaaS</label>
+        </div>
+
+        <h4 class="param-subtitle">Certificado digital A1 (.pfx)</h4>
+        <label>Arquivo de certificado (.pfx)</label>
+        <input type="file" name="arquivo_certificado" accept=".pfx,application/x-pkcs12">
+
+        <label>Senha do certificado (somente para atualização)</label>
+        <input type="password" name="senha_certificado" value="" autocomplete="new-password" placeholder="Digite apenas para atualizar">
+
+        {% if settings.get('certificado_uploaded_at') %}
+        <p class="param-hint-small">Certificado salvo em: {{ settings.get('certificado_uploaded_at') }}</p>
+        {% else %}
+        <p class="param-hint-small">Nenhum certificado cadastrado.</p>
+        {% endif %}
+      </section>
+
+      <section class="param-section">
+        <h3>Impressão</h3>
+        <div class="param-check-row">
+          <input type="checkbox" name="imprimir_automaticamente" id="imprimir_automaticamente" {% if settings.get('imprimir_automaticamente') == '1' %}checked{% endif %}>
+          <label for="imprimir_automaticamente">Imprimir automaticamente após venda</label>
+        </div>
+
+        <label>Tipo de impressão</label>
+        <select name="tipo_impressao">
+          <option value="termica" {% if settings.get('tipo_impressao', 'termica') == 'termica' %}selected{% endif %}>Térmica</option>
+          <option value="a4" {% if settings.get('tipo_impressao') == 'a4' %}selected{% endif %}>A4</option>
+        </select>
+
+        <div class="param-check-row">
+          <input type="checkbox" name="imprimir_recibo" id="imprimir_recibo" {% if settings.get('imprimir_recibo', '1') == '1' %}checked{% endif %}>
+          <label for="imprimir_recibo">Imprimir recibo</label>
+        </div>
+
+        <div class="param-check-row" id="imprimir-nota-row" style="{% if settings.get('habilitar_nota_fiscal') != '1' %}display:none{% endif %}">
+          <input type="checkbox" name="imprimir_nota" id="imprimir_nota" {% if settings.get('imprimir_nota', '1') == '1' %}checked{% endif %}>
+          <label for="imprimir_nota">Imprimir DANFE quando existir nota</label>
         </div>
       </section>
 
@@ -228,6 +333,16 @@
         <button type="submit" class="btn-add param-action-btn" {% if read_only %}disabled title="Somente consulta"{% endif %}>Enviar e-mail de teste</button>
       </form>
     </section>
+
+    <section class="param-section" data-drill-key="api_publica">
+      <h3>API pública (integrações)</h3>
+      <p class="param-hint-small">Use esta chave no header <strong>X-API-Key</strong> para acessar os endpoints: /api/v1/produtos, /api/v1/vendas e /api/v1/nfe.</p>
+      <p class="param-hint-small">Últimos 4 dígitos da chave atual: <strong>{{ settings.get('api_key_last4') or '----' }}</strong></p>
+      <form method="post" action="{{ url_for('parametros') }}">
+        <input type="hidden" name="action" value="generate_api_key">
+        <button type="submit" class="btn-add param-action-btn" {% if read_only %}disabled title="Somente consulta"{% endif %}>Gerar nova API Key</button>
+      </form>
+    </section>
   </div>
 
   <script>
@@ -236,6 +351,12 @@
     }
     function toggleDebitRate(enabled) {
       document.getElementById('debit-rate-block').style.display = enabled ? '' : 'none';
+    }
+    function toggleFiscalBlocks(enabled) {
+      let fiscal = document.getElementById('fiscal-settings-block');
+      let printNoteRow = document.getElementById('imprimir-nota-row');
+      if (fiscal) fiscal.style.display = enabled ? '' : 'none';
+      if (printNoteRow) printNoteRow.style.display = enabled ? '' : 'none';
     }
   </script>
 {% endblock %}
