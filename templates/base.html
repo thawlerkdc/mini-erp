@@ -865,9 +865,26 @@
               if (!isDesktop()) return;
               var sidebarRect = sidebar.getBoundingClientRect();
               var btnRect = config.button.getBoundingClientRect();
+              var viewportPadding = 10;
+              var preferredTop = Math.floor(btnRect.top - 10);
+              var minTop = viewportPadding;
+              var maxTop = Math.max(minTop, window.innerHeight - viewportPadding - 220);
+              var top = Math.min(Math.max(preferredTop, minTop), maxTop);
+              var maxPanelHeight = Math.max(180, window.innerHeight - top - viewportPadding);
+
               panel.style.left = (sidebarRect.right + 12) + 'px';
-              panel.style.top = Math.max(10, Math.floor(btnRect.top - 10)) + 'px';
-              panel.style.maxHeight = (window.innerHeight - 20) + 'px';
+              panel.style.top = top + 'px';
+              panel.style.maxHeight = maxPanelHeight + 'px';
+
+              var panelRect = panel.getBoundingClientRect();
+              if (panelRect.right > window.innerWidth - viewportPadding) {
+                var clampedLeft = Math.max(viewportPadding, window.innerWidth - panelRect.width - viewportPadding);
+                panel.style.left = clampedLeft + 'px';
+              }
+
+              var head = panel.querySelector('.sidebar-favorites-panel-head');
+              var headHeight = head ? head.getBoundingClientRect().height : 44;
+              panelBody.style.maxHeight = Math.max(90, maxPanelHeight - headHeight - 4) + 'px';
             }
 
             function openPanel() {
