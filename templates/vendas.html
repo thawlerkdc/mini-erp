@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv10') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv11') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -69,14 +69,13 @@
                   <div class="qty-stepper">
                     <button type="button" class="qty-stepper-btn qty-stepper-btn-minus" onclick="changeQuantity(this, -1)" title="Remover quantidade" aria-label="Remover quantidade">
                       <svg class="qty-stepper-btn-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                        <path d="M3.5 8h9" fill="none" stroke="#020617" stroke-width="3.2" stroke-linecap="round"/>
+                        <path d="M3.5 8h9" fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
                       </svg>
                     </button>
                     <input name="quantity[]" type="number" min="1" step="1" value="1" required oninput="updateLineTotal(this)">
                     <button type="button" class="qty-stepper-btn qty-stepper-btn-plus" onclick="changeQuantity(this, 1)" title="Adicionar quantidade" aria-label="Adicionar quantidade">
                       <svg class="qty-stepper-btn-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                        <path d="M8 3v10M3 8h10" fill="none" stroke="#1d4ed8" stroke-width="4.6" stroke-linecap="round"/>
-                        <path d="M8 3v10M3 8h10" fill="none" stroke="#020617" stroke-width="2.8" stroke-linecap="round"/>
+                        <path d="M8 3v10M3 8h10" fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
                       </svg>
                     </button>
                   </div>
