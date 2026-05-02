@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv6') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv7') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -67,9 +67,9 @@
                 <div class="sale-row-col">
                   <span class="sale-row-label">Quantidade</span>
                   <div class="qty-stepper">
-                    <button type="button" class="qty-stepper-btn" onclick="changeQuantity(this, -1)">-</button>
+                    <button type="button" class="qty-stepper-btn qty-stepper-btn-minus" onclick="changeQuantity(this, -1)">-</button>
                     <input name="quantity[]" type="number" min="1" step="1" value="1" required oninput="updateLineTotal(this)">
-                    <button type="button" class="qty-stepper-btn" onclick="changeQuantity(this, 1)">+</button>
+                    <button type="button" class="qty-stepper-btn qty-stepper-btn-plus" onclick="changeQuantity(this, 1)">+</button>
                   </div>
                 </div>
                 <div class="sale-row-col">
@@ -281,6 +281,7 @@
     var NO_CLIENT_BYPASS = false;
     var saleDraftTimer = null;
     var restoringSaleDraft = false;
+    var SALE_SUBMITTING = false;
 
     function getSelectedPaymentMethod() {
       return ACTIVE_PAYMENT_METHOD || 'Dinheiro';
@@ -414,6 +415,7 @@
 
     function scheduleSaveSaleDraft() {
       if (restoringSaleDraft) return;
+      if (SALE_SUBMITTING) return;
       clearTimeout(saleDraftTimer);
       saleDraftTimer = setTimeout(saveSaleDraftNow, SAVE_DRAFT_DEBOUNCE_MS);
     }
@@ -1663,6 +1665,7 @@
     }
 
     function confirmPixAndSubmit() {
+      SALE_SUBMITTING = true;
       document.getElementById('pix-confirmed').value = '1';
       document.getElementById('pix-modal').style.display = 'none';
       clearSaleDraft();
@@ -1845,8 +1848,12 @@
 
     document.getElementById('sale-form').addEventListener('submit', function(event) {
       if (document.getElementById('pix-confirmed').value === '1') {
+        SALE_SUBMITTING = true;
+        clearSaleDraft();
         return;
       }
+
+      SALE_SUBMITTING = false;
 
       let clientSelect = document.getElementById('sale-client-select');
       let hasClient = clientSelect && String(clientSelect.value || '').trim() !== '';
@@ -1862,6 +1869,7 @@
       NO_CLIENT_BYPASS = false;
 
       if (!shouldOpenPixModal()) {
+        SALE_SUBMITTING = true;
         clearSaleDraft();
         return;
       }
@@ -1874,10 +1882,12 @@
       let payload = buildPixPayload(pixAmount);
       if (!payload) {
         event.preventDefault();
+        SALE_SUBMITTING = false;
         alert('Chave Pix inválida ou não configurada. Revise tipo e valor da chave nos parâmetros.');
         return;
       }
       event.preventDefault();
+      SALE_SUBMITTING = false;
       openPixModal(payload);
     });
 
@@ -1921,6 +1931,9 @@
     })();
 
     window.addEventListener('beforeunload', function () {
+      if (SALE_SUBMITTING) {
+        return;
+      }
       saveSaleDraftNow();
     });
 
