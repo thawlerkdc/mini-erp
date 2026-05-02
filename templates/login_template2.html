@@ -1228,6 +1228,42 @@
       background: rgba(22, 163, 74, 0.08);
     }
 
+    .quick-access-login {
+      margin-bottom: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(94, 125, 185, 0.34);
+      background: rgba(10, 22, 47, 0.52);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    [data-theme="light"] .quick-access-login {
+      border-color: rgba(15, 23, 42, 0.14);
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .quick-access-login p {
+      margin: 0;
+      color: var(--login2-muted);
+      font-size: 13px;
+    }
+
+    .quick-access-login form {
+      margin: 0;
+    }
+
+    .quick-access-login button {
+      width: 100%;
+      border: 0;
+      border-radius: 10px;
+      min-height: 44px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #2f6bff, #5b41ff);
+      color: #ffffff;
+      cursor: pointer;
+    }
+
     body > footer {
       width: calc(100vw - 24px);
       max-width: 1480px;
@@ -1288,15 +1324,54 @@
     }
 
     @media (max-width: 720px) {
+      body {
+        overflow: auto;
+      }
+
       body > header {
-        flex-direction: column;
-        align-items: stretch;
+        margin-top: 0;
+        width: 100vw;
+        border: 0;
+        border-radius: 0;
+        padding-top: calc(10px + env(safe-area-inset-top));
       }
 
       body > header .topbar,
       body > header .actions {
         width: 100%;
         justify-content: space-between;
+      }
+
+      body > header .topbar,
+      body > header .actions,
+      body > header .brand-subtitle {
+        display: none;
+      }
+
+      body > main {
+        width: 100vw;
+        padding: 8px 10px 0;
+        height: auto;
+        min-height: calc(100vh - 72px);
+      }
+
+      .login2-stage {
+        display: none;
+      }
+
+      .login2-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .login2-auth {
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .login2-auth-card {
+        border-radius: 16px;
+        padding: 16px;
       }
 
       .login2-title {
@@ -1324,8 +1399,8 @@
       body > header,
       body > main,
       body > footer {
-        padding-left: 12px;
-        padding-right: 12px;
+        padding-left: 10px;
+        padding-right: 10px;
       }
 
       body > header .topbar,
@@ -1502,6 +1577,15 @@
         <h2>Acesse sua conta</h2>
         <p>Entre com suas credenciais para continuar.</p>
 
+        {% if quick_access_user %}
+          <div class="quick-access-login">
+            <p>Continuar como <strong>{{ quick_access_user.name }}</strong> ({{ quick_access_user.account_name }})</p>
+            <form method="post" action="{{ url_for('quick_access_login') }}">
+              <button type="submit" id="quick-access-login-btn-template2">Entrar rápido neste dispositivo</button>
+            </form>
+          </div>
+        {% endif %}
+
         <form method="post" action="{{ url_for('login') }}" class="login2-form">
           <div class="login2-field">
             <label for="login2-username">{{ t('username_label') }}</label>
@@ -1607,6 +1691,20 @@
         var isPassword = passwordInput.getAttribute('type') === 'password';
         passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
       });
+    })();
+
+    (function () {
+      var quickBtn = document.getElementById('quick-access-login-btn-template2');
+      if (!quickBtn) return;
+      if (!window.PublicKeyCredential || !window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) return;
+
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(function (supported) {
+          if (supported) {
+            quickBtn.textContent = 'Entrar com biometria';
+          }
+        })
+        .catch(function () {});
     })();
   </script>
 {% endblock %}

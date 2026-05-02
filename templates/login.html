@@ -32,6 +32,16 @@
     <section class="login-forms-panel">
       <div class="login-card modern-auth-card">
         <h3>{{ t('login_title') }}</h3>
+
+        {% if quick_access_user %}
+          <div class="quick-access-login">
+            <p>Continuar como <strong>{{ quick_access_user.name }}</strong> ({{ quick_access_user.account_name }})</p>
+            <form method="post" action="{{ url_for('quick_access_login') }}">
+              <button type="submit" id="quick-access-login-btn">Entrar rápido neste dispositivo</button>
+            </form>
+          </div>
+        {% endif %}
+
         <form method="post" action="{{ url_for('login') }}" class="login-access-form">
           <label for="username">{{ t('username_label') }}</label>
           <input id="username" name="username" type="text" required>
@@ -534,6 +544,67 @@
       text-align: right;
       margin-top: 8px;
     }
+
+    .quick-access-login {
+      margin: 8px 0 12px;
+      border: 1px solid rgba(15, 78, 139, 0.2);
+      border-radius: 12px;
+      background: rgba(241, 245, 249, 0.75);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .quick-access-login p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: #334155;
+    }
+
+    .quick-access-login button {
+      width: 100%;
+      min-height: 44px;
+      border: 0;
+      border-radius: 10px;
+      font-weight: 800;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0f4e8b, #1d4ed8);
+      cursor: pointer;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        overflow: auto;
+      }
+
+      main {
+        padding: 8px 10px calc(16px + env(safe-area-inset-bottom));
+      }
+
+      .login-modern-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .login-hero-panel {
+        display: none;
+      }
+
+      .modern-auth-card {
+        border-radius: 16px;
+        padding: 14px;
+      }
+
+      header {
+        margin-top: 0;
+        padding-top: calc(8px + env(safe-area-inset-top));
+      }
+
+      header .topbar,
+      header .actions,
+      header .brand-subtitle {
+        display: none;
+      }
+    }
     .login-support-inline {
       margin-top: 10px;
       display: flex;
@@ -611,6 +682,20 @@
         holdMs: 4500,
         transitionMs: 760
       });
+    })();
+
+    (function () {
+      var quickBtn = document.getElementById('quick-access-login-btn');
+      if (!quickBtn) return;
+      if (!window.PublicKeyCredential || !window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) return;
+
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(function (supported) {
+          if (supported) {
+            quickBtn.textContent = 'Entrar com biometria';
+          }
+        })
+        .catch(function () {});
     })();
   </script>
 {% endblock %}

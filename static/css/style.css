@@ -2068,6 +2068,9 @@ body.sidebar-mobile-open .sidebar-tooltip {
   background: linear-gradient(135deg, var(--brand-700), var(--brand-800));
   color: #fff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  position: sticky;
+  top: 0;
+  z-index: 240;
 }
 
 .topbar-left {
@@ -5848,7 +5851,9 @@ body.theme-dark .btn-download-template:hover {
   border: none;
   color: #fff;
   cursor: pointer;
-  padding: 7px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
   border-radius: 8px;
   font-size: 1.25rem;
   line-height: 1;
@@ -5900,6 +5905,37 @@ body.sidebar-mobile-open .sidebar-quick-panel {
   .app-main-shell {
     margin-left: 0;
     width: 100%;
+  }
+
+  .app-main-shell main {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  .app-topbar {
+    padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+    min-height: calc(58px + env(safe-area-inset-top));
+    gap: 10px;
+  }
+
+  .topbar-left {
+    flex: 1;
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+
+  .app-topbar h1 {
+    flex: 1;
+    min-width: 0;
+    font-size: 1.02rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .account-badge,
+  .user-name {
+    display: none;
   }
 
   /* Hambúrguer visível */
@@ -5965,6 +6001,117 @@ body.sidebar-mobile-open .sidebar-quick-panel {
     padding: 8px 10px;
     gap: 10px;
   }
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    z-index: 420;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    border-radius: 14px;
+    background: rgba(4, 15, 33, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 14px 30px rgba(2, 6, 23, 0.32);
+  }
+
+  .mobile-bottom-nav-link {
+    min-height: 48px;
+    border: 0;
+    border-radius: 10px;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    text-decoration: none;
+    color: rgba(226, 232, 240, 0.92);
+    background: transparent;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .mobile-bottom-nav-link.active,
+  .mobile-bottom-nav-link:active {
+    background: rgba(59, 130, 246, 0.25);
+    color: #ffffff;
+  }
+
+  .mobile-bottom-nav-link span:first-child {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .mobile-bottom-nav-button {
+    cursor: pointer;
+    font-family: inherit;
+  }
+}
+
+.quick-access-modal[hidden] {
+  display: none;
+}
+
+.quick-access-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  background: rgba(2, 6, 23, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 14px;
+}
+
+.quick-access-card {
+  width: min(420px, 100%);
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.25);
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.quick-access-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.quick-access-card p {
+  margin: 0;
+  color: #475569;
+}
+
+.quick-access-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.quick-access-actions .btn-add,
+.quick-access-actions .btn-secondary {
+  flex: 1;
+  min-height: 44px;
+}
+
+body.theme-dark .quick-access-card {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+body.theme-dark .quick-access-card p {
+  color: #94a3b8;
 }
 
 /* ---- 10. ACESSIBILIDADE: foco visível ---- */

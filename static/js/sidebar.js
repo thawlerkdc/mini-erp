@@ -389,11 +389,24 @@
       });
     }
 
-    /* ----- Colapsa menu mobile ao clicar em link ----- */
+    /* ----- Navegação mobile robusta ----- */
     sidebar.addEventListener('click', function (e) {
-      if (isMobile() && e.target.closest('.nav-link')) {
-        closeMobile();
+      var navLink = e.target.closest('.nav-link[href]');
+      if (!navLink || !isMobile()) return;
+
+      var targetHref = navLink.getAttribute('href');
+      if (!targetHref) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      closeMobile();
+
+      if (targetHref.charAt(0) === '#') {
+        window.location.hash = targetHref;
+        return;
       }
+
+      window.location.assign(targetHref);
     });
 
     /* ----- Fecha menu mobile ao redimensionar para desktop ----- */

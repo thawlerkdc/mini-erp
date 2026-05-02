@@ -58,6 +58,19 @@ _AUTH_STATEMENTS = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS quick_access_tokens (
+        id SERIAL PRIMARY KEY,
+        token_hash TEXT UNIQUE NOT NULL,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        user_agent_hash TEXT,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        last_used_at TEXT,
+        revoked INTEGER DEFAULT 0
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS global_settings (
         setting_key TEXT PRIMARY KEY,
         setting_value TEXT,

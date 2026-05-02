@@ -96,6 +96,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "kdc_systems_secret_key")
 
+QUICK_ACCESS_COOKIE = "mini_erp_quick_access"
+QUICK_ACCESS_DAYS_DEFAULT = 30
+QUICK_ACCESS_DAYS_MIN = 1
+QUICK_ACCESS_DAYS_MAX = 90
+
 # Registrar blueprints disponíveis
 if export_bp:
     app.register_blueprint(export_bp)
@@ -2833,6 +2838,198 @@ def get_primary_notification_recipients(account_id):
     return recipients
 
 
+def _now_iso():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _parse_iso(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
+def _is_secure_request():
+    proto = (request.headers.get("X-Forwarded-Proto") or "").strip().lower()
+    return bool(request.is_secure or proto == "https")
+
+
+def _quick_access_days():
+    try:
+        parsed = int(float(os.environ.get("QUICK_ACCESS_DAYS", QUICK_ACCESS_DAYS_DEFAULT)))
+    except (TypeError, ValueError):
+        parsed = QUICK_ACCESS_DAYS_DEFAULT
+    return max(QUICK_ACCESS_DAYS_MIN, min(QUICK_ACCESS_DAYS_MAX, parsed))
+
+
+def _quick_access_max_age_seconds():
+    return _quick_access_days() * 24 * 60 * 60
+
+
+def _hash_user_agent():
+    ua = (request.user_agent.string or "").strip().lower()
+    lang = (request.headers.get("Accept-Language") or "").strip().lower()
+    payload = f"{ua}|{lang}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _touch_account_last_access(account_id):
+    conn = None
+    try:
+        now = _now_iso()
+        conn = get_db_connection()
+        conn.execute(
+            "UPDATE accounts SET last_access_at = %s, updated_at = %s WHERE id = %s",
+            (now, now, account_id),
+        )
+        conn.commit()
+    except Exception:
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+
+def _apply_user_session(user):
+    session.permanent = True
+    session["user"] = user["username"]
+    session["user_id"] = user["id"]
+    session["user_name"] = user["name"] or user["username"]
+    session["account_id"] = user["account_id"]
+    session["account_name"] = user["account_name"]
+    session["role"] = user["role"]
+    session["is_admin"] = bool(user.get("is_admin"))
+    session.pop("module_permissions", None)
+    if user["role"] != "owner":
+        get_current_user_permissions()
+
+
+def _issue_quick_access_token(user_id, account_id):
+    token_plain = secrets.token_urlsafe(48)
+    token_hash = hashlib.sha256(token_plain.encode("utf-8")).hexdigest()
+    ua_hash = _hash_user_agent()
+    now = _now_iso()
+    expires = (datetime.now() + timedelta(days=_quick_access_days())).strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = None
+    try:
+        conn = get_auth_connection()
+        conn.execute(
+            "UPDATE quick_access_tokens SET revoked = 1 WHERE user_id = %s AND account_id = %s AND user_agent_hash = %s AND revoked = 0",
+            (user_id, account_id, ua_hash),
+        )
+        conn.execute(
+            """
+            INSERT INTO quick_access_tokens (token_hash, user_id, account_id, user_agent_hash, created_at, expires_at, revoked)
+            VALUES (%s, %s, %s, %s, %s, %s, 0)
+            """,
+            (token_hash, user_id, account_id, ua_hash, now, expires),
+        )
+        conn.commit()
+        return token_plain
+    except Exception as exc:
+        if conn:
+            conn.rollback()
+        logger.exception("Falha ao emitir token de acesso rápido: %s", exc)
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+
+def _get_quick_access_user_from_cookie():
+    raw_token = (request.cookies.get(QUICK_ACCESS_COOKIE) or "").strip()
+    if not raw_token:
+        return None
+
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    conn = None
+    try:
+        conn = get_auth_connection()
+        row = conn.execute(
+            """
+            SELECT
+                qat.id,
+                qat.account_id,
+                qat.user_id,
+                qat.user_agent_hash,
+                qat.expires_at,
+                qat.revoked,
+                u.username,
+                u.name,
+                u.role,
+                u.is_admin,
+                a.name AS account_name,
+                a.status AS account_status
+            FROM quick_access_tokens qat
+            JOIN users u ON u.id = qat.user_id AND u.account_id = qat.account_id
+            JOIN accounts a ON a.id = qat.account_id
+            WHERE qat.token_hash = %s
+            LIMIT 1
+            """,
+            (token_hash,),
+        ).fetchone()
+    except Exception as exc:
+        logger.exception("Falha ao validar token de acesso rápido: %s", exc)
+        row = None
+    finally:
+        if conn:
+            conn.close()
+
+    if not row:
+        return None
+    if row.get("revoked"):
+        return None
+    if row.get("user_agent_hash") and row.get("user_agent_hash") != _hash_user_agent():
+        return None
+
+    expires_at = _parse_iso(row.get("expires_at"))
+    if not expires_at or expires_at < datetime.now():
+        return None
+
+    account_status = (row.get("account_status") or "ativa").strip().lower()
+    if account_status in {"suspensa", "bloqueada", "inativa"}:
+        return None
+
+    return {
+        "token_id": row["id"],
+        "user": {
+            "id": row["user_id"],
+            "username": row["username"],
+            "name": row.get("name"),
+            "account_id": row["account_id"],
+            "account_name": row["account_name"],
+            "role": row["role"],
+            "is_admin": row.get("is_admin"),
+            "account_status": row.get("account_status"),
+        },
+    }
+
+
+def _render_login(active_login_template, login_success=None, login_error=None):
+    quick_access = _get_quick_access_user_from_cookie()
+    quick_access_user = None
+    if quick_access and quick_access.get("user"):
+        ua = quick_access["user"]
+        quick_access_user = {
+            "name": ua.get("name") or ua.get("username"),
+            "username": ua.get("username"),
+            "account_name": ua.get("account_name"),
+        }
+
+    return render_template(
+        active_login_template,
+        title=translate("login_title"),
+        hide_page_title=True,
+        login_success=login_success,
+        login_error=login_error,
+        quick_access_user=quick_access_user,
+    )
+
+
 @app.route("/set_language/<lang_code>")
 def set_language(lang_code):
     if lang_code in LANGUAGES:
@@ -2857,42 +3054,107 @@ def login():
         if user:
             account_status = (user.get("account_status") or "ativa").strip().lower()
             if account_status in {"suspensa", "bloqueada", "inativa"}:
-                return render_template(
+                return _render_login(
                     active_login_template,
-                    title=translate("login_title"),
-                    hide_page_title=True,
                     login_error=f"Esta conta está {account_status}. Procure o suporte para regularização.",
                 )
 
-            conn = None
-            try:
-                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                conn = get_db_connection()
-                conn.execute(
-                    "UPDATE accounts SET last_access_at = %s, updated_at = %s WHERE id = %s",
-                    (now, now, user["account_id"]),
-                )
-                conn.commit()
-            except Exception:
-                if conn:
-                    conn.rollback()
-            finally:
-                if conn:
-                    conn.close()
-
-            session["user"] = user["username"]
-            session["user_id"] = user["id"]
-            session["user_name"] = user["name"] or user["username"]
-            session["account_id"] = user["account_id"]
-            session["account_name"] = user["account_name"]
-            session["role"] = user["role"]
-            session["is_admin"] = bool(user.get("is_admin"))
-            session.pop("module_permissions", None)
-            if user["role"] != "owner":
-                get_current_user_permissions()
+            _touch_account_last_access(user["account_id"])
+            _apply_user_session(user)
+            session["quick_access_prompt_pending"] = True
             return redirect(get_default_route_for_current_user())
-        return render_template(active_login_template, title=translate("login_title"), hide_page_title=True, login_error=translate("invalid_login"))
-    return render_template(active_login_template, title=translate("login_title"), hide_page_title=True, login_success=login_success)
+        return _render_login(active_login_template, login_error=translate("invalid_login"))
+    return _render_login(active_login_template, login_success=login_success)
+
+
+@app.route("/quick-access/login", methods=["POST"])
+def quick_access_login():
+    if session.get("user"):
+        return redirect(get_default_route_for_current_user())
+
+    quick_access = _get_quick_access_user_from_cookie()
+    if not quick_access or not quick_access.get("user"):
+        flash("Não foi possível validar o acesso rápido deste dispositivo.", "error")
+        response = redirect(url_for("login"))
+        response.delete_cookie(QUICK_ACCESS_COOKIE, path="/")
+        return response
+
+    user = quick_access["user"]
+    _touch_account_last_access(user["account_id"])
+    _apply_user_session(user)
+    session["quick_access_prompt_pending"] = False
+
+    conn = None
+    try:
+        conn = get_auth_connection()
+        conn.execute(
+            "UPDATE quick_access_tokens SET last_used_at = %s WHERE id = %s",
+            (_now_iso(), quick_access["token_id"]),
+        )
+        conn.commit()
+    except Exception:
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+    return redirect(get_default_route_for_current_user())
+
+
+@app.route("/quick-access/enable", methods=["POST"])
+def quick_access_enable():
+    if not session.get("user"):
+        return jsonify({"ok": False, "message": "Sessão expirada."}), 401
+
+    token_plain = _issue_quick_access_token(session.get("user_id"), session.get("account_id"))
+    if not token_plain:
+        return jsonify({"ok": False, "message": "Não foi possível ativar o acesso rápido."}), 500
+
+    session["quick_access_prompt_pending"] = False
+    response = jsonify({"ok": True, "message": "Acesso rápido ativado neste dispositivo."})
+    response.set_cookie(
+        QUICK_ACCESS_COOKIE,
+        token_plain,
+        max_age=_quick_access_max_age_seconds(),
+        httponly=True,
+        secure=_is_secure_request(),
+        samesite="Lax",
+        path="/",
+    )
+    return response
+
+
+@app.route("/quick-access/disable", methods=["POST"])
+def quick_access_disable():
+    raw_token = (request.cookies.get(QUICK_ACCESS_COOKIE) or "").strip()
+    if raw_token:
+        conn = None
+        try:
+            conn = get_auth_connection()
+            conn.execute(
+                "UPDATE quick_access_tokens SET revoked = 1 WHERE token_hash = %s",
+                (hashlib.sha256(raw_token.encode("utf-8")).hexdigest(),),
+            )
+            conn.commit()
+        except Exception:
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                conn.close()
+
+    session["quick_access_prompt_pending"] = False
+    response = jsonify({"ok": True, "message": "Acesso rápido removido deste dispositivo."})
+    response.delete_cookie(QUICK_ACCESS_COOKIE, path="/")
+    return response
+
+
+@app.route("/quick-access/prompt-dismiss", methods=["POST"])
+def quick_access_prompt_dismiss():
+    if session.get("user"):
+        session["quick_access_prompt_pending"] = False
+    return jsonify({"ok": True})
 
 
 @app.route("/criar-conta", methods=["POST"])
