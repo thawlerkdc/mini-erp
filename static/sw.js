@@ -1,6 +1,6 @@
 // Mini ERP Service Worker
 // Versão: controla invalidação do cache
-const CACHE_VERSION = 'v1.2.0';
+const CACHE_VERSION = 'v1.3.0';
 const STATIC_CACHE  = `erp-static-${CACHE_VERSION}`;
 const PAGES_CACHE   = `erp-pages-${CACHE_VERSION}`;
 
