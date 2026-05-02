@@ -872,7 +872,6 @@
 
             function openPanel() {
               if (!allowQuickPanelOpen()) return;
-              if (config.blockWhenPinnedFavorites && document.body.classList.contains('sidebar-favorites-pinned')) return;
               clearTimeout(entry.closeTimer);
               renderPanelContent();
               positionPanel();
