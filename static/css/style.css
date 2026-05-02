@@ -6014,8 +6014,11 @@ body.sidebar-mobile-open .sidebar-quick-panel {
     right: 8px;
     bottom: calc(8px + env(safe-area-inset-bottom));
     z-index: 420;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     gap: 6px;
     padding: 6px;
     border-radius: 14px;
@@ -6025,7 +6028,12 @@ body.sidebar-mobile-open .sidebar-quick-panel {
     box-shadow: 0 14px 30px rgba(2, 6, 23, 0.32);
   }
 
+  .mobile-bottom-nav::-webkit-scrollbar {
+    display: none;
+  }
+
   .mobile-bottom-nav-link {
+    flex: 0 0 76px;
     min-height: 48px;
     border: 0;
     border-radius: 10px;
@@ -6054,6 +6062,20 @@ body.sidebar-mobile-open .sidebar-quick-panel {
   .mobile-bottom-nav-button {
     cursor: pointer;
     font-family: inherit;
+  }
+
+  #pwa-fab {
+    width: 46px;
+    height: 46px;
+    font-size: 1.2rem;
+    right: 12px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    z-index: 430;
+  }
+
+  #pwa-install-banner,
+  #pwa-ios-guide {
+    bottom: calc(74px + env(safe-area-inset-bottom));
   }
 }
 
