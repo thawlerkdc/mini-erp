@@ -32,10 +32,6 @@
       <div class="app-layout">
         <aside class="sidebar" id="sidebar">
           <div class="sidebar-brand">
-            <!-- Ícone compacto: visível somente quando colapsado -->
-            <span class="sidebar-brand-icon" aria-hidden="true">
-              {{ (global_settings.get('brand_name', 'K') or 'K')[0]|upper }}
-            </span>
             <span class="brand-name">{{ global_settings.get('brand_name', 'Kdc Systems') }}</span>
             <span class="brand-subtitle">{{ global_settings.get('brand_subtitle', 'ERP') }}</span>
             <div class="sidebar-actions">
