@@ -507,11 +507,13 @@
       transition: transform 0.15s ease, filter 0.15s ease, background 0.15s ease, border-color 0.15s ease;
     }
 
-.qty-stepper-btn-icon {
-  width: 16px;
-  height: 16px;
-  display: block;
-  margin: 0 auto;
+.qty-stepper-btn-symbol {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+  pointer-events: none;
+  user-select: none;
 }
 
     .qty-stepper-btn-minus {
