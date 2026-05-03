@@ -2512,6 +2512,29 @@ def _smtp_diagnostic_summary(settings, exc):
     )
 
 
+def _smtp_candidates(settings):
+    host = (settings.get("smtp_host") or "").strip()
+    port = int(settings.get("smtp_port") or 587)
+    use_tls = bool(settings.get("smtp_use_tls", True))
+    provider = _sanitize_provider(settings.get("smtp_provider"))
+
+    candidates = [(host, port, use_tls, "smtp")]
+
+    # Fallback pragmático para Gmail: algumas redes bloqueiam 587 mas liberam 465.
+    if provider == "gmail":
+        candidates.append((host or "smtp.gmail.com", 465, False, "smtp_ssl"))
+
+    unique = []
+    seen = set()
+    for item in candidates:
+        key = (item[0], item[1], item[2], item[3])
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
+
+
 def save_account_settings(account_id, form_data):
     provider = _sanitize_provider(form_data.get("smtp_provider"))
     preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
@@ -2746,7 +2769,7 @@ def _resolve_smtp_settings(settings=None):
 def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_config_message):
     recipients = [email for email in recipients if email]
     if not recipients:
-        return False, "Sem destinatário configurado"
+        return False, "Sem destinatário configurado", None
 
     host = settings.get("smtp_host", "")
     port = settings.get("smtp_port", 587)
@@ -2757,7 +2780,7 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
     use_tls = settings.get("smtp_use_tls", True)
 
     if not host or not from_email:
-        return False, missing_config_message
+        return False, missing_config_message, _smtp_diagnostic_summary(settings, "Configuração SMTP incompleta")
 
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -2765,24 +2788,47 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
     msg["To"] = ", ".join(recipients)
     msg.set_content(body)
 
-    try:
-        with smtplib.SMTP(host, port, timeout=20) as server:
-            if use_tls:
-                server.starttls()
-            if username:
-                server.login(username, password)
-            server.send_message(msg)
-        return True, "E-mail enviado com sucesso"
-    except Exception as exc:
-        logger.error("Falha ao enviar e-mail: %s", exc)
-        friendly = _humanize_email_error(str(exc), settings)
-        diagnostic = _smtp_diagnostic_summary(settings, exc)
-        return False, f"{friendly} {diagnostic}"
+    attempts = []
+    last_exc = None
+
+    for candidate_host, candidate_port, candidate_tls, mode in _smtp_candidates(settings):
+        try:
+            if mode == "smtp_ssl":
+                with smtplib.SMTP_SSL(candidate_host, candidate_port, timeout=20) as server:
+                    if username:
+                        server.login(username, password)
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP(candidate_host, candidate_port, timeout=20) as server:
+                    if candidate_tls:
+                        server.starttls()
+                    if username:
+                        server.login(username, password)
+                    server.send_message(msg)
+
+            if attempts:
+                logger.warning(
+                    "Envio de e-mail efetuado após fallback SMTP (%s:%s, modo=%s)",
+                    candidate_host,
+                    candidate_port,
+                    mode,
+                )
+            return True, "E-mail enviado com sucesso", None
+        except Exception as exc:
+            last_exc = exc
+            attempts.append(f"{candidate_host}:{candidate_port} [{mode}] -> {exc}")
+
+    logger.error("Falha ao enviar e-mail. Tentativas: %s", " | ".join(attempts))
+    friendly = _humanize_email_error(str(last_exc), settings)
+    diagnostic = _smtp_diagnostic_summary(settings, last_exc)
+    if attempts:
+        diagnostic = diagnostic + " | Tentativas: " + " | ".join(attempts)
+    return False, friendly, diagnostic
 
 
 def send_email_with_settings(account_id, recipients, subject, body, audit_payload=None):
     settings = _resolve_smtp_settings(get_account_settings(account_id))
-    sent, message = _send_email_with_smtp_settings(
+    sent, message, diagnostic = _send_email_with_smtp_settings(
         recipients,
         subject,
         body,
@@ -2797,6 +2843,7 @@ def send_email_with_settings(account_id, recipients, subject, body, audit_payloa
             "recipients": recipients,
             "subject": subject,
             "result_message": message,
+            "result_diagnostic": diagnostic or "",
             **(audit_payload or {}),
         },
         account_id=account_id,
@@ -2807,7 +2854,7 @@ def send_email_with_settings(account_id, recipients, subject, body, audit_payloa
 def send_system_email(recipients, subject, body, audit_payload=None, account_id=None, user_id=None):
     settings = _resolve_smtp_settings(get_global_settings())
     resolved_account_id = account_id or session.get("account_id")
-    sent, message = _send_email_with_smtp_settings(
+    sent, message, diagnostic = _send_email_with_smtp_settings(
         recipients,
         subject,
         body,
@@ -2822,6 +2869,7 @@ def send_system_email(recipients, subject, body, audit_payload=None, account_id=
             "recipients": recipients,
             "subject": subject,
             "result_message": message,
+            "result_diagnostic": diagnostic or "",
             **(audit_payload or {}),
         },
         account_id=resolved_account_id,
