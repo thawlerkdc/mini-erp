@@ -2570,16 +2570,34 @@ def _is_smtp_network_egress_error(exc):
     return any(marker in text for marker in markers)
 
 
-def _send_email_via_resend_api(recipients, subject, body, settings):
-    api_key = (os.environ.get("RESEND_API_KEY") or "").strip()
-    if not api_key:
-        return False, "", "Fallback HTTPS indisponível: RESEND_API_KEY não configurada."
+def _first_env_value(*names):
+    for name in names:
+        value = (os.environ.get(name) or "").strip()
+        if value:
+            return value, name
+    return "", ""
 
-    endpoint = (os.environ.get("RESEND_API_URL") or "https://api.resend.com/emails").strip()
-    from_email = (settings.get("smtp_from_email") or "").strip()
+
+def _send_email_via_resend_api(recipients, subject, body, settings):
+    api_key, api_key_source = _first_env_value(
+        "RESEND_API_KEY",
+        "EMAIL_API_KEY",
+        "EMAIL_HTTP_FALLBACK_API_KEY",
+    )
+    if not api_key:
+        return (
+            False,
+            "",
+            "Fallback HTTPS indisponível: chave de API não configurada (esperado: RESEND_API_KEY, EMAIL_API_KEY ou EMAIL_HTTP_FALLBACK_API_KEY).",
+        )
+
+    endpoint, _endpoint_source = _first_env_value("RESEND_API_URL", "EMAIL_API_URL")
+    endpoint = endpoint or "https://api.resend.com/emails"
+
+    configured_from = (settings.get("smtp_from_email") or "").strip()
+    from_email, from_source = _first_env_value("RESEND_FROM_EMAIL", "EMAIL_API_FROM")
+    from_email = from_email or configured_from or "onboarding@resend.dev"
     from_name = (settings.get("smtp_from_name") or "Kdc Systems").strip() or "Kdc Systems"
-    if not from_email:
-        return False, "", "Fallback HTTPS indisponível: remetente não configurado."
 
     payload = {
         "from": f"{from_name} <{from_email}>",
@@ -2587,6 +2605,9 @@ def _send_email_via_resend_api(recipients, subject, body, settings):
         "subject": subject,
         "text": body,
     }
+    if configured_from and configured_from.lower() != from_email.lower():
+        payload["reply_to"] = configured_from
+
     data = json.dumps(payload).encode("utf-8")
     timeout_seconds = max(4, min(20, _safe_int(os.environ.get("EMAIL_API_TIMEOUT_SECONDS"), 10)))
     req = urllib.request.Request(
@@ -2604,11 +2625,15 @@ def _send_email_via_resend_api(recipients, subject, body, settings):
             status = getattr(resp, "status", 200)
             body_text = resp.read().decode("utf-8", errors="replace")
             if 200 <= int(status) < 300:
-                return True, "E-mail enviado com sucesso", f"E-mail enviado com sucesso via fallback HTTPS (resend, status={status})."
+                return (
+                    True,
+                    "E-mail enviado com sucesso",
+                    f"E-mail enviado com sucesso via fallback HTTPS (resend, status={status}, api_key_source={api_key_source or '-'}, from_source={from_source or 'smtp_from_email/default'}).",
+                )
             return (
                 False,
                 "",
-                f"Fallback HTTPS falhou (resend, status={status}, resposta={body_text[:300]}).",
+                f"Fallback HTTPS falhou (resend, status={status}, api_key_source={api_key_source or '-'}, from={from_email}, resposta={body_text[:300]}).",
             )
     except urllib.error.HTTPError as exc:
         response_text = ""
@@ -2619,14 +2644,15 @@ def _send_email_via_resend_api(recipients, subject, body, settings):
         return (
             False,
             "",
-            f"Fallback HTTPS falhou (resend, status={exc.code}, erro={response_text[:300]}).",
+            f"Fallback HTTPS falhou (resend, status={exc.code}, api_key_source={api_key_source or '-'}, from={from_email}, erro={response_text[:300]}).",
         )
     except Exception as exc:
         return False, "", f"Fallback HTTPS falhou (resend): {exc}"
 
 
 def _try_http_email_fallback(recipients, subject, body, settings):
-    provider = (os.environ.get("EMAIL_HTTP_FALLBACK_PROVIDER") or "resend").strip().lower()
+    provider, _provider_source = _first_env_value("EMAIL_HTTP_FALLBACK_PROVIDER", "EMAIL_API_PROVIDER")
+    provider = (provider or "resend").strip().lower()
     enabled = (os.environ.get("EMAIL_HTTP_FALLBACK_ENABLED") or "1").strip().lower() in {"1", "true", "yes", "on"}
     if not enabled:
         return False, "", "Fallback HTTPS desativado por configuração."
