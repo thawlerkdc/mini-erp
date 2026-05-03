@@ -67,6 +67,8 @@ import hmac
 import base64
 import smtplib
 import unicodedata
+import urllib.request
+import urllib.error
 import xml.etree.ElementTree as ET
 from email.message import EmailMessage
 import time
@@ -2556,6 +2558,85 @@ def _should_abort_fallback(exc):
     return any(marker in text for marker in fatal_markers)
 
 
+def _is_smtp_network_egress_error(exc):
+    text = str(exc or "").lower()
+    markers = [
+        "network is unreachable",
+        "no route to host",
+        "timed out",
+        "timeout",
+        "connection reset by peer",
+    ]
+    return any(marker in text for marker in markers)
+
+
+def _send_email_via_resend_api(recipients, subject, body, settings):
+    api_key = (os.environ.get("RESEND_API_KEY") or "").strip()
+    if not api_key:
+        return False, "", "Fallback HTTPS indisponível: RESEND_API_KEY não configurada."
+
+    endpoint = (os.environ.get("RESEND_API_URL") or "https://api.resend.com/emails").strip()
+    from_email = (settings.get("smtp_from_email") or "").strip()
+    from_name = (settings.get("smtp_from_name") or "Kdc Systems").strip() or "Kdc Systems"
+    if not from_email:
+        return False, "", "Fallback HTTPS indisponível: remetente não configurado."
+
+    payload = {
+        "from": f"{from_name} <{from_email}>",
+        "to": recipients,
+        "subject": subject,
+        "text": body,
+    }
+    data = json.dumps(payload).encode("utf-8")
+    timeout_seconds = max(4, min(20, _safe_int(os.environ.get("EMAIL_API_TIMEOUT_SECONDS"), 10)))
+    req = urllib.request.Request(
+        endpoint,
+        data=data,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+            status = getattr(resp, "status", 200)
+            body_text = resp.read().decode("utf-8", errors="replace")
+            if 200 <= int(status) < 300:
+                return True, "E-mail enviado com sucesso", f"E-mail enviado com sucesso via fallback HTTPS (resend, status={status})."
+            return (
+                False,
+                "",
+                f"Fallback HTTPS falhou (resend, status={status}, resposta={body_text[:300]}).",
+            )
+    except urllib.error.HTTPError as exc:
+        response_text = ""
+        try:
+            response_text = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            response_text = str(exc)
+        return (
+            False,
+            "",
+            f"Fallback HTTPS falhou (resend, status={exc.code}, erro={response_text[:300]}).",
+        )
+    except Exception as exc:
+        return False, "", f"Fallback HTTPS falhou (resend): {exc}"
+
+
+def _try_http_email_fallback(recipients, subject, body, settings):
+    provider = (os.environ.get("EMAIL_HTTP_FALLBACK_PROVIDER") or "resend").strip().lower()
+    enabled = (os.environ.get("EMAIL_HTTP_FALLBACK_ENABLED") or "1").strip().lower() in {"1", "true", "yes", "on"}
+    if not enabled:
+        return False, "", "Fallback HTTPS desativado por configuração."
+
+    if provider == "resend":
+        return _send_email_via_resend_api(recipients, subject, body, settings)
+
+    return False, "", f"Fallback HTTPS indisponível: provedor '{provider}' não suportado."
+
+
 def _looks_like_hashed_secret(secret):
     value = (secret or "").strip()
     if not value:
@@ -2879,10 +2960,26 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
                 break
 
     logger.error("Falha ao enviar e-mail. Tentativas: %s", " | ".join(attempts))
+
+    fallback_detail = ""
+    if _is_smtp_network_egress_error(last_exc):
+        fb_sent, fb_msg, fb_detail = _try_http_email_fallback(recipients, subject, body, settings)
+        fallback_detail = fb_detail or ""
+        if fb_sent:
+            logger.warning("SMTP indisponível por rede; envio concluído via fallback HTTPS.")
+            success_detail = fb_detail
+            if attempts:
+                success_detail += " | Tentativas SMTP: " + " | ".join(attempts)
+            return True, fb_msg, success_detail
+
     friendly = _humanize_email_error(str(last_exc), settings)
     diagnostic = _smtp_diagnostic_summary(settings, last_exc)
     if attempts:
         diagnostic = diagnostic + " | Tentativas: " + " | ".join(attempts)
+
+    if fallback_detail:
+        diagnostic = diagnostic + " | " + fallback_detail
+
     return False, friendly, f"{friendly} {diagnostic}"
 
 
