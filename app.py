@@ -2769,7 +2769,7 @@ def _resolve_smtp_settings(settings=None):
 def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_config_message):
     recipients = [email for email in recipients if email]
     if not recipients:
-        return False, "Sem destinatário configurado", None
+        return False, "Sem destinatário configurado", "Sem destinatário configurado"
 
     host = settings.get("smtp_host", "")
     port = settings.get("smtp_port", 587)
@@ -2780,7 +2780,8 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
     use_tls = settings.get("smtp_use_tls", True)
 
     if not host or not from_email:
-        return False, missing_config_message, _smtp_diagnostic_summary(settings, "Configuração SMTP incompleta")
+        diag = _smtp_diagnostic_summary(settings, "Configuração SMTP incompleta")
+        return False, missing_config_message, f"{missing_config_message} {diag}"
 
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -2813,7 +2814,7 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
                     candidate_port,
                     mode,
                 )
-            return True, "E-mail enviado com sucesso", None
+            return True, "E-mail enviado com sucesso", "E-mail enviado com sucesso"
         except Exception as exc:
             last_exc = exc
             attempts.append(f"{candidate_host}:{candidate_port} [{mode}] -> {exc}")
@@ -2823,12 +2824,12 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
     diagnostic = _smtp_diagnostic_summary(settings, last_exc)
     if attempts:
         diagnostic = diagnostic + " | Tentativas: " + " | ".join(attempts)
-    return False, friendly, diagnostic
+    return False, friendly, f"{friendly} {diagnostic}"
 
 
 def send_email_with_settings(account_id, recipients, subject, body, audit_payload=None):
     settings = _resolve_smtp_settings(get_account_settings(account_id))
-    sent, message, diagnostic = _send_email_with_smtp_settings(
+    sent, message, detailed_message = _send_email_with_smtp_settings(
         recipients,
         subject,
         body,
@@ -2842,8 +2843,7 @@ def send_email_with_settings(account_id, recipients, subject, body, audit_payloa
             "email_action": (audit_payload or {}).get("email_action") or "generic_account_email",
             "recipients": recipients,
             "subject": subject,
-            "result_message": message,
-            "result_diagnostic": diagnostic or "",
+            "result_message": detailed_message,
             **(audit_payload or {}),
         },
         account_id=account_id,
@@ -2854,7 +2854,7 @@ def send_email_with_settings(account_id, recipients, subject, body, audit_payloa
 def send_system_email(recipients, subject, body, audit_payload=None, account_id=None, user_id=None):
     settings = _resolve_smtp_settings(get_global_settings())
     resolved_account_id = account_id or session.get("account_id")
-    sent, message, diagnostic = _send_email_with_smtp_settings(
+    sent, message, detailed_message = _send_email_with_smtp_settings(
         recipients,
         subject,
         body,
@@ -2868,8 +2868,7 @@ def send_system_email(recipients, subject, body, audit_payload=None, account_id=
             "email_action": (audit_payload or {}).get("email_action") or "generic_system_email",
             "recipients": recipients,
             "subject": subject,
-            "result_message": message,
-            "result_diagnostic": diagnostic or "",
+            "result_message": detailed_message,
             **(audit_payload or {}),
         },
         account_id=resolved_account_id,
@@ -4153,11 +4152,19 @@ def forgot_password():
                     forgot_success = f"E-mail de redefinição enviado para {email}. Verifique sua caixa de entrada."
                 else:
                     logger.error("Erro ao enviar e-mail de reset: %s", err)
-                    forgot_error = f"Não foi possível enviar o e-mail: {err}"
+                    forgot_error = "Operação não realizada. Tente novamente e, se o problema persistir, contate o administrador."
             else:
                 conn.close()
-                # Mensagem genérica para não revelar quais usuários existem
-                forgot_success = f"Se os dados informados estiverem corretos, você receberá um e-mail em breve."
+                log_audit_event(
+                    "password_reset_lookup_failed",
+                    {
+                        "email_action": "password_reset",
+                        "target_username": username,
+                        "target_email": email,
+                        "result_message": "Usuário/e-mail não encontrados para redefinição.",
+                    },
+                )
+                forgot_error = "Operação não realizada. Verifique usuário e e-mail e tente novamente. Se persistir, contate o administrador."
         else:
             forgot_error = "Preencha todos os campos."
 
