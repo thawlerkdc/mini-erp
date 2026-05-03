@@ -5,6 +5,11 @@ import os
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
+
 from flask import Blueprint, flash, redirect, render_template, request, send_file, session, url_for
 
 from models import create_account_with_owner, get_db_connection
@@ -38,13 +43,20 @@ ACCOUNT_STATUS = ["ativa", "suspensa", "bloqueada", "inativa"]
 BILLING_STATUS = ["pendente", "pago", "atrasado"]
 PLAN_CYCLES = ["mensal", "anual"]
 
+APP_TIMEZONE = "America/Sao_Paulo"
+_TZ = ZoneInfo(APP_TIMEZONE) if ZoneInfo else None
+
+
+def _now_local():
+    return datetime.now(_TZ) if _TZ else datetime.now()
+
 
 def _now_str():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return _now_local().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _today_str():
-    return datetime.now().strftime("%Y-%m-%d")
+    return _now_local().strftime("%Y-%m-%d")
 
 
 def _safe_float(value, default=0.0):

@@ -72,6 +72,11 @@ from email.message import EmailMessage
 import time
 
 try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
+
+try:
     from cryptography.fernet import Fernet, InvalidToken
 except ImportError:
     Fernet = None
@@ -116,6 +121,13 @@ except ImportError:
     print("⚠️  psycopg não disponível - usando SQLite para desenvolvimento local")
 
 logger = logging.getLogger(__name__)
+
+APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "America/Sao_Paulo")
+_APP_TZ = ZoneInfo(APP_TIMEZONE) if ZoneInfo else None
+
+
+def _local_now():
+    return datetime.now(_APP_TZ) if _APP_TZ else datetime.now()
 
 
 app = Flask(__name__)
@@ -2480,6 +2492,26 @@ def _humanize_email_error(error_text, settings=None):
     return "Não foi possível enviar e-mail com as configurações atuais. Revise provedor, e-mail de origem e senha de aplicativo."
 
 
+def _smtp_diagnostic_summary(settings, exc):
+    provider = _sanitize_provider((settings or {}).get("smtp_provider"))
+    host = ((settings or {}).get("smtp_host") or "-").strip() or "-"
+    port = (settings or {}).get("smtp_port") or "-"
+    from_email = ((settings or {}).get("smtp_from_email") or "-").strip() or "-"
+    username = ((settings or {}).get("smtp_username") or "").strip()
+    use_tls = "sim" if _to_bool((settings or {}).get("smtp_use_tls")) else "não"
+    password_set = "sim" if ((settings or {}).get("smtp_password") or "").strip() else "não"
+
+    raw_error = str(exc or "").replace("\n", " ").replace("\r", " ").strip()
+    if len(raw_error) > 180:
+        raw_error = raw_error[:177] + "..."
+
+    return (
+        f"Diagnóstico SMTP -> provedor={provider}, host={host}, porta={port}, tls={use_tls}, "
+        f"remetente={from_email}, usuario_configurado={'sim' if username else 'não'}, senha_configurada={password_set}, "
+        f"erro_tecnico={raw_error or '-'}"
+    )
+
+
 def save_account_settings(account_id, form_data):
     provider = _sanitize_provider(form_data.get("smtp_provider"))
     preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
@@ -2743,7 +2775,9 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
         return True, "E-mail enviado com sucesso"
     except Exception as exc:
         logger.error("Falha ao enviar e-mail: %s", exc)
-        return False, _humanize_email_error(str(exc), settings)
+        friendly = _humanize_email_error(str(exc), settings)
+        diagnostic = _smtp_diagnostic_summary(settings, exc)
+        return False, f"{friendly} {diagnostic}"
 
 
 def send_email_with_settings(account_id, recipients, subject, body, audit_payload=None):
@@ -2861,7 +2895,7 @@ def get_primary_notification_recipients(account_id):
 
 
 def _now_iso():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return _local_now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _parse_iso(value):
@@ -4029,7 +4063,7 @@ def forgot_password():
         if username and email:
             conn = get_auth_connection()
             user = conn.execute(
-                "SELECT id, account_id FROM users WHERE username = %s AND email = %s AND is_active = 1",
+                "SELECT id, account_id FROM users WHERE LOWER(username) = LOWER(%s) AND LOWER(email) = LOWER(%s) AND is_active = 1",
                 (username, email)
             ).fetchone()
 
@@ -4037,8 +4071,8 @@ def forgot_password():
                 global_settings = get_global_settings()
                 token = secrets.token_urlsafe(48)
                 expires_hours = max(1, min(72, int(float(global_settings.get("reset_token_expiration_hours") or 1))))
-                expires_at = (datetime.now() + timedelta(hours=expires_hours)).strftime("%Y-%m-%d %H:%M:%S")
-                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                expires_at = (_local_now() + timedelta(hours=expires_hours)).strftime("%Y-%m-%d %H:%M:%S")
+                created_at = _now_iso()
 
                 conn.execute(
                     "INSERT INTO password_reset_tokens (user_id, token, expires_at, used, created_at) VALUES (%s, %s, %s, 0, %s)",

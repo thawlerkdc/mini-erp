@@ -42,7 +42,7 @@
 
         <form method="post" action="{{ url_for('login') }}" class="login-access-form">
           <label for="username">{{ t('username_label') }}</label>
-          <input id="username" name="username" type="text" required>
+          <input id="username" name="username" type="text" required autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false">
 
           <label for="password">{{ t('password_label') }}</label>
           <input id="password" name="password" type="password" required>

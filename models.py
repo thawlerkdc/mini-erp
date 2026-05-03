@@ -776,7 +776,7 @@ def authenticate_user(username: str, password: str):
     row = conn.execute(
         "SELECT u.*, a.name AS account_name, a.slug AS account_slug, COALESCE(a.status, 'ativa') AS account_status "
         "FROM users u JOIN accounts a ON a.id = u.account_id "
-        "WHERE u.username = %s AND u.password = %s AND u.is_active = 1",
+        "WHERE LOWER(u.username) = LOWER(%s) AND u.password = %s AND u.is_active = 1",
         (username, password),
     ).fetchone()
     conn.close()

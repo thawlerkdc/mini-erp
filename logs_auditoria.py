@@ -4,7 +4,19 @@ from flask import Blueprint, request, render_template, session, flash, redirect,
 from models import get_db_connection
 from datetime import datetime, timedelta
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
+
 auditoria_bp = Blueprint('auditoria', __name__)
+
+APP_TIMEZONE = 'America/Sao_Paulo'
+_TZ = ZoneInfo(APP_TIMEZONE) if ZoneInfo else None
+
+
+def _now_local():
+    return datetime.now(_TZ) if _TZ else datetime.now()
 
 
 def _insert_audit_log(account_id, user_id, endpoint, method, path, payload):
@@ -14,7 +26,7 @@ def _insert_audit_log(account_id, user_id, endpoint, method, path, payload):
     conn = None
     try:
         conn = get_db_connection()
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now = _now_local().strftime('%Y-%m-%d %H:%M:%S')
         serialized = json.dumps(payload or {}, ensure_ascii=False)
         conn.execute(
             """
@@ -199,7 +211,7 @@ def _purge_old_logs(account_id):
         if retention_days <= 0:
             conn.close()
             return
-        cutoff = (datetime.now() - timedelta(days=retention_days)).strftime('%Y-%m-%d %H:%M:%S')
+        cutoff = (_now_local() - timedelta(days=retention_days)).strftime('%Y-%m-%d %H:%M:%S')
         conn.execute(
             "DELETE FROM logs WHERE account_id = %s AND created_at < %s",
             (account_id, cutoff),
