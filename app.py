@@ -2552,6 +2552,23 @@ def _should_abort_fallback(exc):
     return any(marker in text for marker in fatal_markers)
 
 
+def _looks_like_hashed_secret(secret):
+    value = (secret or "").strip()
+    if not value:
+        return False
+
+    lowered = value.lower()
+    if lowered.startswith("$2a$") or lowered.startswith("$2b$") or lowered.startswith("$2y$"):
+        return True
+    if lowered.startswith("$argon2"):
+        return True
+    if lowered.startswith("sha256:") or lowered.startswith("pbkdf2"):
+        return True
+    if len(value) >= 48 and re.fullmatch(r"[0-9a-fA-F]+", value):
+        return True
+    return False
+
+
 def save_account_settings(account_id, form_data):
     provider = _sanitize_provider(form_data.get("smtp_provider"))
     preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
@@ -2571,6 +2588,8 @@ def save_account_settings(account_id, form_data):
 
     keys = list(SETTINGS_DEFAULTS.keys())
     current_settings = get_account_settings(account_id)
+    smtp_password_input = (form_data.get("smtp_password") or "").strip()
+    smtp_password_value = smtp_password_input or (current_settings.get("smtp_password") or "")
     pix_key_type, pix_key_value = _sanitize_pix_key(form_data.get("pix_key_type"), form_data.get("pix_key_value"))
     provider_name = (form_data.get("provedor_fiscal") or current_settings.get("provedor_fiscal") or "focus").strip().lower()
     if provider_name not in {"focus", "nfeio", "tecnospeed"}:
@@ -2598,7 +2617,7 @@ def save_account_settings(account_id, form_data):
         "smtp_host": smtp_host,
         "smtp_port": smtp_port or "587",
         "smtp_username": smtp_username,
-        "smtp_password": (form_data.get("smtp_password") or "").strip(),
+        "smtp_password": smtp_password_value,
         "smtp_from_email": from_email,
         "smtp_from_name": (form_data.get("smtp_from_name") or "Kdc Systems").strip(),
         "smtp_use_tls": smtp_use_tls,
@@ -2679,6 +2698,7 @@ def set_account_setting(account_id, key, value):
 def save_global_settings(form_data):
     provider = _sanitize_provider(form_data.get("smtp_provider"))
     preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
+    current_global_settings = get_global_settings()
 
     custom_host = (form_data.get("smtp_host") or "").strip()
     custom_port = (form_data.get("smtp_port") or "").strip()
@@ -2700,6 +2720,9 @@ def save_global_settings(form_data):
         login_template = GLOBAL_SETTINGS_DEFAULTS["login_template"]
     if not system_display_name:
         system_display_name = f"{brand_name} {brand_subtitle}".strip()
+
+    smtp_password_input = (form_data.get("smtp_password") or "").strip()
+    smtp_password_value = smtp_password_input or (current_global_settings.get("smtp_password") or "")
 
     values = {
         "brand_name": brand_name,
@@ -2724,7 +2747,7 @@ def save_global_settings(form_data):
         "smtp_host": smtp_host,
         "smtp_port": smtp_port or "587",
         "smtp_username": (form_data.get("smtp_username") or "").strip(),
-        "smtp_password": (form_data.get("smtp_password") or "").strip(),
+        "smtp_password": smtp_password_value,
         "smtp_from_email": (form_data.get("smtp_from_email") or "").strip(),
         "smtp_from_name": (form_data.get("smtp_from_name") or system_display_name or GLOBAL_SETTINGS_DEFAULTS["smtp_from_name"]).strip(),
         "smtp_use_tls": smtp_use_tls,
@@ -2800,6 +2823,18 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
         diag = _smtp_diagnostic_summary(settings, "Configuração SMTP incompleta")
         return False, missing_config_message, f"{missing_config_message} {diag}"
 
+    if _looks_like_hashed_secret(password):
+        user_msg = "Falha de autenticação no SMTP. Revise a senha de aplicativo do remetente."
+        detail = (
+            user_msg
+            + " "
+            + _smtp_diagnostic_summary(
+                settings,
+                "A senha SMTP parece hash/criptografia e não a senha de aplicativo em texto.",
+            )
+        )
+        return False, user_msg, detail
+
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = f"{from_name} <{from_email}>"
@@ -2871,7 +2906,7 @@ def send_email_with_settings(account_id, recipients, subject, body, audit_payloa
     return sent, message
 
 
-def send_system_email(recipients, subject, body, audit_payload=None, account_id=None, user_id=None):
+def send_system_email(recipients, subject, body, audit_payload=None, account_id=None, user_id=None, include_diagnostics=False):
     settings = _resolve_smtp_settings(get_global_settings())
     resolved_account_id = account_id or session.get("account_id")
     sent, message, detailed_message = _send_email_with_smtp_settings(
@@ -2894,7 +2929,7 @@ def send_system_email(recipients, subject, body, audit_payload=None, account_id=
         account_id=resolved_account_id,
         user_id=user_id,
     )
-    return sent, message
+    return sent, (detailed_message if (include_diagnostics and not sent) else message)
 
 
 def run_daily_birthday_automation(account_id):
@@ -4078,6 +4113,7 @@ def admin_system_settings():
                 f"Teste SMTP global - {system_name}",
                 "Este e-mail confirma que o serviço global do sistema está configurado corretamente.",
                 audit_payload={"email_action": "system_smtp_test"},
+                include_diagnostics=True,
             )
             if sent:
                 flash(f"Teste SMTP global enviado para {test_email}.", "success")
