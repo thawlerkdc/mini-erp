@@ -2535,6 +2535,23 @@ def _smtp_candidates(settings):
     return unique
 
 
+def _should_abort_fallback(exc):
+    text = str(exc or "").lower()
+    fatal_markers = [
+        "network is unreachable",
+        "no route to host",
+        "temporary failure in name resolution",
+        "name or service not known",
+        "getaddrinfo failed",
+        "badcredentials",
+        "authentication",
+        "535",
+        "sender address rejected",
+        "from address not verified",
+    ]
+    return any(marker in text for marker in fatal_markers)
+
+
 def save_account_settings(account_id, form_data):
     provider = _sanitize_provider(form_data.get("smtp_provider"))
     preset = SMTP_PROVIDER_PRESETS.get(provider, SMTP_PROVIDER_PRESETS["custom"])
@@ -2789,18 +2806,19 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
     msg["To"] = ", ".join(recipients)
     msg.set_content(body)
 
+    smtp_timeout_seconds = max(4, min(20, _safe_int(os.environ.get("SMTP_TIMEOUT_SECONDS"), 8)))
     attempts = []
     last_exc = None
 
     for candidate_host, candidate_port, candidate_tls, mode in _smtp_candidates(settings):
         try:
             if mode == "smtp_ssl":
-                with smtplib.SMTP_SSL(candidate_host, candidate_port, timeout=20) as server:
+                with smtplib.SMTP_SSL(candidate_host, candidate_port, timeout=smtp_timeout_seconds) as server:
                     if username:
                         server.login(username, password)
                     server.send_message(msg)
             else:
-                with smtplib.SMTP(candidate_host, candidate_port, timeout=20) as server:
+                with smtplib.SMTP(candidate_host, candidate_port, timeout=smtp_timeout_seconds) as server:
                     if candidate_tls:
                         server.starttls()
                     if username:
@@ -2818,6 +2836,8 @@ def _send_email_with_smtp_settings(recipients, subject, body, settings, missing_
         except Exception as exc:
             last_exc = exc
             attempts.append(f"{candidate_host}:{candidate_port} [{mode}] -> {exc}")
+            if _should_abort_fallback(exc):
+                break
 
     logger.error("Falha ao enviar e-mail. Tentativas: %s", " | ".join(attempts))
     friendly = _humanize_email_error(str(last_exc), settings)
