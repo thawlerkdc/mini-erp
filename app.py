@@ -2480,6 +2480,12 @@ def _humanize_email_error(error_text, settings=None):
     if "timed out" in lowered or "timeout" in lowered:
         return "Tempo de conexão esgotado com o servidor de e-mail. Verifique internet, servidor SMTP e porta configurada."
 
+    if "network is unreachable" in lowered or "no route to host" in lowered:
+        return (
+            "O ambiente onde o sistema está executando não conseguiu alcançar o servidor SMTP. "
+            "Isso normalmente indica bloqueio de saída de rede/porta na infraestrutura (não erro de usuário/senha)."
+        )
+
     if "name or service not known" in lowered or "getaddrinfo failed" in lowered:
         return "Servidor SMTP inválido ou indisponível. Revise o provedor selecionado e, se manual, confira o host SMTP."
 
@@ -2538,8 +2544,6 @@ def _smtp_candidates(settings):
 def _should_abort_fallback(exc):
     text = str(exc or "").lower()
     fatal_markers = [
-        "network is unreachable",
-        "no route to host",
         "temporary failure in name resolution",
         "name or service not known",
         "getaddrinfo failed",
