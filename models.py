@@ -502,6 +502,10 @@ def _get_db_url() -> str:
     # Render provides postgres:// but the driver expects postgresql://
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
+    # Supabase (e outros serviços gerenciados) exigem SSL
+    if url and "sslmode" not in url:
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}sslmode=require"
     return url
 
 
