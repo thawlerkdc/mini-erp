@@ -356,15 +356,24 @@
         var header = e.target.closest('.menu-section-header');
         if (!header) return;
 
-        var isAccordionMode = isMobile() && sidebar.classList.contains('mobile-open');
-        if (!isAccordionMode) return; /* No desktop o submenu é sempre flyout lateral */
-
-        e.stopPropagation();
         var section = header.closest('.menu-section');
         if (!section) return;
 
         var body = section.querySelector('.menu-section-body');
         var links = body ? body.querySelectorAll('.nav-link') : [];
+
+        /* Desktop colapsado: fallback robusto para sempre navegar ao clicar no icone da secao. */
+        if (!isMobile()) {
+          if (links.length >= 1) {
+            window.location.href = links[0].href;
+          }
+          return;
+        }
+
+        var isAccordionMode = sidebar.classList.contains('mobile-open');
+        if (!isAccordionMode) return;
+
+        e.stopPropagation();
 
         /* Seção com apenas 1 link: navega diretamente */
         if (links.length === 1) {
