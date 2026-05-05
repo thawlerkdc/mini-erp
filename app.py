@@ -913,13 +913,30 @@ else:
 
 logger.info(f"🌍 Ambiente: {DB_STATUS['environment']}")
 
+# Evita bootstrap pesado em toda inicializacao de producao.
+# Pode ser sobrescrito com DB_BOOTSTRAP_ON_START=1 quando necessario.
+_bootstrap_env = (os.environ.get("DB_BOOTSTRAP_ON_START") or "").strip().lower()
+if _bootstrap_env in {"1", "true", "yes", "on"}:
+    BOOTSTRAP_ON_START = True
+elif _bootstrap_env in {"0", "false", "no", "off"}:
+    BOOTSTRAP_ON_START = False
+else:
+    BOOTSTRAP_ON_START = APP_ENV != "production"
+
 # Inicializar banco de dados (com tolerância para desenvolvimento)
 try:
-    init_auth_db()
-    init_tenant_db()
-    migrate_legacy_database()
-    seed_admin()
-    seed_all_accounts_default_data()
+    if BOOTSTRAP_ON_START:
+        init_auth_db()
+        init_tenant_db()
+        migrate_legacy_database()
+        seed_admin()
+        seed_all_accounts_default_data()
+        logger.info("🔧 Bootstrap de schema/dados executado no startup")
+    else:
+        conn = get_db_connection()
+        conn.execute("SELECT 1")
+        conn.close()
+        logger.info("✅ Conexão com banco validada (bootstrap desativado)")
     DB_STATUS["available"] = True
     DB_STATUS["mode"] = "online"
     logger.info("✅ Banco de dados conectado e inicializado")
