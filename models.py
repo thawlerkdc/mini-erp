@@ -795,15 +795,42 @@ def seed_admin(db_path=None):
 
 
 def authenticate_user(username: str, password: str):
-    conn = get_db_connection()
-    row = conn.execute(
-        "SELECT u.*, a.name AS account_name, a.slug AS account_slug, COALESCE(a.status, 'ativa') AS account_status "
-        "FROM users u JOIN accounts a ON a.id = u.account_id "
-        "WHERE LOWER(u.username) = LOWER(%s) AND u.password = %s AND u.is_active = 1",
-        (username, password),
-    ).fetchone()
-    conn.close()
-    return dict(row) if row else None
+    if not username or not password:
+        return None
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        row = conn.execute(
+            "SELECT u.*, a.name AS account_name, a.slug AS account_slug, COALESCE(a.status, 'ativa') AS account_status "
+            "FROM users u JOIN accounts a ON a.id = u.account_id "
+            "WHERE LOWER(u.username) = LOWER(%s) AND u.password = %s AND u.is_active = 1",
+            (username, password),
+        ).fetchone()
+        if not row:
+            return None
+
+        try:
+            return dict(row)
+        except Exception:
+            # Fallback defensivo para ambientes onde dict(row) pode falhar.
+            data = {
+                "id": row["id"],
+                "username": row["username"],
+                "name": row.get("name"),
+                "email": row.get("email"),
+                "role": row.get("role"),
+                "is_admin": row.get("is_admin", 0),
+                "is_active": row.get("is_active", 1),
+                "account_id": row["account_id"],
+                "account_name": row.get("account_name"),
+                "account_slug": row.get("account_slug"),
+                "account_status": row.get("account_status", "ativa"),
+            }
+            return data
+    finally:
+        if conn:
+            conn.close()
 
 
 def migrate_legacy_database(legacy_db_path=None):
