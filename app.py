@@ -3536,33 +3536,18 @@ def login():
                         active_login_template,
                         login_error=f"Esta conta está {account_status}. Procure o suporte para regularização.",
                     )
-
-                # Esses passos não devem impedir login em caso de falha pontual.
-                try:
-                    _touch_account_last_access(user["account_id"])
-                except Exception as exc:
-                    logger.exception("Falha ao atualizar ultimo acesso no login: %s", exc)
-
-                try:
-                    _apply_user_session(user)
-                except Exception as exc:
-                    logger.exception("Falha ao aplicar sessao completa no login; usando fallback: %s", exc)
-                    session.permanent = True
-                    session["user"] = user.get("username")
-                    session["user_id"] = user.get("id")
-                    session["user_name"] = user.get("name") or user.get("username")
-                    session["account_id"] = user.get("account_id")
-                    session["account_name"] = user.get("account_name") or "Conta"
-                    session["role"] = user.get("role") or "owner"
-                    session["is_admin"] = bool(user.get("is_admin"))
-
-                try:
-                    session["webauthn_prompt_pending"] = not _user_has_webauthn_credentials(user["id"], user["account_id"])
-                except Exception as exc:
-                    logger.exception("Falha ao avaliar WebAuthn no login: %s", exc)
-                    session["webauthn_prompt_pending"] = False
-
-                # Após autenticação válida, sempre leva ao dashboard para garantir acesso.
+                # Fluxo mínimo e robusto para produção: evita falhas em passos opcionais.
+                session.clear()
+                session.permanent = True
+                session["user"] = user.get("username")
+                session["user_id"] = user.get("id")
+                session["user_name"] = user.get("name") or user.get("username")
+                session["account_id"] = user.get("account_id")
+                session["account_name"] = user.get("account_name") or "Conta"
+                session["role"] = user.get("role") or "owner"
+                session["is_admin"] = bool(user.get("is_admin"))
+                session["module_permissions"] = None
+                session["webauthn_prompt_pending"] = False
                 return redirect(url_for("dashboard"))
             return _render_login(active_login_template, login_error=translate("invalid_login"))
         except Exception as exc:
