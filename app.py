@@ -5036,26 +5036,40 @@ def vendas():
     if not session.get("user"):
         return redirect(url_for("login"))
     account_id = get_current_account_id()
-    conn = get_tenant_connection()
-    products = conn.execute(
-        "WITH sold_rank AS ("
-        "  SELECT si.product_id, COALESCE(SUM(si.quantity), 0) AS qty_sold, "
-        "         DENSE_RANK() OVER (ORDER BY COALESCE(SUM(si.quantity), 0) DESC) AS sales_rank "
-        "  FROM sale_items si "
-        "  JOIN sales s ON s.id = si.sale_id "
-        "  WHERE s.account_id = %s "
-        "  GROUP BY si.product_id"
-        ") "
-        "SELECT p.*, u.name AS unit_name, COALESCE(sr.qty_sold, 0) AS qty_sold, "
-        "       CASE WHEN COALESCE(sr.qty_sold, 0) > 0 AND COALESCE(sr.sales_rank, 999999) <= 8 THEN 1 ELSE 0 END AS top_seller "
-        "FROM products p "
-        "LEFT JOIN units u ON p.unit_id = u.id "
-        "LEFT JOIN sold_rank sr ON sr.product_id = p.id "
-        "WHERE p.account_id = %s AND COALESCE(p.status, 'ativo') = 'ativo' "
-        "ORDER BY top_seller DESC, COALESCE(sr.qty_sold, 0) DESC, p.name",
-        (account_id, account_id),
-    ).fetchall()
-    clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+    products = []
+    clients = []
+    conn = None
+    try:
+        conn = get_tenant_connection()
+        products = conn.execute(
+            "WITH sold_rank AS ("
+            "  SELECT si.product_id, COALESCE(SUM(si.quantity), 0) AS qty_sold, "
+            "         DENSE_RANK() OVER (ORDER BY COALESCE(SUM(si.quantity), 0) DESC) AS sales_rank "
+            "  FROM sale_items si "
+            "  JOIN sales s ON s.id = si.sale_id "
+            "  WHERE s.account_id = %s "
+            "  GROUP BY si.product_id"
+            ") "
+            "SELECT p.*, u.name AS unit_name, COALESCE(sr.qty_sold, 0) AS qty_sold, "
+            "       CASE WHEN COALESCE(sr.qty_sold, 0) > 0 AND COALESCE(sr.sales_rank, 999999) <= 8 THEN 1 ELSE 0 END AS top_seller "
+            "FROM products p "
+            "LEFT JOIN units u ON p.unit_id = u.id "
+            "LEFT JOIN sold_rank sr ON sr.product_id = p.id "
+            "WHERE p.account_id = %s AND COALESCE(p.status, 'ativo') = 'ativo' "
+            "ORDER BY top_seller DESC, COALESCE(sr.qty_sold, 0) DESC, p.name",
+            (account_id, account_id),
+        ).fetchall()
+        clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
+    except Exception as _exc:
+        logger.exception("Falha ao carregar vendas: %s", _exc)
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            conn = None
+        flash("Houve um problema ao carregar o modulo de Vendas. Tente novamente.", "error")
+        return render_template("placeholder.html", title=translate("menu_sales"))
     pix_code = None
     cash_summary = None
     settings = get_account_settings(account_id)
@@ -7979,7 +7993,6 @@ def controle_estoque():
         "no_sale": stagnant_products,
     }
 
-    conn.close()
     return render_template(
         "controle_estoque.html",
         title="Controle de Estoque",

@@ -18,3 +18,7 @@ services:
         value: production
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: SECRET_KEY
+        value: kdc_mini_erp_2026_prod_secret_key_x9z
+      - key: WEB_CONCURRENCY
+        value: 1
