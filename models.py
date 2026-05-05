@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 # Importar psycopg para PostgreSQL (opcional em desenvolvimento)
 try:
@@ -506,6 +507,13 @@ def _get_db_url() -> str:
     if url and "sslmode" not in url:
         separator = "&" if "?" in url else "?"
         url = f"{url}{separator}sslmode=require"
+    # Evita conexoes penduradas e melhora estabilidade em rede gerenciada.
+    if url and "connect_timeout" not in url:
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}connect_timeout=10"
+    if url and "keepalives" not in url:
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}keepalives=1&keepalives_idle=30&keepalives_interval=10&keepalives_count=5"
     return url
 
 
@@ -653,23 +661,34 @@ def get_db_connection() -> _Conn:
             "Configure a variável de ambiente DATABASE_URL ou adicione ao arquivo .env"
         )
     
-    try:
-        if psycopg is None:
-            # Fallback para desenvolvimento local com SQLite
-            import sqlite3
-            logger.info("📦 Conectando ao SQLite (desenvolvimento local)")
-            return _Conn(sqlite3.connect("kdc_systems.db"))
-        
-        pg_conn = psycopg.connect(db_url)
-        return _Conn(pg_conn)
-    except Exception as exc:
-        # Capturar exceções genéricas se psycopg não está disponível
-        if psycopg and hasattr(psycopg, 'OperationalError'):
-            if isinstance(exc, (psycopg.OperationalError, psycopg.DatabaseError)):
-                logger.error(f"❌ Erro ao conectar ao banco de dados: {exc}")
-        else:
+    if psycopg is None:
+        # Fallback para desenvolvimento local com SQLite
+        import sqlite3
+        logger.info("📦 Conectando ao SQLite (desenvolvimento local)")
+        return _Conn(sqlite3.connect("kdc_systems.db"))
+
+    last_exc = None
+    for attempt in range(1, 4):
+        try:
+            pg_conn = psycopg.connect(db_url)
+            return _Conn(pg_conn)
+        except Exception as exc:
+            last_exc = exc
+            is_operational = psycopg and hasattr(psycopg, "OperationalError") and isinstance(
+                exc, (psycopg.OperationalError, psycopg.DatabaseError)
+            )
+            if is_operational and attempt < 3:
+                logger.warning(
+                    "⚠️ Falha ao conectar no banco (tentativa %s/3). Retentando... Erro: %s",
+                    attempt,
+                    exc,
+                )
+                time.sleep(0.25 * attempt)
+                continue
             logger.error(f"❌ Erro ao conectar ao banco de dados: {exc}")
-        raise
+            raise
+
+    raise last_exc
 
 
 # ---------------------------------------------------------------------------
