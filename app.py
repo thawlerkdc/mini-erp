@@ -3484,6 +3484,20 @@ def _apply_user_session(user):
         get_current_user_permissions()
 
 
+def _authenticate_user_with_retry(username, password, attempts=3):
+    """Authenticate with retry to absorb transient DB/network failures in production."""
+    last_exc = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return authenticate_user(username, password), None
+        except Exception as exc:
+            last_exc = exc
+            logger.exception("Falha na autenticacao (tentativa %s/%s): %s", attempt, attempts, exc)
+            if attempt < attempts:
+                time.sleep(0.2 * attempt)
+    return None, last_exc
+
+
 @app.route("/set_language/<lang_code>")
 def set_language(lang_code):
     if lang_code in LANGUAGES:
@@ -3509,7 +3523,12 @@ def login():
         try:
             username = request.form.get("username")
             password = request.form.get("password")
-            user = authenticate_user(username, password)
+            user, auth_error = _authenticate_user_with_retry(username, password, attempts=3)
+            if auth_error:
+                return _render_login(
+                    active_login_template,
+                    login_error="Erro temporario de conexao ao validar o login. Tente novamente em alguns segundos.",
+                )
             if user:
                 account_status = (user.get("account_status") or "ativa").strip().lower()
                 if account_status in {"suspensa", "bloqueada", "inativa"}:
