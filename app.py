@@ -1087,13 +1087,20 @@ def user_can_delete_module(module_key):
 
 
 def get_global_settings():
-    conn = get_auth_connection()
-    rows = conn.execute("SELECT setting_key, setting_value FROM global_settings").fetchall()
-    conn.close()
+    conn = None
     settings = dict(GLOBAL_SETTINGS_DEFAULTS)
-    for row in rows:
-        settings[row["setting_key"]] = row["setting_value"] or ""
-    return settings
+    try:
+        conn = get_auth_connection()
+        rows = conn.execute("SELECT setting_key, setting_value FROM global_settings").fetchall()
+        for row in rows:
+            settings[row["setting_key"]] = row["setting_value"] or ""
+        return settings
+    except Exception as exc:
+        logger.exception("Falha ao carregar configuracoes globais: %s", exc)
+        return settings
+    finally:
+        if conn:
+            conn.close()
 
 
 def get_login_template_name(settings=None):
