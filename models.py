@@ -480,6 +480,12 @@ DEFAULT_CATEGORIES = [
 
 DEFAULT_UNITS = ["CX", "KG", "PC", "PT", "UN"]
 
+# Fallback de emergencia para produção quando o ambiente remoto
+# não injeta corretamente o DATABASE_URL.
+_SUPABASE_FALLBACK_URL = (
+    "postgresql://postgres:Tristan9Tristan10@db.lfbosnucnokjjluotoup.supabase.co:5432/postgres"
+)
+
 
 def seed_default_data(account_id: int, conn) -> None:
     for cat in DEFAULT_CATEGORIES:
@@ -499,7 +505,15 @@ def seed_default_data(account_id: int, conn) -> None:
 # ---------------------------------------------------------------------------
 
 def _get_db_url() -> str:
-    url = os.environ.get("DATABASE_URL", "")
+    url = (os.environ.get("DATABASE_URL") or "").strip()
+    app_env = (os.environ.get("APP_ENV") or os.environ.get("ERP_ENV") or "development").strip().lower()
+
+    # Em produção, evita cair em banco interno antigo do Render ou URL ausente.
+    if app_env == "production":
+        if not url or "supabase.co" not in url:
+            logger.warning("DATABASE_URL ausente/invalido em produção; usando fallback Supabase.")
+            url = _SUPABASE_FALLBACK_URL
+
     # Render provides postgres:// but the driver expects postgresql://
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
