@@ -1104,13 +1104,16 @@ def get_global_settings():
 
 
 def get_login_template_name(settings=None):
+    if APP_ENV == "production":
+        return "login_template2.html"
+
     settings = settings or get_global_settings()
     template_key = (settings.get("login_template") or GLOBAL_SETTINGS_DEFAULTS["login_template"]).strip()
     template_map = {
         "templateLogin1": "login.html",
         "templateLogin2": "login_template2.html",
     }
-    return template_map.get(template_key, "login.html")
+    return template_map.get(template_key, "login_template2.html")
 
 
 def get_system_user_groups():
@@ -1389,7 +1392,11 @@ def get_default_route_for_current_user():
     ]
     for module_key, route_getter in route_by_module:
         if user_can_view_module(module_key):
-            return route_getter()
+            try:
+                return route_getter()
+            except Exception as exc:
+                logger.exception("Falha ao resolver rota padrao para modulo '%s': %s", module_key, exc)
+                continue
     flash("Seu usuário dependente não possui menus liberados. Solicite acesso ao administrador.", "error")
     return url_for("logout")
 
@@ -3489,28 +3496,43 @@ def set_language(lang_code):
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("user"):
-        return redirect(get_default_route_for_current_user())
+        try:
+            return redirect(get_default_route_for_current_user())
+        except Exception as exc:
+            logger.exception("Falha ao redirecionar sessao ativa para rota padrao: %s", exc)
+            session.clear()
     active_login_template = get_login_template_name()
     login_success = None
     if request.method == "GET" and request.args.get("password_reset") == "success":
         login_success = "Senha alterada com sucesso. Entre com seu usuário e a nova senha para continuar."
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        user = authenticate_user(username, password)
-        if user:
-            account_status = (user.get("account_status") or "ativa").strip().lower()
-            if account_status in {"suspensa", "bloqueada", "inativa"}:
-                return _render_login(
-                    active_login_template,
-                    login_error=f"Esta conta está {account_status}. Procure o suporte para regularização.",
-                )
+        try:
+            username = request.form.get("username")
+            password = request.form.get("password")
+            user = authenticate_user(username, password)
+            if user:
+                account_status = (user.get("account_status") or "ativa").strip().lower()
+                if account_status in {"suspensa", "bloqueada", "inativa"}:
+                    return _render_login(
+                        active_login_template,
+                        login_error=f"Esta conta está {account_status}. Procure o suporte para regularização.",
+                    )
 
-            _touch_account_last_access(user["account_id"])
-            _apply_user_session(user)
-            session["webauthn_prompt_pending"] = not _user_has_webauthn_credentials(user["id"], user["account_id"])
-            return redirect(get_default_route_for_current_user())
-        return _render_login(active_login_template, login_error=translate("invalid_login"))
+                _touch_account_last_access(user["account_id"])
+                _apply_user_session(user)
+                session["webauthn_prompt_pending"] = not _user_has_webauthn_credentials(user["id"], user["account_id"])
+                try:
+                    return redirect(get_default_route_for_current_user())
+                except Exception as exc:
+                    logger.exception("Falha ao resolver rota padrao apos login: %s", exc)
+                    return redirect(url_for("dashboard"))
+            return _render_login(active_login_template, login_error=translate("invalid_login"))
+        except Exception as exc:
+            logger.exception("Falha no fluxo de login: %s", exc)
+            return _render_login(
+                active_login_template,
+                login_error="Nao foi possivel concluir o login agora. Tente novamente em instantes.",
+            )
     return _render_login(active_login_template, login_success=login_success)
 
 
