@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 
 # Importar psycopg para PostgreSQL (opcional em desenvolvimento)
 try:
@@ -522,6 +522,18 @@ def _resolve_db_url_and_source():
     if supabase_db_url:
         return _normalize_db_url(supabase_db_url), "SUPABASE_DB_URL"
 
+    pg_host = (os.environ.get("PGHOST") or "").strip()
+    pg_port = (os.environ.get("PGPORT") or "5432").strip() or "5432"
+    pg_database = (os.environ.get("PGDATABASE") or "").strip()
+    pg_user = (os.environ.get("PGUSER") or "").strip()
+    pg_password = (os.environ.get("PGPASSWORD") or "").strip()
+
+    if pg_host and pg_database and pg_user and pg_password:
+        encoded_user = quote(pg_user, safe="")
+        encoded_password = quote(pg_password, safe="")
+        pooler_url = f"postgresql://{encoded_user}:{encoded_password}@{pg_host}:{pg_port}/{pg_database}"
+        return _normalize_db_url(pooler_url), "PG*"
+
     return "", "none"
 
 
@@ -537,6 +549,7 @@ def get_db_connection_diagnostics() -> dict:
         "db_port": parsed.port if parsed else None,
         "db_name": (parsed.path or "").lstrip("/") if parsed else "",
         "is_supabase_host": host.endswith("supabase.co") if host else False,
+        "is_pooler_host": host.endswith("pooler.supabase.com") if host else False,
         "sslmode": query_pairs.get("sslmode"),
     }
 
@@ -580,7 +593,7 @@ def _log_db_info():
         )
     else:
         logger.info("📦 URL de banco não configurada")
-        logger.info("   Configure DATABASE_URL (ou SUPABASE_DB_URL) no ambiente")
+        logger.info("   Configure DATABASE_URL, SUPABASE_DB_URL ou PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD")
     
     _DB_INITIALIZED = True
 

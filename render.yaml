@@ -10,6 +10,16 @@ services:
         sync: false
       - key: SUPABASE_DB_URL
         sync: false
+      - key: PGHOST
+        value: aws-1-us-west-2.pooler.supabase.com
+      - key: PGPORT
+        value: 5432
+      - key: PGDATABASE
+        value: postgres
+      - key: PGUSER
+        value: postgres.lfbosnucnokjjluotoup
+      - key: PGPASSWORD
+        sync: false
       - key: APP_ENV
         value: production
       - key: FLASK_ENV

@@ -1026,6 +1026,11 @@ def test_db_connection_endpoint():
             "SUPABASE_SERVICE_ROLE_KEY": bool((os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()),
             "DATABASE_URL": bool((os.environ.get("DATABASE_URL") or "").strip()),
             "SUPABASE_DB_URL": bool((os.environ.get("SUPABASE_DB_URL") or "").strip()),
+            "PGHOST": bool((os.environ.get("PGHOST") or "").strip()),
+            "PGPORT": bool((os.environ.get("PGPORT") or "").strip()),
+            "PGDATABASE": bool((os.environ.get("PGDATABASE") or "").strip()),
+            "PGUSER": bool((os.environ.get("PGUSER") or "").strip()),
+            "PGPASSWORD": bool((os.environ.get("PGPASSWORD") or "").strip()),
         },
         "allowed_cors_origins": sorted(ALLOWED_CORS_ORIGINS),
     }
