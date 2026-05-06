@@ -2007,4 +2007,127 @@
     restoreSaleDraft();
     maybeShowShortcutsHint();
   </script>
+
+  {% if nf_enabled_for_account and sales_today is defined %}
+  {% set pending_nf_sales = [] %}
+  {% for s in sales_today %}
+    {% if s.get('nf_requested') == 1 and s.get('fiscal_status') in ['pendente', 'erro'] %}
+      {% set _ = pending_nf_sales.append(s) %}
+    {% endif %}
+  {% endfor %}
+  {% if pending_nf_sales %}
+  <div class="form-card" style="margin: 24px auto; max-width: 900px; padding: 20px;">
+    <h3 style="margin-top:0; color: var(--color-warning, #e07b00);">&#9888; Notas Fiscais Pendentes</h3>
+    <p style="margin-bottom:12px; color: var(--color-text-secondary, #888);">
+      As vendas abaixo tiveram a nota fiscal marcada para emissão, mas a nota ficou pendente.
+      Verifique os <a href="{{ url_for('parametros') }}">Parâmetros fiscais</a> (token, CNPJ, ambiente) antes de reprocessar.
+    </p>
+    <table class="data-table" style="width:100%;">
+      <thead>
+        <tr>
+          <th>#Venda</th>
+          <th>Data/Hora</th>
+          <th>Pagamento</th>
+          <th>Total</th>
+          <th>Status NF</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody id="nf-pending-tbody">
+        {% for sale in pending_nf_sales %}
+        <tr id="nf-row-{{ sale.id }}">
+          <td>#{{ sale.id }}</td>
+          <td>{{ sale.date | default('-') }}</td>
+          <td>{{ sale.payment_method or '-' }}</td>
+          <td>R$ {{ '%.2f'|format(sale.total | float) }}</td>
+          <td>
+            <span id="nf-status-{{ sale.id }}" class="badge badge-{{ 'warning' if sale.fiscal_status == 'pendente' else 'error' }}">
+              {{ sale.fiscal_status | upper }}
+            </span>
+          </td>
+          <td>
+            <button type="button"
+                    class="outline-button"
+                    style="padding: 4px 12px; font-size: 0.85rem;"
+                    id="nf-btn-{{ sale.id }}"
+                    onclick="reprocessNF({{ sale.id }})">
+              &#8635; Reprocessar NF
+            </button>
+            <button type="button"
+                    class="outline-button"
+                    style="padding: 4px 10px; font-size: 0.85rem; margin-left: 4px;"
+                    id="nf-status-btn-{{ sale.id }}"
+                    onclick="checkNFStatus({{ sale.id }})"
+                    title="Consultar status no provedor">
+              &#128269; Status
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function reprocessNF(saleId) {
+      var btn = document.getElementById('nf-btn-' + saleId);
+      if (btn) { btn.disabled = true; btn.textContent = 'Aguarde...'; }
+      fetch('/nfe/emitir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sale_id: saleId })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var statusEl = document.getElementById('nf-status-' + saleId);
+        var row = document.getElementById('nf-row-' + saleId);
+        if (data.ok && data.status && data.status.toLowerCase() === 'emitida') {
+          if (statusEl) {
+            statusEl.textContent = 'EMITIDA';
+            statusEl.className = 'badge badge-success';
+          }
+          if (btn) { btn.textContent = '&#10003; Emitida'; btn.disabled = true; }
+          if (row) { row.style.opacity = '0.5'; }
+        } else {
+          var st = (data.status || 'pendente').toUpperCase();
+          if (statusEl) { statusEl.textContent = st; }
+          if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Reprocessar NF'; }
+          var msg = data.message || data.error || 'Nota ficou pendente. Verifique os Parâmetros fiscais.';
+          alert('Venda #' + saleId + ': ' + msg);
+        }
+      })
+      .catch(function() {
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Reprocessar NF'; }
+        alert('Erro de comunicação ao reprocessar a nota. Tente novamente.');
+      });
+    }
+
+    function checkNFStatus(saleId) {
+      var btn = document.getElementById('nf-status-btn-' + saleId);
+      if (btn) { btn.disabled = true; }
+      fetch('/nfe/status?sale_id=' + saleId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (btn) { btn.disabled = false; }
+        if (data.ok) {
+          var st = (data.status || 'pendente').toUpperCase();
+          var statusEl = document.getElementById('nf-status-' + saleId);
+          if (statusEl) {
+            statusEl.textContent = st;
+            statusEl.className = 'badge badge-' + (st === 'EMITIDA' ? 'success' : st === 'ERRO' ? 'error' : 'warning');
+          }
+          alert('Venda #' + saleId + ': Status NF = ' + st + (data.invoice_key ? '\nChave: ' + data.invoice_key : ''));
+        } else {
+          alert('Não foi possível consultar o status: ' + (data.error || 'erro desconhecido'));
+        }
+      })
+      .catch(function() {
+        if (btn) { btn.disabled = false; }
+        alert('Erro ao consultar status. Tente novamente.');
+      });
+    }
+  </script>
+  {% endif %}
+  {% endif %}
+
 {% endblock %}

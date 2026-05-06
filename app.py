@@ -6219,7 +6219,7 @@ def fechar_caixa():
     clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     today = datetime.now().strftime("%Y-%m-%d")
     sales_today = conn.execute(
-        "SELECT id, date, payment_method, total FROM sales WHERE account_id = %s AND date LIKE %s ORDER BY date ASC",
+        "SELECT id, date, payment_method, total, nf_requested, fiscal_status FROM sales WHERE account_id = %s AND date LIKE %s ORDER BY date ASC",
         (account_id, f"{today}%"),
     ).fetchall()
     cash_total = conn.execute(
@@ -6308,6 +6308,7 @@ def fechar_caixa():
         }),
         sales_rules_json=sales_rules_json,
         nf_enabled_for_account=nf_enabled_for_account,
+        sales_today=[dict(s) for s in sales_today],
     )
 
 
