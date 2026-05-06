@@ -70,6 +70,7 @@ import smtplib
 import unicodedata
 import urllib.request
 import urllib.error
+from html import escape as html_escape
 import xml.etree.ElementTree as ET
 from email.message import EmailMessage
 import time
@@ -2715,17 +2716,18 @@ def _first_env_value(*names):
     return "", ""
 
 
+def _text_to_html_body(text):
+    safe_text = html_escape(text or "")
+    return "<p>" + safe_text.replace("\n", "<br>") + "</p>"
+
+
 def _send_email_via_resend_api(recipients, subject, body, settings):
-    api_key, api_key_source = _first_env_value(
-        "RESEND_API_KEY",
-        "EMAIL_API_KEY",
-        "EMAIL_HTTP_FALLBACK_API_KEY",
-    )
+    api_key, api_key_source = _first_env_value("RESEND_API_KEY")
     if not api_key:
         return (
             False,
             "",
-            "Fallback HTTPS indisponível: chave de API não configurada (esperado: RESEND_API_KEY, EMAIL_API_KEY ou EMAIL_HTTP_FALLBACK_API_KEY).",
+            "Fallback HTTPS indisponível: chave de API não configurada (esperado: RESEND_API_KEY).",
         )
 
     endpoint, _endpoint_source = _first_env_value("RESEND_API_URL", "EMAIL_API_URL")
@@ -2733,13 +2735,15 @@ def _send_email_via_resend_api(recipients, subject, body, settings):
 
     configured_from = (settings.get("smtp_from_email") or "").strip()
     from_email, from_source = _first_env_value("RESEND_FROM_EMAIL", "EMAIL_API_FROM")
-    from_email = from_email or configured_from or "onboarding@resend.dev"
+    from_email = from_email or "onboarding@resend.dev"
     from_name = (settings.get("smtp_from_name") or "Kdc Systems").strip() or "Kdc Systems"
+    html_body = _text_to_html_body(body)
 
     payload = {
-        "from": f"{from_name} <{from_email}>",
+        "from": from_email,
         "to": recipients,
         "subject": subject,
+        "html": html_body,
         "text": body,
     }
     if configured_from and configured_from.lower() != from_email.lower():
@@ -2770,7 +2774,7 @@ def _send_email_via_resend_api(recipients, subject, body, settings):
             return (
                 False,
                 "",
-                f"Fallback HTTPS falhou (resend, status={status}, api_key_source={api_key_source or '-'}, from={from_email}, resposta={body_text[:300]}).",
+                f"Fallback HTTPS falhou (resend, status={status}, api_key_source={api_key_source or '-'}, from={from_email}, resposta={body_text[:1200]}).",
             )
     except urllib.error.HTTPError as exc:
         response_text = ""
@@ -2781,7 +2785,7 @@ def _send_email_via_resend_api(recipients, subject, body, settings):
         return (
             False,
             "",
-            f"Fallback HTTPS falhou (resend, status={exc.code}, api_key_source={api_key_source or '-'}, from={from_email}, erro={response_text[:300]}).",
+            f"Fallback HTTPS falhou (resend, status={exc.code}, api_key_source={api_key_source or '-'}, from={from_email}, erro={response_text[:1200]}).",
         )
     except Exception as exc:
         return False, "", f"Fallback HTTPS falhou (resend): {exc}"
@@ -2798,6 +2802,16 @@ def _try_http_email_fallback(recipients, subject, body, settings):
         return _send_email_via_resend_api(recipients, subject, body, settings)
 
     return False, "", f"Fallback HTTPS indisponível: provedor '{provider}' não suportado."
+
+
+def _email_delivery_mode():
+    configured = (os.environ.get("EMAIL_DELIVERY_MODE") or "").strip().lower()
+    if configured in {"resend_only", "smtp_only", "auto"}:
+        return configured
+    # Em produção no Render, padrão seguro: não tentar SMTP bloqueado.
+    if APP_ENV == "production":
+        return "resend_only"
+    return "auto"
 
 
 def _looks_like_hashed_secret(secret):
@@ -3173,13 +3187,28 @@ def send_email_with_settings(account_id, recipients, subject, body, audit_payloa
 def send_system_email(recipients, subject, body, audit_payload=None, account_id=None, user_id=None, include_diagnostics=False):
     settings = _resolve_smtp_settings(get_global_settings())
     resolved_account_id = account_id or session.get("account_id")
-    sent, message, detailed_message = _send_email_with_smtp_settings(
-        recipients,
-        subject,
-        body,
-        settings,
-        "SMTP global do sistema não configurado",
-    )
+    mode = _email_delivery_mode()
+    if mode == "resend_only":
+        sent, message, detailed_message = _try_http_email_fallback(recipients, subject, body, settings)
+        if not sent:
+            message = "Falha no envio via Resend API. Verifique RESEND_API_KEY e remetente autorizado."
+            detailed_message = f"{message} {detailed_message}"
+    elif mode == "smtp_only":
+        sent, message, detailed_message = _send_email_with_smtp_settings(
+            recipients,
+            subject,
+            body,
+            settings,
+            "SMTP global do sistema não configurado",
+        )
+    else:
+        sent, message, detailed_message = _send_email_with_smtp_settings(
+            recipients,
+            subject,
+            body,
+            settings,
+            "SMTP global do sistema não configurado",
+        )
     log_audit_event(
         "system_email_sent" if sent else "system_email_failed",
         {
