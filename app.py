@@ -21,6 +21,7 @@ if selected_env_file != ".env":
 from models import (
     authenticate_user,
     create_account_with_owner,
+    get_db_connection_diagnostics,
     get_db_connection,
     init_auth_db,
     init_tenant_db,
@@ -134,6 +135,33 @@ def _local_now():
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "kdc_systems_secret_key")
+
+
+def _build_allowed_origins():
+    configured = (os.environ.get("CORS_ALLOWED_ORIGINS") or "").strip()
+    origins = set()
+    if configured:
+        for value in configured.split(","):
+            origin = value.strip().rstrip("/")
+            if origin:
+                origins.add(origin)
+
+    render_external = (os.environ.get("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
+    if render_external:
+        origins.add(render_external)
+
+    public_app_url = (os.environ.get("PUBLIC_APP_URL") or "").strip().rstrip("/")
+    if public_app_url:
+        origins.add(public_app_url)
+
+    origins.update({
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+    })
+    return origins
+
+
+ALLOWED_CORS_ORIGINS = _build_allowed_origins()
 
 WEBAUTHN_CHALLENGE_TTL_SECONDS = 180
 
@@ -945,15 +973,88 @@ except Exception as e:
     DB_STATUS["error"] = str(e)
     DB_STATUS["mode"] = "offline"
     
-    if os.environ.get("DATABASE_URL"):
+    db_diag = get_db_connection_diagnostics()
+    if db_diag.get("url_configured"):
         # Em produção, isso é crítico
         logger.error(f"❌ ERRO CRÍTICO no Render: {e}")
-        logger.info("   Verifique a conexão com o PostgreSQL no Render")
+        logger.info(
+            "   Verifique conexão com PostgreSQL. Fonte=%s Host=%s SSL=%s",
+            db_diag.get("url_source") or "n/a",
+            db_diag.get("db_host") or "n/a",
+            db_diag.get("sslmode") or "n/a",
+        )
     else:
         # Em desenvolvimento, isso é apenas aviso
         logger.warning(f"⚠️  Banco de dados não disponível no startup: {e}")
         logger.info("   💡 Para testar, configure DATABASE_URL no .env com PostgreSQL local")
         logger.info("   💡 Ou use 'python app.py' para modo limitado")
+
+
+@app.after_request
+def apply_cors_headers(response):
+    origin = (request.headers.get("Origin") or "").strip().rstrip("/")
+    if origin and origin in ALLOWED_CORS_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        response.headers["Vary"] = "Origin"
+    return response
+
+
+@app.route("/test-db", methods=["GET"])
+def test_db_connection_endpoint():
+    expected_token = (os.environ.get("TEST_DB_TOKEN") or "").strip()
+    provided_token = (
+        request.headers.get("X-Test-Token")
+        or request.args.get("token")
+        or ""
+    ).strip()
+
+    if expected_token and provided_token != expected_token:
+        return jsonify({"ok": False, "error": "token_invalido"}), 403
+
+    diagnostics = get_db_connection_diagnostics()
+    payload = {
+        "ok": False,
+        "app_env": APP_ENV,
+        "db_status": dict(DB_STATUS),
+        "db_diagnostics": diagnostics,
+        "supabase_env": {
+            "SUPABASE_URL": bool((os.environ.get("SUPABASE_URL") or "").strip()),
+            "SUPABASE_ANON_KEY": bool((os.environ.get("SUPABASE_ANON_KEY") or "").strip()),
+            "SUPABASE_SERVICE_ROLE_KEY": bool((os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()),
+            "DATABASE_URL": bool((os.environ.get("DATABASE_URL") or "").strip()),
+            "SUPABASE_DB_URL": bool((os.environ.get("SUPABASE_DB_URL") or "").strip()),
+        },
+        "allowed_cors_origins": sorted(ALLOWED_CORS_ORIGINS),
+    }
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        ping = conn.execute("SELECT 1 AS ok").fetchone()
+        account_count = conn.execute("SELECT COUNT(*) AS total FROM accounts").fetchone()
+        user_count = conn.execute("SELECT COUNT(*) AS total FROM users").fetchone()
+        payload.update({
+            "ok": True,
+            "ping": int(ping["ok"]) if ping else 0,
+            "counts": {
+                "accounts": int(account_count["total"]) if account_count else 0,
+                "users": int(user_count["total"]) if user_count else 0,
+            },
+        })
+        return jsonify(payload), 200
+    except Exception as exc:
+        logger.exception("Falha no endpoint /test-db: %s", exc)
+        payload.update({
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+        })
+        return jsonify(payload), 500
+    finally:
+        if conn:
+            conn.close()
 
 
 def get_auth_connection():
@@ -3830,6 +3931,9 @@ def criar_conta_principal():
         flash("Conta principal criada com sucesso. Agora faça o login.", "success")
     except psycopg.IntegrityError:
         flash("Este login já está em uso. Escolha outro usuário principal.", "error")
+    except Exception as exc:
+        logger.exception("Falha ao criar conta principal: %s", exc)
+        flash("Erro temporario ao criar conta. Tente novamente em alguns segundos.", "error")
 
     return redirect(url_for("login"))
 

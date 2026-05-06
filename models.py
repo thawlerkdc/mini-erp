@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 # Importar psycopg para PostgreSQL (opcional em desenvolvimento)
 try:
@@ -480,11 +481,64 @@ DEFAULT_CATEGORIES = [
 
 DEFAULT_UNITS = ["CX", "KG", "PC", "PT", "UN"]
 
-# Fallback de emergencia para produção quando o ambiente remoto
-# não injeta corretamente o DATABASE_URL.
-_SUPABASE_FALLBACK_URL = (
-    "postgresql://postgres:Tristan9Tristan10@db.lfbosnucnokjjluotoup.supabase.co:5432/postgres"
-)
+
+def _normalize_db_url(raw_url: str) -> str:
+    url = (raw_url or "").strip()
+    if not url:
+        return ""
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+
+    parsed = urlparse(url)
+    query_pairs = dict(parse_qsl(parsed.query, keep_blank_values=True))
+
+    host = (parsed.hostname or "").strip().lower()
+    is_local_host = host in {"localhost", "127.0.0.1", "::1", ""}
+    if not is_local_host and "sslmode" not in query_pairs:
+        query_pairs["sslmode"] = "require"
+
+    if "connect_timeout" not in query_pairs:
+        query_pairs["connect_timeout"] = "10"
+
+    if "keepalives" not in query_pairs:
+        query_pairs["keepalives"] = "1"
+    if "keepalives_idle" not in query_pairs:
+        query_pairs["keepalives_idle"] = "30"
+    if "keepalives_interval" not in query_pairs:
+        query_pairs["keepalives_interval"] = "10"
+    if "keepalives_count" not in query_pairs:
+        query_pairs["keepalives_count"] = "5"
+
+    updated_query = urlencode(query_pairs)
+    return urlunparse(parsed._replace(query=updated_query))
+
+
+def _resolve_db_url_and_source():
+    database_url = (os.environ.get("DATABASE_URL") or "").strip()
+    if database_url:
+        return _normalize_db_url(database_url), "DATABASE_URL"
+
+    supabase_db_url = (os.environ.get("SUPABASE_DB_URL") or "").strip()
+    if supabase_db_url:
+        return _normalize_db_url(supabase_db_url), "SUPABASE_DB_URL"
+
+    return "", "none"
+
+
+def get_db_connection_diagnostics() -> dict:
+    db_url, source = _resolve_db_url_and_source()
+    parsed = urlparse(db_url) if db_url else None
+    host = (parsed.hostname or "") if parsed else ""
+    query_pairs = dict(parse_qsl(parsed.query, keep_blank_values=True)) if parsed else {}
+    return {
+        "url_configured": bool(db_url),
+        "url_source": source,
+        "db_host": host,
+        "db_port": parsed.port if parsed else None,
+        "db_name": (parsed.path or "").lstrip("/") if parsed else "",
+        "is_supabase_host": host.endswith("supabase.co") if host else False,
+        "sslmode": query_pairs.get("sslmode"),
+    }
 
 
 def seed_default_data(account_id: int, conn) -> None:
@@ -505,29 +559,7 @@ def seed_default_data(account_id: int, conn) -> None:
 # ---------------------------------------------------------------------------
 
 def _get_db_url() -> str:
-    url = (os.environ.get("DATABASE_URL") or "").strip()
-    app_env = (os.environ.get("APP_ENV") or os.environ.get("ERP_ENV") or "development").strip().lower()
-
-    # Em produção, evita cair em banco interno antigo do Render ou URL ausente.
-    if app_env == "production":
-        if not url or "supabase.co" not in url:
-            logger.warning("DATABASE_URL ausente/invalido em produção; usando fallback Supabase.")
-            url = _SUPABASE_FALLBACK_URL
-
-    # Render provides postgres:// but the driver expects postgresql://
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
-    # Supabase (e outros serviços gerenciados) exigem SSL
-    if url and "sslmode" not in url:
-        separator = "&" if "?" in url else "?"
-        url = f"{url}{separator}sslmode=require"
-    # Evita conexoes penduradas e melhora estabilidade em rede gerenciada.
-    if url and "connect_timeout" not in url:
-        separator = "&" if "?" in url else "?"
-        url = f"{url}{separator}connect_timeout=10"
-    if url and "keepalives" not in url:
-        separator = "&" if "?" in url else "?"
-        url = f"{url}{separator}keepalives=1&keepalives_idle=30&keepalives_interval=10&keepalives_count=5"
+    url, _source = _resolve_db_url_and_source()
     return url
 
 
@@ -535,14 +567,20 @@ def _log_db_info():
     """Log informações sobre a configuração do banco de dados."""
     global _DB_INITIALIZED, _DB_ERROR
     
-    db_url = _get_db_url()
-    
-    if db_url:
+    diagnostics = get_db_connection_diagnostics()
+
+    if diagnostics["url_configured"]:
         logger.info("📦 Usando PostgreSQL (Render/Produção ou Local)")
-        logger.info(f"   URL: {db_url[:50]}...")
+        logger.info(
+            "   Fonte: %s | Host: %s | DB: %s | SSL: %s",
+            diagnostics["url_source"],
+            diagnostics["db_host"] or "n/a",
+            diagnostics["db_name"] or "n/a",
+            diagnostics["sslmode"] or "n/a",
+        )
     else:
-        logger.info("📦 DATABASE_URL não configurado")
-        logger.info("   Configure no arquivo .env para ativar PostgreSQL")
+        logger.info("📦 URL de banco não configurada")
+        logger.info("   Configure DATABASE_URL (ou SUPABASE_DB_URL) no ambiente")
     
     _DB_INITIALIZED = True
 
