@@ -2757,6 +2757,7 @@ def _send_email_via_resend_api(recipients, subject, body, settings):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": "mini-erp/1.0",
         },
         method="POST",
     )
