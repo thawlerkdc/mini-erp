@@ -535,6 +535,66 @@
         auditResultFilter.addEventListener('change', applyAuditFilters);
         applyAuditFilters();
       }
+
+      function buildSectionToggle(section) {
+        var children = Array.from(section.children);
+        var header = null;
+        for (var i = 0; i < children.length; i += 1) {
+          var node = children[i];
+          if (node.classList && node.classList.contains('system-user-section-header')) {
+            header = node;
+            break;
+          }
+          if (node.tagName === 'H3') {
+            header = node;
+            break;
+          }
+        }
+        if (!header) return;
+
+        var anchor = header;
+        if (header.tagName === 'H3') {
+          var headingRow = document.createElement('div');
+          headingRow.className = 'section-heading-row';
+          section.insertBefore(headingRow, header);
+          headingRow.appendChild(header);
+          anchor = headingRow;
+        } else {
+          header.classList.add('section-header-with-toggle');
+        }
+
+        var content = document.createElement('div');
+        content.className = 'section-collapsible-content';
+        var sibling = anchor.nextSibling;
+        while (sibling) {
+          var next = sibling.nextSibling;
+          content.appendChild(sibling);
+          sibling = next;
+        }
+        section.appendChild(content);
+
+        var toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'section-toggle-btn';
+        toggleBtn.setAttribute('aria-expanded', 'true');
+        toggleBtn.textContent = 'Recolher';
+
+        function setExpanded(expanded) {
+          content.hidden = !expanded;
+          toggleBtn.textContent = expanded ? 'Recolher' : 'Expandir';
+          toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+          section.classList.toggle('is-collapsed', !expanded);
+        }
+
+        toggleBtn.addEventListener('click', function () {
+          setExpanded(content.hidden);
+        });
+
+        anchor.appendChild(toggleBtn);
+        setExpanded(true);
+      }
+
+      Array.from(document.querySelectorAll('.param-section')).forEach(buildSectionToggle);
     })();
   </script>
 
@@ -674,6 +734,43 @@
       margin-top: 4px;
     }
 
+    .section-heading-row,
+    .system-user-section-header.section-header-with-toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .section-heading-row h3 {
+      margin: 0;
+    }
+
+    .section-toggle-btn {
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.04);
+      color: #0f172a;
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .section-toggle-btn:hover {
+      background: rgba(15, 23, 42, 0.08);
+    }
+
+    .section-collapsible-content {
+      margin-top: 12px;
+    }
+
+    .section-collapsible-content[hidden] {
+      display: none !important;
+    }
+
     .account-user-group {
       margin-top: 18px;
       padding: 18px;
@@ -784,6 +881,16 @@
 
     [data-theme="dark"] .system-user-form.owner-form {
       background: linear-gradient(135deg, rgba(15, 118, 110, 0.18), rgba(29, 78, 216, 0.16));
+    }
+
+    [data-theme="dark"] .section-toggle-btn {
+      background: rgba(15, 23, 42, 0.75);
+      border-color: rgba(148, 163, 184, 0.3);
+      color: #e2e8f0;
+    }
+
+    [data-theme="dark"] .section-toggle-btn:hover {
+      background: rgba(30, 41, 59, 0.9);
     }
 
     [data-theme="dark"] .account-user-total {
