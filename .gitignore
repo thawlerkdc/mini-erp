@@ -8,6 +8,7 @@ kdc_systems.db
 *.db-shm
 data/
 backups/*.db
+backups/migration_*/
 instance/
 .env
 .env.homolog
