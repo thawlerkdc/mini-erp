@@ -31,6 +31,7 @@ EMPLOYEE_STATUS = {"ativo", "ferias", "afastado", "desligado"}
 CONTRACT_TYPES = {"clt", "pj", "freelancer", "temporario"}
 SEX_TYPES = {"masculino", "feminino", "outro", "nao_informado"}
 MARITAL_TYPES = {"solteiro", "casado", "divorciado", "viuvo", "nao_informado"}
+ALLOWED_DOCUMENT_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".doc", ".docx", ".txt"}
 
 
 def _now_text() -> str:
@@ -116,6 +117,11 @@ def _month_label(month_key: str) -> str:
 
 def _money_br(value) -> str:
     return f"R$ {float(value or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _sanitize_document_type(raw: str | None) -> str:
+    text = re.sub(r"[^a-zA-Z0-9_\- ]", "", str(raw or "").strip())
+    return text[:60] or "geral"
 
 
 def _ensure_hr_defaults(conn, account_id: int):
@@ -233,6 +239,64 @@ def _upload_employee_photo(file_storage, account_id: int, employee_id: int | Non
     return f"/static/img/employees/{local_name}"
 
 
+def _upload_employee_document(file_storage, account_id: int, employee_id: int):
+    filename = secure_filename(file_storage.filename or "documento")
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_DOCUMENT_EXTENSIONS:
+        raise ValueError("Extensão de documento não suportada.")
+
+    binary = file_storage.read()
+    file_storage.stream.seek(0)
+    if not binary:
+        raise ValueError("Arquivo vazio.")
+
+    supabase_url = (os.environ.get("SUPABASE_URL") or "").strip().rstrip("/")
+    service_key = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+    bucket = (os.environ.get("SUPABASE_STORAGE_EMPLOYEE_DOCS_BUCKET") or "employee-docs").strip()
+
+    object_name = (
+        f"account-{account_id}/employee-{employee_id}/"
+        f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)}"
+    )
+
+    if supabase_url and service_key:
+        encoded_path = urllib.parse.quote(object_name, safe="/-_.")
+        endpoint = f"{supabase_url}/storage/v1/object/{bucket}/{encoded_path}"
+        req = urllib.request.Request(
+            endpoint,
+            data=binary,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {service_key}",
+                "apikey": service_key,
+                "x-upsert": "true",
+                "Content-Type": "application/octet-stream",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=25):
+                return (
+                    f"{supabase_url}/storage/v1/object/public/{bucket}/{object_name}",
+                    filename,
+                )
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"Falha ao enviar documento para Supabase Storage: {detail[:300]}")
+        except Exception as exc:
+            raise RuntimeError(f"Falha ao enviar documento para Supabase Storage: {exc}")
+
+    local_dir = os.path.join(os.getcwd(), "static", "uploads", "employee_docs", f"account_{account_id}", f"employee_{employee_id}")
+    os.makedirs(local_dir, exist_ok=True)
+    local_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)}"
+    local_path = os.path.join(local_dir, local_name)
+    with open(local_path, "wb") as out:
+        out.write(binary)
+    return (
+        f"/static/uploads/employee_docs/account_{account_id}/employee_{employee_id}/{local_name}",
+        filename,
+    )
+
+
 def _load_dimensions(conn, account_id: int):
     positions = conn.execute(
         "SELECT id, name FROM employee_positions WHERE account_id = %s AND is_active = 1 ORDER BY name",
@@ -296,14 +360,14 @@ def _sync_employee_expenses(conn, account_id: int, employee_row: dict, reference
         if existing_entry:
             financial_entry_id = int(existing_entry["id"])
             conn.execute(
-                "UPDATE financial_entries SET entry_type = %s, description = %s, category_id = %s, amount = %s, due_date = %s, status = 'pendente', updated_at = NULL "
+                "UPDATE financial_entries SET entry_type = %s, description = %s, category_id = %s, amount = %s, due_date = %s, status = 'pendente', is_recurring = 1, recurrence_days = 30, updated_at = NULL "
                 "WHERE id = %s AND account_id = %s",
                 (entry_type, expense_desc, category_id, amount, due_date, financial_entry_id, account_id),
             )
         else:
             conn.execute(
                 "INSERT INTO financial_entries (account_id, entry_type, description, category_id, amount, due_date, status, is_recurring, recurrence_days, source, source_ref, created_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, 'pendente', 0, 30, 'employee_expense', %s, %s)",
+                "VALUES (%s, %s, %s, %s, %s, %s, 'pendente', 1, 30, 'employee_expense', %s, %s)",
                 (account_id, entry_type, expense_desc, category_id, amount, due_date, source_ref, now),
             )
             financial_entry_id = int(
@@ -348,6 +412,30 @@ def _run_employee_month_generation(conn, account_id: int, reference_month: str):
     ).fetchall()
     for row in rows:
         _sync_employee_expenses(conn, account_id, dict(row), reference_month)
+
+
+def _run_monthly_employee_automation_for_account(conn, account_id: int, reference_month: str):
+    _ensure_hr_defaults(conn, account_id)
+    _run_employee_month_generation(conn, account_id, reference_month)
+
+
+def run_employee_monthly_automation_job(reference_month: str | None = None):
+    month_key = _parse_month_key(reference_month)
+    conn = get_db_connection()
+    try:
+        rows = conn.execute("SELECT id FROM accounts WHERE is_active = 1 ORDER BY id").fetchall()
+        account_ids = [int(row["id"]) for row in rows]
+        processed = 0
+        for account_id in account_ids:
+            _run_monthly_employee_automation_for_account(conn, account_id, month_key)
+            processed += 1
+        conn.commit()
+        return {"ok": True, "processed_accounts": processed, "month": month_key}
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _load_employee_reports(conn, account_id: int, month_key: str):
@@ -746,6 +834,12 @@ def funcionarios_dashboard():
             (account_id,),
         ).fetchall()
 
+        by_employee = conn.execute(
+            "SELECT full_name AS name, COALESCE(monthly_total_cost, 0) AS total "
+            "FROM employees WHERE account_id = %s ORDER BY monthly_total_cost DESC, full_name LIMIT 15",
+            (account_id,),
+        ).fetchall()
+
         expensive_employee = conn.execute(
             "SELECT full_name, monthly_total_cost FROM employees WHERE account_id = %s ORDER BY monthly_total_cost DESC LIMIT 1",
             (account_id,),
@@ -778,8 +872,28 @@ def funcionarios_dashboard():
             "AND contract_end_date BETWEEN %s AND %s ORDER BY contract_end_date LIMIT 5",
             (account_id, datetime.now().strftime("%Y-%m-%d"), (datetime.now() + timedelta(days=60)).strftime("%Y-%m-%d")),
         ).fetchall()
+
+        alerts_salary_review = conn.execute(
+            "SELECT full_name, salary_review_date FROM employees "
+            "WHERE account_id = %s AND status <> 'desligado' AND salary_review_date IS NOT NULL AND salary_review_date <> '' "
+            "AND salary_review_date BETWEEN %s AND %s ORDER BY salary_review_date LIMIT 5",
+            (account_id, datetime.now().strftime("%Y-%m-%d"), (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")),
+        ).fetchall()
     finally:
         conn.close()
+
+    monthly_evolution = list(reversed(monthly_evolution))
+    growth_percent = 0.0
+    monthly_diff = 0.0
+    if len(monthly_evolution) >= 2:
+        previous_total = float(monthly_evolution[-2]["total"] or 0)
+        current_total = float(monthly_evolution[-1]["total"] or 0)
+        monthly_diff = current_total - previous_total
+        if previous_total > 0:
+            growth_percent = (monthly_diff / previous_total) * 100
+
+    top_department = by_department[0] if by_department else None
+    top_cost_center = by_cost_center[0] if by_cost_center else None
 
     return render_template(
         "funcionarios_dashboard.html",
@@ -790,10 +904,16 @@ def funcionarios_dashboard():
         by_position=by_position,
         by_department=by_department,
         by_cost_center=by_cost_center,
-        monthly_evolution=list(reversed(monthly_evolution)),
+        by_employee=by_employee,
+        monthly_evolution=monthly_evolution,
+        growth_percent=growth_percent,
+        monthly_diff=monthly_diff,
+        top_department=top_department,
+        top_cost_center=top_cost_center,
         alerts_birthdays=alerts_birthdays,
         alerts_vacation=alerts_vacation,
         alerts_contract=alerts_contract,
+        alerts_salary_review=alerts_salary_review,
     )
 
 
@@ -1158,3 +1278,66 @@ def funcionarios_relatorios_export():
 
     log_audit_event("employees_report_export_excel", {"month": month_key}, account_id=account_id)
     return _export_employee_reports_excel(month_key, active_rows, by_department, by_position, by_center, month_expenses)
+
+
+@employees_bp.route("/funcionarios/<int:employee_id>/documentos", methods=["GET", "POST"], endpoint="funcionarios_documentos")
+def funcionarios_documentos(employee_id):
+    account_id = _account_id()
+    conn = get_db_connection()
+    try:
+        employee = conn.execute(
+            "SELECT id, full_name FROM employees WHERE id = %s AND account_id = %s LIMIT 1",
+            (employee_id, account_id),
+        ).fetchone()
+        if not employee:
+            flash("Funcionário não encontrado.", "error")
+            return redirect(url_for("employees.funcionarios"))
+
+        if request.method == "POST":
+            action = (request.form.get("action") or "").strip().lower()
+            now = _now_text()
+
+            if action == "upload":
+                document_type = _sanitize_document_type(request.form.get("document_type"))
+                file_storage = request.files.get("document_file")
+                if not file_storage or not file_storage.filename:
+                    flash("Selecione um arquivo para enviar.", "error")
+                else:
+                    file_url, file_name = _upload_employee_document(file_storage, account_id, employee_id)
+                    conn.execute(
+                        "INSERT INTO employee_documents (account_id, empresa_id, employee_id, document_type, file_url, file_name, created_at, updated_at) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (account_id, account_id, employee_id, document_type, file_url, file_name, now, now),
+                    )
+                    conn.commit()
+                    flash("Documento enviado com sucesso.", "success")
+
+            if action == "delete":
+                document_id = request.form.get("document_id")
+                conn.execute(
+                    "DELETE FROM employee_documents WHERE id = %s AND account_id = %s AND employee_id = %s",
+                    (document_id, account_id, employee_id),
+                )
+                conn.commit()
+                flash("Documento removido.", "success")
+
+            return redirect(url_for("employees.funcionarios_documentos", employee_id=employee_id))
+
+        rows = conn.execute(
+            "SELECT id, document_type, file_name, file_url, created_at FROM employee_documents "
+            "WHERE account_id = %s AND employee_id = %s ORDER BY created_at DESC",
+            (account_id, employee_id),
+        ).fetchall()
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Falha ao processar documentos: {exc}", "error")
+        return redirect(url_for("employees.funcionarios"))
+    finally:
+        conn.close()
+
+    return render_template(
+        "funcionarios_documentos.html",
+        title="Documentos do Funcionário",
+        employee=employee,
+        rows=rows,
+    )

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="func-page-shell">
+  {% include "_funcionarios_nav.html" %}
+
+  <div class="form-card">
+    <h2>Documentos - {{ employee['full_name'] }}</h2>
+    <form method="post" enctype="multipart/form-data" class="func-doc-form">
+      <input type="hidden" name="action" value="upload">
+      <input type="text" name="document_type" placeholder="Tipo (ex.: contrato, holerite)" required>
+      <input type="file" name="document_file" required>
+      <button type="submit" class="btn-confirm">Enviar documento</button>
+      <a href="{{ url_for('employees.editar_funcionario', employee_id=employee['id']) }}" class="outline-button">Voltar ao cadastro</a>
+    </form>
+  </div>
+
+  <div class="form-card">
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Arquivo</th>
+            <th>Data</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>{{ row['document_type'] }}</td>
+              <td><a href="{{ row['file_url'] }}" target="_blank" rel="noopener">{{ row['file_name'] }}</a></td>
+              <td>{{ row['created_at'] }}</td>
+              <td>
+                <form method="post" onsubmit="return confirm('Remover este documento?');">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="document_id" value="{{ row['id'] }}">
+                  <button type="submit" class="outline-button small">Excluir</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4">Nenhum documento enviado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.func-page-shell { display:flex; flex-direction:column; gap:16px; }
+.func-nav-card { display:flex; flex-wrap:wrap; gap:8px; }
+.func-nav-link { padding:8px 12px; border-radius:999px; background:rgba(148,163,184,.15); text-decoration:none; font-weight:600; color:inherit; }
+.func-nav-link.active { background:#0f766e; color:#fff; }
+.func-doc-form { display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:10px; align-items:center; }
+</style>
+{% endblock %}

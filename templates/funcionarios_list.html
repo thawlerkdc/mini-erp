@@ -59,7 +59,10 @@
               <td>{{ row['cost_center_name'] }}</td>
               <td>{{ row['status']|capitalize }}</td>
               <td>R$ {{ '%.2f'|format(row['monthly_total_cost'] or 0)|replace('.', ',') }}</td>
-              <td><a class="outline-button small" href="{{ url_for('employees.editar_funcionario', employee_id=row['id']) }}">Editar</a></td>
+              <td>
+                <a class="outline-button small" href="{{ url_for('employees.editar_funcionario', employee_id=row['id']) }}">Editar</a>
+                <a class="outline-button small" href="{{ url_for('employees.funcionarios_documentos', employee_id=row['id']) }}">Documentos</a>
+              </td>
             </tr>
           {% else %}
             <tr><td colspan="8">Nenhum funcionário encontrado.</td></tr>

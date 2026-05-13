@@ -35,6 +35,21 @@
       <strong>{{ totals['total'] or 0 }}</strong>
     </article>
     <article class="func-kpi-card">
+      <span>Variação mensal da folha</span>
+      <strong>{{ '%.2f'|format(growth_percent or 0)|replace('.', ',') }}%</strong>
+      <small>{{ 'R$ %.2f'|format(monthly_diff or 0)|replace('.', ',') }}</small>
+    </article>
+    <article class="func-kpi-card">
+      <span>Departamento mais caro</span>
+      <strong>{% if top_department %}{{ top_department['name'] }}{% else %}-{% endif %}</strong>
+      <small>{% if top_department %}R$ {{ '%.2f'|format(top_department['total'] or 0)|replace('.', ',') }}{% endif %}</small>
+    </article>
+    <article class="func-kpi-card">
+      <span>Centro de custo mais caro</span>
+      <strong>{% if top_cost_center %}{{ top_cost_center['name'] }}{% else %}-{% endif %}</strong>
+      <small>{% if top_cost_center %}R$ {{ '%.2f'|format(top_cost_center['total'] or 0)|replace('.', ',') }}{% endif %}</small>
+    </article>
+    <article class="func-kpi-card">
       <span>Maior custo individual</span>
       <strong>{% if expensive_employee %}{{ expensive_employee['full_name'] }}{% else %}-{% endif %}</strong>
       <small>{% if expensive_employee %}R$ {{ '%.2f'|format(expensive_employee['monthly_total_cost'] or 0)|replace('.', ',') }}{% endif %}</small>
@@ -57,6 +72,10 @@
     <article class="form-card">
       <h3>Evolução da folha mensal</h3>
       <canvas id="chart-monthly-evolution"></canvas>
+    </article>
+    <article class="form-card">
+      <h3>Custo por funcionário</h3>
+      <canvas id="chart-by-employee"></canvas>
     </article>
   </section>
 
@@ -86,6 +105,16 @@
       <ul>
         {% for row in alerts_contract %}
           <li>{{ row['full_name'] }} - término {{ row['contract_end_date'] }}</li>
+        {% else %}
+          <li>Sem alertas no período.</li>
+        {% endfor %}
+      </ul>
+    </article>
+    <article class="form-card">
+      <h3>Reajuste salarial (30 dias)</h3>
+      <ul>
+        {% for row in alerts_salary_review %}
+          <li>{{ row['full_name'] }} - revisão {{ row['salary_review_date'] }}</li>
         {% else %}
           <li>Sem alertas no período.</li>
         {% endfor %}
@@ -142,6 +171,29 @@
           fill: true,
           tension: 0.25
         }]
+      }
+    });
+  }
+
+  var employeeCanvas = document.getElementById('chart-by-employee');
+  if (employeeCanvas) {
+    new Chart(employeeCanvas, {
+      type: 'bar',
+      data: {
+        labels: {{ by_employee|map(attribute='name')|list|tojson }},
+        datasets: [{
+          label: 'Custo mensal',
+          data: {{ by_employee|map(attribute='total')|list|tojson }},
+          backgroundColor: 'rgba(15, 118, 110, 0.55)',
+          borderColor: '#0f766e',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        scales: {
+          x: { beginAtZero: true }
+        }
       }
     });
   }

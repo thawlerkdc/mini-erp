@@ -620,6 +620,8 @@ _TENANT_MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_employee_expenses_account_month ON employee_expenses (account_id, reference_month)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_expenses_month_type_unique ON employee_expenses (account_id, employee_id, reference_month, expense_type)",
     "CREATE INDEX IF NOT EXISTS idx_employee_salary_history_account ON employee_salary_history (account_id, employee_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_employee_documents_account_employee ON employee_documents (account_id, employee_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_employees_salary_review ON employees (account_id, salary_review_date)",
 ]
 
 ADMIN_USER = ("admin", "admin123", "admin@kdcsystems.local", 1)

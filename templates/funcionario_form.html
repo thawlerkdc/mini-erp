@@ -69,6 +69,9 @@
       </section>
 
       <div class="func-form-actions">
+        {% if is_edit and edit_data.get('id') %}
+          <a href="{{ url_for('employees.funcionarios_documentos', employee_id=edit_data.get('id')) }}" class="outline-button">Documentos</a>
+        {% endif %}
         <button type="submit" class="btn-confirm">Salvar funcionário</button>
         <a href="{{ url_for('employees.funcionarios') }}" class="outline-button">Cancelar</a>
       </div>

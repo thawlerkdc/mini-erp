@@ -1542,6 +1542,7 @@ ENDPOINT_MODULE_MAP = {
     "employees.funcionarios_despesas": "funcionarios",
     "employees.funcionarios_relatorios": "funcionarios",
     "employees.funcionarios_relatorios_export": "funcionarios",
+    "employees.funcionarios_documentos": "funcionarios",
     "relatorios": "relatorios",
     "controle_estoque": "estoque",
     "estoque_ajuste": "estoque",
