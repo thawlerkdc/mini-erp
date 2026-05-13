@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="func-page-shell">
+  {% include "_funcionarios_nav.html" %}
+
+  <div class="form-card">
+    <h2>{{ title }}</h2>
+    <form method="post" class="func-dim-form">
+      <input type="hidden" name="action" value="create">
+      <input type="text" name="name" placeholder="Nome" required>
+      {% if table_name == 'employee_cost_centers' %}<input type="text" name="code" placeholder="Código (ex.: ADM)">{% endif %}
+      <input type="text" name="description" placeholder="Descrição">
+      <button type="submit" class="btn-confirm">Adicionar</button>
+    </form>
+  </div>
+
+  <div class="form-card">
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            {% if table_name == 'employee_cost_centers' %}<th>Código</th>{% endif %}
+            <th>Descrição</th>
+            <th>Status</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>{{ row['name'] }}</td>
+              {% if table_name == 'employee_cost_centers' %}<td>{{ row['code'] or '-' }}</td>{% endif %}
+              <td>{{ row['description'] or '-' }}</td>
+              <td>{{ 'Ativo' if row['is_active'] else 'Inativo' }}</td>
+              <td>
+                <form method="post">
+                  <input type="hidden" name="action" value="toggle">
+                  <input type="hidden" name="row_id" value="{{ row['id'] }}">
+                  <button type="submit" class="outline-button small">{{ 'Inativar' if row['is_active'] else 'Ativar' }}</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5">Nenhum registro cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.func-page-shell { display:flex; flex-direction:column; gap:16px; }
+.func-nav-card { display:flex; flex-wrap:wrap; gap:8px; }
+.func-nav-link { padding:8px 12px; border-radius:999px; background:rgba(148,163,184,.15); text-decoration:none; font-weight:600; color:inherit; }
+.func-nav-link.active { background:#0f766e; color:#fff; }
+.func-dim-form { display:grid; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); gap:10px; }
+</style>
+{% endblock %}

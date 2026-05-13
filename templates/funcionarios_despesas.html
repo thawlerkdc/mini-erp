@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="func-page-shell">
+  {% include "_funcionarios_nav.html" %}
+
+  <div class="form-card">
+    <h2>Despesas de Funcionários</h2>
+    <form method="get" class="func-month-actions">
+      <input type="month" name="month" value="{{ month_key }}">
+      <button type="submit" class="outline-button small">Aplicar</button>
+    </form>
+    <form method="post" style="margin-top:10px;">
+      <input type="hidden" name="month" value="{{ month_key }}">
+      <button type="submit" class="btn-confirm">Sincronizar despesas do mês com financeiro</button>
+    </form>
+    <p style="margin-top:10px;">Total do mês: <strong>R$ {{ '%.2f'|format(summary['total'] or 0)|replace('.', ',') }}</strong> | Registros: <strong>{{ summary['qty'] or 0 }}</strong></p>
+  </div>
+
+  <div class="form-card">
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Funcionário</th><th>Centro de custo</th><th>Tipo</th><th>Descrição</th><th>Valor</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>{{ row['full_name'] }}</td>
+              <td>{{ row['cost_center_name'] }}</td>
+              <td>{{ row['expense_type'] }}</td>
+              <td>{{ row['description'] }}</td>
+              <td>R$ {{ '%.2f'|format(row['amount'] or 0)|replace('.', ',') }}</td>
+              <td>{{ row['financial_status'] or row['status'] }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6">Sem despesas sincronizadas para este mês.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.func-page-shell { display:flex; flex-direction:column; gap:16px; }
+.func-nav-card { display:flex; flex-wrap:wrap; gap:8px; }
+.func-nav-link { padding:8px 12px; border-radius:999px; background:rgba(148,163,184,.15); text-decoration:none; font-weight:600; color:inherit; }
+.func-nav-link.active { background:#0f766e; color:#fff; }
+.func-month-actions { display:flex; gap:10px; align-items:center; }
+</style>
+{% endblock %}

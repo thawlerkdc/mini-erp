@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="func-page-shell">
+  {% include "_funcionarios_nav.html" %}
+
+  <div class="func-header">
+    <h2>Dashboard Executivo de Funcionários</h2>
+    <form method="get" class="func-month-filter">
+      <label for="month">Mês de referência</label>
+      <input type="month" id="month" name="month" value="{{ month_key }}">
+      <button type="submit" class="outline-button small">Aplicar</button>
+    </form>
+  </div>
+
+  <section class="func-kpi-grid">
+    <article class="func-kpi-card">
+      <span>Total gasto com funcionários</span>
+      <strong>R$ {{ '%.2f'|format(totals['total_cost'] or 0)|replace('.', ',') }}</strong>
+    </article>
+    <article class="func-kpi-card">
+      <span>Folha mensal</span>
+      <strong>R$ {{ '%.2f'|format(totals['total_cost'] or 0)|replace('.', ',') }}</strong>
+    </article>
+    <article class="func-kpi-card">
+      <span>Média salarial</span>
+      <strong>R$ {{ '%.2f'|format(totals['avg_salary'] or 0)|replace('.', ',') }}</strong>
+    </article>
+    <article class="func-kpi-card">
+      <span>Funcionários ativos</span>
+      <strong>{{ totals['active_count'] or 0 }}</strong>
+    </article>
+    <article class="func-kpi-card">
+      <span>Total de funcionários</span>
+      <strong>{{ totals['total'] or 0 }}</strong>
+    </article>
+    <article class="func-kpi-card">
+      <span>Maior custo individual</span>
+      <strong>{% if expensive_employee %}{{ expensive_employee['full_name'] }}{% else %}-{% endif %}</strong>
+      <small>{% if expensive_employee %}R$ {{ '%.2f'|format(expensive_employee['monthly_total_cost'] or 0)|replace('.', ',') }}{% endif %}</small>
+    </article>
+  </section>
+
+  <section class="func-chart-grid">
+    <article class="form-card">
+      <h3>Gastos por cargo</h3>
+      <canvas id="chart-by-position"></canvas>
+    </article>
+    <article class="form-card">
+      <h3>Gastos por departamento</h3>
+      <canvas id="chart-by-department"></canvas>
+    </article>
+    <article class="form-card">
+      <h3>Custos por centro de custo</h3>
+      <canvas id="chart-by-cost-center"></canvas>
+    </article>
+    <article class="form-card">
+      <h3>Evolução da folha mensal</h3>
+      <canvas id="chart-monthly-evolution"></canvas>
+    </article>
+  </section>
+
+  <section class="func-alert-grid">
+    <article class="form-card">
+      <h3>Alertas de aniversário (30 dias)</h3>
+      <ul>
+        {% for row in alerts_birthdays %}
+          <li>{{ row['full_name'] }} - {{ row['birth_date'] }}</li>
+        {% else %}
+          <li>Sem alertas no período.</li>
+        {% endfor %}
+      </ul>
+    </article>
+    <article class="form-card">
+      <h3>Alertas de férias</h3>
+      <ul>
+        {% for row in alerts_vacation %}
+          <li>{{ row['full_name'] }} - início {{ row['vacation_start_date'] }}</li>
+        {% else %}
+          <li>Sem alertas no período.</li>
+        {% endfor %}
+      </ul>
+    </article>
+    <article class="form-card">
+      <h3>Vencimento de contrato</h3>
+      <ul>
+        {% for row in alerts_contract %}
+          <li>{{ row['full_name'] }} - término {{ row['contract_end_date'] }}</li>
+        {% else %}
+          <li>Sem alertas no período.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+  function buildPieChart(canvasId, labels, values) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas || !labels.length) return;
+    new Chart(canvas, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: values,
+          backgroundColor: ['#0f766e', '#1d4ed8', '#f59e0b', '#be123c', '#7c3aed', '#0ea5e9', '#16a34a']
+        }]
+      }
+    });
+  }
+
+  buildPieChart(
+    'chart-by-position',
+    {{ by_position|map(attribute='name')|list|tojson }},
+    {{ by_position|map(attribute='total')|list|tojson }}
+  );
+  buildPieChart(
+    'chart-by-department',
+    {{ by_department|map(attribute='name')|list|tojson }},
+    {{ by_department|map(attribute='total')|list|tojson }}
+  );
+  buildPieChart(
+    'chart-by-cost-center',
+    {{ by_cost_center|map(attribute='name')|list|tojson }},
+    {{ by_cost_center|map(attribute='total')|list|tojson }}
+  );
+
+  var lineCanvas = document.getElementById('chart-monthly-evolution');
+  if (lineCanvas) {
+    new Chart(lineCanvas, {
+      type: 'line',
+      data: {
+        labels: {{ monthly_evolution|map(attribute='reference_month')|list|tojson }},
+        datasets: [{
+          label: 'Folha',
+          data: {{ monthly_evolution|map(attribute='total')|list|tojson }},
+          borderColor: '#1d4ed8',
+          backgroundColor: 'rgba(29, 78, 216, 0.15)',
+          fill: true,
+          tension: 0.25
+        }]
+      }
+    });
+  }
+})();
+</script>
+
+<style>
+.func-page-shell { display: flex; flex-direction: column; gap: 16px; }
+.func-nav-card { display: flex; flex-wrap: wrap; gap: 8px; }
+.func-nav-link { padding: 8px 12px; border-radius: 999px; background: rgba(148,163,184,.15); color: inherit; text-decoration: none; font-weight: 600; }
+.func-nav-link.active { background: #0f766e; color: #fff; }
+.func-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.func-month-filter { display: flex; align-items: center; gap: 8px; }
+.func-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 12px; }
+.func-kpi-card { background: rgba(255,255,255,.75); border: 1px solid rgba(148,163,184,.3); border-radius: 14px; padding: 14px; display:flex; flex-direction:column; gap:6px; }
+.func-kpi-card strong { font-size: 1.2rem; }
+.func-chart-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(340px,1fr)); gap: 12px; }
+.func-alert-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 12px; }
+</style>
+{% endblock %}

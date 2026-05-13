@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="func-page-shell">
+  {% include "_funcionarios_nav.html" %}
+
+  <div class="form-card">
+    <h2>{% if is_edit %}Editar Funcionário{% else %}Novo Funcionário{% endif %}</h2>
+    <form method="post" enctype="multipart/form-data" class="func-form-grid" id="employee-form">
+      <section>
+        <h3>Dados pessoais</h3>
+        <label>Nome completo *</label>
+        <input type="text" name="full_name" value="{{ edit_data.get('full_name', '') }}" required>
+        <label>Foto</label>
+        {% if edit_data.get('photo_url') %}<img src="{{ edit_data.get('photo_url') }}" alt="Foto atual" style="width:72px;height:72px;border-radius:999px;object-fit:cover;">{% endif %}
+        <img id="photo-preview" alt="Preview" style="display:none;width:72px;height:72px;border-radius:999px;object-fit:cover;">
+        <input type="file" name="employee_photo" id="employee_photo" accept=".png,.jpg,.jpeg,.webp">
+        <label>CPF</label><input type="text" name="cpf" value="{{ edit_data.get('cpf', '') }}">
+        <label>RG</label><input type="text" name="rg" value="{{ edit_data.get('rg', '') }}">
+        <label>Data de nascimento</label><input type="date" name="birth_date" value="{{ edit_data.get('birth_date', '') }}">
+        <label>Sexo</label>
+        <select name="sex">{% for s in ['nao_informado','masculino','feminino','outro'] %}<option value="{{ s }}" {% if edit_data.get('sex','nao_informado') == s %}selected{% endif %}>{{ s|replace('_', ' ')|capitalize }}</option>{% endfor %}</select>
+        <label>Estado civil</label>
+        <select name="marital_status">{% for s in ['nao_informado','solteiro','casado','divorciado','viuvo'] %}<option value="{{ s }}" {% if edit_data.get('marital_status','nao_informado') == s %}selected{% endif %}>{{ s|replace('_', ' ')|capitalize }}</option>{% endfor %}</select>
+        <label>Telefone</label><input type="text" name="phone" value="{{ edit_data.get('phone', '') }}">
+        <label>WhatsApp</label><input type="text" name="whatsapp" value="{{ edit_data.get('whatsapp', '') }}">
+        <label>Email</label><input type="email" name="email" value="{{ edit_data.get('email', '') }}">
+        <label>Endereço completo</label><input type="text" name="address" value="{{ edit_data.get('address', '') }}">
+      </section>
+
+      <section>
+        <h3>Dados profissionais</h3>
+        <label>Cargo</label>
+        <select name="position_id"><option value="">Selecione...</option>{% for i in positions %}<option value="{{ i['id'] }}" {% if edit_data.get('position_id')|string == i['id']|string %}selected{% endif %}>{{ i['name'] }}</option>{% endfor %}</select>
+        <label>Departamento</label>
+        <select name="department_id"><option value="">Selecione...</option>{% for i in departments %}<option value="{{ i['id'] }}" {% if edit_data.get('department_id')|string == i['id']|string %}selected{% endif %}>{{ i['name'] }}</option>{% endfor %}</select>
+        <label>Centro de custo</label>
+        <select name="cost_center_id"><option value="">Selecione...</option>{% for i in centers %}<option value="{{ i['id'] }}" {% if edit_data.get('cost_center_id')|string == i['id']|string %}selected{% endif %}>{{ i['name'] }}</option>{% endfor %}</select>
+        <label>Data de admissão</label><input type="date" name="admission_date" value="{{ edit_data.get('admission_date', '') }}">
+        <label>Tipo de contratação</label>
+        <select name="contract_type">{% for s in ['clt','pj','freelancer','temporario'] %}<option value="{{ s }}" {% if edit_data.get('contract_type','clt') == s %}selected{% endif %}>{{ s|upper if s in ['clt','pj'] else s|capitalize }}</option>{% endfor %}</select>
+        <label>Status</label>
+        <select name="status">{% for s in ['ativo','ferias','afastado','desligado'] %}<option value="{{ s }}" {% if edit_data.get('status','ativo') == s %}selected{% endif %}>{{ s|capitalize }}</option>{% endfor %}</select>
+      </section>
+
+      <section>
+        <h3>Dados financeiros</h3>
+        <label>Salário base</label><input type="number" step="0.01" min="0" name="salary_base" value="{{ edit_data.get('salary_base', 0) }}">
+        <label>Comissão</label><input type="number" step="0.01" min="0" name="commission" value="{{ edit_data.get('commission', 0) }}">
+        <label>Bonificação</label><input type="number" step="0.01" min="0" name="bonus" value="{{ edit_data.get('bonus', 0) }}">
+        <label>Vale transporte</label><input type="number" step="0.01" min="0" name="transportation_allowance" value="{{ edit_data.get('transportation_allowance', 0) }}">
+        <label>Vale alimentação</label><input type="number" step="0.01" min="0" name="meal_allowance" value="{{ edit_data.get('meal_allowance', 0) }}">
+        <label>Plano de saúde</label><input type="number" step="0.01" min="0" name="health_plan" value="{{ edit_data.get('health_plan', 0) }}">
+        <label>Outros benefícios</label><input type="number" step="0.01" min="0" name="other_benefits" value="{{ edit_data.get('other_benefits', 0) }}">
+        <label>Descontos fixos</label><input type="number" step="0.01" min="0" name="fixed_discounts" value="{{ edit_data.get('fixed_discounts', 0) }}">
+        {% if is_edit %}
+          <label>Motivo da alteração salarial</label>
+          <input type="text" name="salary_change_reason" placeholder="Ex.: reajuste anual">
+        {% endif %}
+      </section>
+
+      <section>
+        <h3>Alertas e automações</h3>
+        <label>Início das férias</label><input type="date" name="vacation_start_date" value="{{ edit_data.get('vacation_start_date', '') }}">
+        <label>Fim das férias</label><input type="date" name="vacation_end_date" value="{{ edit_data.get('vacation_end_date', '') }}">
+        <label>Vencimento de contrato</label><input type="date" name="contract_end_date" value="{{ edit_data.get('contract_end_date', '') }}">
+        <label>Data de reajuste salarial</label><input type="date" name="salary_review_date" value="{{ edit_data.get('salary_review_date', '') }}">
+        <label>Observações</label><textarea name="notes" rows="4">{{ edit_data.get('notes', '') }}</textarea>
+      </section>
+
+      <div class="func-form-actions">
+        <button type="submit" class="btn-confirm">Salvar funcionário</button>
+        <a href="{{ url_for('employees.funcionarios') }}" class="outline-button">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var input = document.getElementById('employee_photo');
+  var preview = document.getElementById('photo-preview');
+  if (!input || !preview) return;
+  input.addEventListener('change', function () {
+    var file = input.files && input.files[0];
+    if (!file) {
+      preview.style.display = 'none';
+      preview.src = '';
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (event) {
+      preview.src = event.target.result;
+      preview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  });
+})();
+</script>
+
+<style>
+.func-page-shell { display:flex; flex-direction:column; gap:16px; }
+.func-nav-card { display:flex; flex-wrap:wrap; gap:8px; }
+.func-nav-link { padding:8px 12px; border-radius:999px; background:rgba(148,163,184,.15); text-decoration:none; font-weight:600; color:inherit; }
+.func-nav-link.active { background:#0f766e; color:#fff; }
+.func-form-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:14px; }
+.func-form-grid section { border:1px solid rgba(148,163,184,.25); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+.func-form-actions { grid-column:1/-1; display:flex; justify-content:flex-end; gap:10px; }
+</style>
+{% endblock %}

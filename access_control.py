@@ -8,6 +8,7 @@ MODULES = [
     {'key': 'dashboard', 'label': 'Dashboard'},
     {'key': 'vendas', 'label': 'Vendas'},
     {'key': 'financeiro', 'label': 'Financeiro'},
+    {'key': 'funcionarios', 'label': 'Funcionários'},
     {'key': 'estoque', 'label': 'Estoque'},
     {'key': 'compras', 'label': 'Compras'},
     {'key': 'relatorios', 'label': 'Relatórios'},

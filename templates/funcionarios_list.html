@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="func-page-shell">
+  {% include "_funcionarios_nav.html" %}
+
+  <div class="form-card">
+    <h2>Funcionários</h2>
+    <form method="get" class="func-filter-grid">
+      <input type="search" name="q" value="{{ filters.q }}" placeholder="Buscar por nome ou e-mail">
+      <select name="position_id">
+        <option value="">Cargo</option>
+        {% for item in positions %}<option value="{{ item['id'] }}" {% if filters.position_id == item['id']|string %}selected{% endif %}>{{ item['name'] }}</option>{% endfor %}
+      </select>
+      <select name="department_id">
+        <option value="">Departamento</option>
+        {% for item in departments %}<option value="{{ item['id'] }}" {% if filters.department_id == item['id']|string %}selected{% endif %}>{{ item['name'] }}</option>{% endfor %}
+      </select>
+      <select name="cost_center_id">
+        <option value="">Centro de custo</option>
+        {% for item in centers %}<option value="{{ item['id'] }}" {% if filters.cost_center_id == item['id']|string %}selected{% endif %}>{{ item['name'] }}</option>{% endfor %}
+      </select>
+      <select name="status">
+        <option value="">Status</option>
+        {% for s in ['ativo','ferias','afastado','desligado'] %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s|capitalize }}</option>{% endfor %}
+      </select>
+      <input type="number" step="0.01" min="0" name="salary_min" value="{{ filters.salary_min if filters.salary_min > 0 else '' }}" placeholder="Salário mín.">
+      <input type="number" step="0.01" min="0" name="salary_max" value="{{ filters.salary_max if filters.salary_max > 0 else '' }}" placeholder="Salário máx.">
+      <button type="submit" class="outline-button small">Filtrar</button>
+      <a href="{{ url_for('employees.funcionarios') }}" class="outline-button small">Limpar</a>
+    </form>
+  </div>
+
+  <div class="form-card">
+    <div class="func-table-head">
+      <h3>Total: {{ total }}</h3>
+      <a href="{{ url_for('employees.novo_funcionario') }}" class="btn-confirm">+ Novo Funcionário</a>
+    </div>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Foto</th><th>Nome</th><th>Cargo</th><th>Departamento</th><th>Centro de custo</th><th>Status</th><th>Custo mensal</th><th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>
+                {% if row['photo_url'] %}
+                  <img src="{{ row['photo_url'] }}" alt="{{ row['full_name'] }}" loading="lazy" style="width:42px;height:42px;border-radius:999px;object-fit:cover;">
+                {% else %}
+                  <div style="width:42px;height:42px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:#cbd5e1;">👤</div>
+                {% endif %}
+              </td>
+              <td>{{ row['full_name'] }}</td>
+              <td>{{ row['position_name'] }}</td>
+              <td>{{ row['department_name'] }}</td>
+              <td>{{ row['cost_center_name'] }}</td>
+              <td>{{ row['status']|capitalize }}</td>
+              <td>R$ {{ '%.2f'|format(row['monthly_total_cost'] or 0)|replace('.', ',') }}</td>
+              <td><a class="outline-button small" href="{{ url_for('employees.editar_funcionario', employee_id=row['id']) }}">Editar</a></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8">Nenhum funcionário encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="func-pagination">
+      {% if page > 1 %}<a class="outline-button small" href="{{ url_for('employees.funcionarios', page=page-1, per_page=per_page, q=filters.q, position_id=filters.position_id, department_id=filters.department_id, cost_center_id=filters.cost_center_id, status=filters.status, salary_min=filters.salary_min if filters.salary_min > 0 else None, salary_max=filters.salary_max if filters.salary_max > 0 else None) }}">Anterior</a>{% endif %}
+      <span>Página {{ page }} de {{ total_pages }}</span>
+      {% if page < total_pages %}<a class="outline-button small" href="{{ url_for('employees.funcionarios', page=page+1, per_page=per_page, q=filters.q, position_id=filters.position_id, department_id=filters.department_id, cost_center_id=filters.cost_center_id, status=filters.status, salary_min=filters.salary_min if filters.salary_min > 0 else None, salary_max=filters.salary_max if filters.salary_max > 0 else None) }}">Próxima</a>{% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+.func-page-shell { display:flex; flex-direction:column; gap:16px; }
+.func-nav-card { display:flex; flex-wrap:wrap; gap:8px; }
+.func-nav-link { padding:8px 12px; border-radius:999px; background:rgba(148,163,184,.15); text-decoration:none; font-weight:600; color:inherit; }
+.func-nav-link.active { background:#0f766e; color:#fff; }
+.func-filter-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
+.func-table-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.func-pagination { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:10px; }
+</style>
+{% endblock %}

@@ -388,6 +388,139 @@ _TENANT_STATEMENTS = [
         UNIQUE (account_id, user_id, module)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS employee_positions (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        empresa_id INTEGER NOT NULL REFERENCES accounts(id),
+        name TEXT NOT NULL,
+        description TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (account_id, name)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS employee_departments (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        empresa_id INTEGER NOT NULL REFERENCES accounts(id),
+        name TEXT NOT NULL,
+        description TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (account_id, name)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS employee_cost_centers (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        empresa_id INTEGER NOT NULL REFERENCES accounts(id),
+        name TEXT NOT NULL,
+        code TEXT,
+        description TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (account_id, name)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS employees (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        empresa_id INTEGER NOT NULL REFERENCES accounts(id),
+        full_name TEXT NOT NULL,
+        photo_url TEXT,
+        cpf TEXT,
+        rg TEXT,
+        birth_date TEXT,
+        sex TEXT,
+        marital_status TEXT,
+        phone TEXT,
+        whatsapp TEXT,
+        email TEXT,
+        address TEXT,
+        street TEXT,
+        number TEXT,
+        complement TEXT,
+        neighborhood TEXT,
+        city TEXT,
+        state TEXT,
+        country TEXT,
+        postal_code TEXT,
+        position_id INTEGER REFERENCES employee_positions(id),
+        department_id INTEGER REFERENCES employee_departments(id),
+        cost_center_id INTEGER REFERENCES employee_cost_centers(id),
+        admission_date TEXT,
+        contract_type TEXT NOT NULL DEFAULT 'clt',
+        status TEXT NOT NULL DEFAULT 'ativo',
+        salary_base DOUBLE PRECISION DEFAULT 0,
+        commission DOUBLE PRECISION DEFAULT 0,
+        bonus DOUBLE PRECISION DEFAULT 0,
+        transportation_allowance DOUBLE PRECISION DEFAULT 0,
+        meal_allowance DOUBLE PRECISION DEFAULT 0,
+        health_plan DOUBLE PRECISION DEFAULT 0,
+        other_benefits DOUBLE PRECISION DEFAULT 0,
+        fixed_discounts DOUBLE PRECISION DEFAULT 0,
+        monthly_total_cost DOUBLE PRECISION DEFAULT 0,
+        vacation_start_date TEXT,
+        vacation_end_date TEXT,
+        contract_end_date TEXT,
+        salary_review_date TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS employee_documents (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        empresa_id INTEGER NOT NULL REFERENCES accounts(id),
+        employee_id INTEGER NOT NULL REFERENCES employees(id),
+        document_type TEXT,
+        file_url TEXT,
+        file_name TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS employee_salary_history (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        empresa_id INTEGER NOT NULL REFERENCES accounts(id),
+        employee_id INTEGER NOT NULL REFERENCES employees(id),
+        previous_salary DOUBLE PRECISION DEFAULT 0,
+        new_salary DOUBLE PRECISION DEFAULT 0,
+        reason TEXT,
+        changed_by_user_id INTEGER REFERENCES users(id),
+        changed_by_user_name TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS employee_expenses (
+        id SERIAL PRIMARY KEY,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        empresa_id INTEGER NOT NULL REFERENCES accounts(id),
+        employee_id INTEGER NOT NULL REFERENCES employees(id),
+        cost_center_id INTEGER REFERENCES employee_cost_centers(id),
+        reference_month TEXT NOT NULL,
+        expense_type TEXT NOT NULL,
+        description TEXT,
+        amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+        financial_entry_id INTEGER REFERENCES financial_entries(id),
+        status TEXT NOT NULL DEFAULT 'pendente',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
 ]
 
 _TENANT_MIGRATIONS = [
@@ -457,6 +590,36 @@ _TENANT_MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_fiscal_emission_logs_account_created ON fiscal_emission_logs (account_id, created_at)",
     "UPDATE products SET conversion_factor = GREATEST(1, ROUND(COALESCE(conversion_factor, 1))) WHERE conversion_factor IS NULL OR conversion_factor <> ROUND(conversion_factor)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_account_product_code_unique ON products (account_id, product_code) WHERE product_code IS NOT NULL AND BTRIM(product_code) <> ''",
+    "CREATE TABLE IF NOT EXISTS employee_positions (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), empresa_id INTEGER NOT NULL REFERENCES accounts(id), name TEXT NOT NULL, description TEXT, is_active INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS employee_departments (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), empresa_id INTEGER NOT NULL REFERENCES accounts(id), name TEXT NOT NULL, description TEXT, is_active INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS employee_cost_centers (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), empresa_id INTEGER NOT NULL REFERENCES accounts(id), name TEXT NOT NULL, code TEXT, description TEXT, is_active INTEGER DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS employees (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), empresa_id INTEGER NOT NULL REFERENCES accounts(id), full_name TEXT NOT NULL, photo_url TEXT, cpf TEXT, rg TEXT, birth_date TEXT, sex TEXT, marital_status TEXT, phone TEXT, whatsapp TEXT, email TEXT, address TEXT, street TEXT, number TEXT, complement TEXT, neighborhood TEXT, city TEXT, state TEXT, country TEXT, postal_code TEXT, position_id INTEGER REFERENCES employee_positions(id), department_id INTEGER REFERENCES employee_departments(id), cost_center_id INTEGER REFERENCES employee_cost_centers(id), admission_date TEXT, contract_type TEXT NOT NULL DEFAULT 'clt', status TEXT NOT NULL DEFAULT 'ativo', salary_base DOUBLE PRECISION DEFAULT 0, commission DOUBLE PRECISION DEFAULT 0, bonus DOUBLE PRECISION DEFAULT 0, transportation_allowance DOUBLE PRECISION DEFAULT 0, meal_allowance DOUBLE PRECISION DEFAULT 0, health_plan DOUBLE PRECISION DEFAULT 0, other_benefits DOUBLE PRECISION DEFAULT 0, fixed_discounts DOUBLE PRECISION DEFAULT 0, monthly_total_cost DOUBLE PRECISION DEFAULT 0, vacation_start_date TEXT, vacation_end_date TEXT, contract_end_date TEXT, salary_review_date TEXT, notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS employee_documents (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), empresa_id INTEGER NOT NULL REFERENCES accounts(id), employee_id INTEGER NOT NULL REFERENCES employees(id), document_type TEXT, file_url TEXT, file_name TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS employee_salary_history (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), empresa_id INTEGER NOT NULL REFERENCES accounts(id), employee_id INTEGER NOT NULL REFERENCES employees(id), previous_salary DOUBLE PRECISION DEFAULT 0, new_salary DOUBLE PRECISION DEFAULT 0, reason TEXT, changed_by_user_id INTEGER REFERENCES users(id), changed_by_user_name TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS employee_expenses (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), empresa_id INTEGER NOT NULL REFERENCES accounts(id), employee_id INTEGER NOT NULL REFERENCES employees(id), cost_center_id INTEGER REFERENCES employee_cost_centers(id), reference_month TEXT NOT NULL, expense_type TEXT NOT NULL, description TEXT, amount DOUBLE PRECISION NOT NULL DEFAULT 0, financial_entry_id INTEGER REFERENCES financial_entries(id), status TEXT NOT NULL DEFAULT 'pendente', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "ALTER TABLE employee_positions ADD COLUMN IF NOT EXISTS empresa_id INTEGER",
+    "ALTER TABLE employee_departments ADD COLUMN IF NOT EXISTS empresa_id INTEGER",
+    "ALTER TABLE employee_cost_centers ADD COLUMN IF NOT EXISTS empresa_id INTEGER",
+    "ALTER TABLE employees ADD COLUMN IF NOT EXISTS empresa_id INTEGER",
+    "ALTER TABLE employee_documents ADD COLUMN IF NOT EXISTS empresa_id INTEGER",
+    "ALTER TABLE employee_salary_history ADD COLUMN IF NOT EXISTS empresa_id INTEGER",
+    "ALTER TABLE employee_expenses ADD COLUMN IF NOT EXISTS empresa_id INTEGER",
+    "UPDATE employee_positions SET empresa_id = account_id WHERE empresa_id IS NULL",
+    "UPDATE employee_departments SET empresa_id = account_id WHERE empresa_id IS NULL",
+    "UPDATE employee_cost_centers SET empresa_id = account_id WHERE empresa_id IS NULL",
+    "UPDATE employees SET empresa_id = account_id WHERE empresa_id IS NULL",
+    "UPDATE employee_documents SET empresa_id = account_id WHERE empresa_id IS NULL",
+    "UPDATE employee_salary_history SET empresa_id = account_id WHERE empresa_id IS NULL",
+    "UPDATE employee_expenses SET empresa_id = account_id WHERE empresa_id IS NULL",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_positions_name_unique ON employee_positions (account_id, name)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_departments_name_unique ON employee_departments (account_id, name)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_cost_centers_name_unique ON employee_cost_centers (account_id, name)",
+    "CREATE INDEX IF NOT EXISTS idx_employees_account_status ON employees (account_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_employees_account_department ON employees (account_id, department_id)",
+    "CREATE INDEX IF NOT EXISTS idx_employees_account_cost_center ON employees (account_id, cost_center_id)",
+    "CREATE INDEX IF NOT EXISTS idx_employee_expenses_account_month ON employee_expenses (account_id, reference_month)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_expenses_month_type_unique ON employee_expenses (account_id, employee_id, reference_month, expense_type)",
+    "CREATE INDEX IF NOT EXISTS idx_employee_salary_history_account ON employee_salary_history (account_id, employee_id, created_at)",
 ]
 
 ADMIN_USER = ("admin", "admin123", "admin@kdcsystems.local", 1)

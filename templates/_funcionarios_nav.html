@@ -1,0 +1,10 @@
+<div class="func-nav-card">
+  <a href="{{ url_for('employees.funcionarios_dashboard') }}" class="func-nav-link {% if request.endpoint == 'employees.funcionarios_dashboard' %}active{% endif %}">Dashboard</a>
+  <a href="{{ url_for('employees.funcionarios') }}" class="func-nav-link {% if request.endpoint == 'employees.funcionarios' %}active{% endif %}">Funcionários</a>
+  <a href="{{ url_for('employees.novo_funcionario') }}" class="func-nav-link {% if request.endpoint == 'employees.novo_funcionario' %}active{% endif %}">Novo Funcionário</a>
+  <a href="{{ url_for('employees.funcionarios_cargos') }}" class="func-nav-link {% if request.endpoint == 'employees.funcionarios_cargos' %}active{% endif %}">Cargos</a>
+  <a href="{{ url_for('employees.funcionarios_departamentos') }}" class="func-nav-link {% if request.endpoint == 'employees.funcionarios_departamentos' %}active{% endif %}">Departamentos</a>
+  <a href="{{ url_for('employees.funcionarios_centros_custo') }}" class="func-nav-link {% if request.endpoint == 'employees.funcionarios_centros_custo' %}active{% endif %}">Centro de Custos</a>
+  <a href="{{ url_for('employees.funcionarios_despesas') }}" class="func-nav-link {% if request.endpoint == 'employees.funcionarios_despesas' %}active{% endif %}">Despesas de Funcionários</a>
+  <a href="{{ url_for('employees.funcionarios_relatorios') }}" class="func-nav-link {% if request.endpoint == 'employees.funcionarios_relatorios' %}active{% endif %}">Relatórios</a>
+</div>

@@ -159,6 +159,24 @@
               </nav>
             </div>
 
+            <!-- FUNCIONÁRIOS -->
+            <div class="menu-section" data-section="funcionarios">
+              <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Funcionários">
+                <span class="section-icon" aria-hidden="true">&#128188;</span>
+                <span class="section-title">Funcionários</span>
+              </button>
+              <nav class="sidebar-nav menu-section-body" hidden>
+                {% if can_access('funcionarios') %}<a href="{{ url_for('employees.funcionarios_dashboard') }}" data-menu-key="funcionarios_dashboard" class="nav-link {% if request.endpoint == 'employees.funcionarios_dashboard' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128200;</span><span>Dashboard</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('funcionarios') %}<a href="{{ url_for('employees.funcionarios') }}" data-menu-key="funcionarios_lista" class="nav-link {% if request.endpoint == 'employees.funcionarios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128101;</span><span>Funcionários</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('funcionarios') %}<a href="{{ url_for('employees.novo_funcionario') }}" data-menu-key="funcionarios_novo" class="nav-link {% if request.endpoint == 'employees.novo_funcionario' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#10133;</span><span>Novo Funcionário</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('funcionarios') %}<a href="{{ url_for('employees.funcionarios_cargos') }}" data-menu-key="funcionarios_cargos" class="nav-link {% if request.endpoint == 'employees.funcionarios_cargos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127991;</span><span>Cargos</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('funcionarios') %}<a href="{{ url_for('employees.funcionarios_departamentos') }}" data-menu-key="funcionarios_departamentos" class="nav-link {% if request.endpoint == 'employees.funcionarios_departamentos' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#127970;</span><span>Departamentos</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('funcionarios') %}<a href="{{ url_for('employees.funcionarios_centros_custo') }}" data-menu-key="funcionarios_centro_custo" class="nav-link {% if request.endpoint == 'employees.funcionarios_centros_custo' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128205;</span><span>Centro de Custos</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('funcionarios') %}<a href="{{ url_for('employees.funcionarios_despesas') }}" data-menu-key="funcionarios_despesas" class="nav-link {% if request.endpoint == 'employees.funcionarios_despesas' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128181;</span><span>Despesas de Funcionários</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+                {% if can_access('funcionarios') %}<a href="{{ url_for('employees.funcionarios_relatorios') }}" data-menu-key="funcionarios_relatorios" class="nav-link {% if request.endpoint == 'employees.funcionarios_relatorios' %}active{% endif %}"><span class="menu-icon" aria-hidden="true">&#128202;</span><span>Relatórios</span><span class="menu-fav-toggle" title="Favoritar" aria-label="Favoritar">&#9734;</span></a>{% endif %}
+              </nav>
+            </div>
+
             <!-- RELATÓRIOS -->
             <div class="menu-section" data-section="relatorios">
               <button class="menu-section-header" type="button" aria-haspopup="true" data-tooltip="Relatórios">
