@@ -16,7 +16,7 @@ from reportlab.pdfgen import canvas
 from werkzeug.utils import secure_filename
 
 from logs_auditoria import log_audit_event
-from models import get_db_connection
+from models import get_db_connection, init_tenant_db
 
 try:
     from PIL import Image
@@ -25,6 +25,7 @@ except ImportError:
 
 
 employees_bp = Blueprint("employees", __name__)
+_EMPLOYEES_SCHEMA_READY = False
 
 
 EMPLOYEE_STATUS = {"ativo", "ferias", "afastado", "desligado"}
@@ -789,10 +790,18 @@ def _save_employee(conn, account_id: int, payload: dict, employee_id: int | None
 
 @employees_bp.before_request
 def _require_login():
+    global _EMPLOYEES_SCHEMA_READY
     if request.endpoint == "static":
         return None
     if not session.get("user"):
         return redirect(url_for("login"))
+
+    # Em produção o bootstrap global pode estar desativado no startup.
+    # Garante de forma lazy que as tabelas/migrações do módulo existam
+    # antes das consultas das rotas de Funcionários.
+    if not _EMPLOYEES_SCHEMA_READY:
+        init_tenant_db()
+        _EMPLOYEES_SCHEMA_READY = True
     return None
 
 
