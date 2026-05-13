@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="func-page-shell">
+  {% include "_funcionarios_nav.html" %}
+
+  <div class="form-card">
+    <h2>Relatórios de Funcionários</h2>
+    <div class="func-month-actions-wrap">
+      <form method="get" class="func-month-actions">
+        <label>Mês</label>
+        <input type="month" name="month" value="{{ month_key }}">
+        <button type="submit" class="outline-button small">Aplicar</button>
+      </form>
+      <div class="func-export-actions">
+        <a class="outline-button small" href="{{ url_for('employees.funcionarios_relatorios_export', month=month_key, format='excel') }}">Exportar Excel</a>
+        <a class="outline-button small" href="{{ url_for('employees.funcionarios_relatorios_export', month=month_key, format='pdf') }}">Exportar PDF</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="func-report-grid">
+    <article class="form-card">
+      <h3>Funcionários ativos / status</h3>
+      <div class="report-table-wrap">
+        <table class="report-table compact">
+          <thead><tr><th>Nome</th><th>Status</th><th>Contrato</th><th>Salário</th><th>Custo mensal</th></tr></thead>
+          <tbody>
+            {% for row in active_rows %}
+              <tr>
+                <td>{{ row['full_name'] }}</td>
+                <td>{{ row['status']|capitalize }}</td>
+                <td>{{ row['contract_type']|upper }}</td>
+                <td>R$ {{ '%.2f'|format(row['salary_base'] or 0)|replace('.', ',') }}</td>
+                <td>R$ {{ '%.2f'|format(row['monthly_total_cost'] or 0)|replace('.', ',') }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5">Sem dados.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="form-card">
+      <h3>Custos por departamento</h3>
+      <ul>{% for row in by_department %}<li>{{ row['name'] }}: R$ {{ '%.2f'|format(row['total'] or 0)|replace('.', ',') }}</li>{% else %}<li>Sem dados.</li>{% endfor %}</ul>
+      <h3>Custos por cargo</h3>
+      <ul>{% for row in by_position %}<li>{{ row['name'] }}: R$ {{ '%.2f'|format(row['total'] or 0)|replace('.', ',') }}</li>{% else %}<li>Sem dados.</li>{% endfor %}</ul>
+      <h3>Custos por centro de custo</h3>
+      <ul>{% for row in by_center %}<li>{{ row['name'] }}: R$ {{ '%.2f'|format(row['total'] or 0)|replace('.', ',') }}</li>{% else %}<li>Sem dados.</li>{% endfor %}</ul>
+    </article>
+  </div>
+
+  <div class="form-card">
+    <h3>Despesas por funcionário no mês {{ month_key }}</h3>
+    <div class="report-table-wrap">
+      <table class="report-table compact">
+        <thead><tr><th>Funcionário</th><th>Tipo</th><th>Valor</th></tr></thead>
+        <tbody>
+          {% for row in month_expenses %}
+            <tr>
+              <td>{{ row['full_name'] }}</td>
+              <td>{{ row['expense_type'] }}</td>
+              <td>R$ {{ '%.2f'|format(row['amount'] or 0)|replace('.', ',') }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="3">Sem despesas para o mês selecionado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="param-hint-small">Exportação PDF/Excel: a estrutura já está pronta para evolução no mesmo padrão do módulo Relatórios.</p>
+  </div>
+</div>
+
+<style>
+.func-page-shell { display:flex; flex-direction:column; gap:16px; }
+.func-nav-card { display:flex; flex-wrap:wrap; gap:8px; }
+.func-nav-link { padding:8px 12px; border-radius:999px; background:rgba(148,163,184,.15); text-decoration:none; font-weight:600; color:inherit; }
+.func-nav-link.active { background:#0f766e; color:#fff; }
+.func-report-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px; }
+.func-month-actions { display:flex; gap:8px; align-items:center; }
+.func-month-actions-wrap { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; }
+.func-export-actions { display:flex; gap:8px; align-items:center; }
+</style>
+{% endblock %}

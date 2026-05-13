@@ -55,6 +55,12 @@ except ImportError:
     saas_bp = None
     print("⚠️  saas_management não disponível")
 
+try:
+    from employees_module import employees_bp
+except ImportError:
+    employees_bp = None
+    print("⚠️  employees_module não disponível")
+
 from access_control import access_bp
 from logs_auditoria import auditoria_bp, log_audit_event, get_recent_audit_logs
 from datetime import datetime, timedelta
@@ -177,6 +183,8 @@ app.register_blueprint(access_bp)
 app.register_blueprint(auditoria_bp)
 if saas_bp:
     app.register_blueprint(saas_bp)
+if employees_bp:
+    app.register_blueprint(employees_bp)
 
 LANGUAGES = {
     "pt": "Português",
@@ -1491,6 +1499,7 @@ def get_default_route_for_current_user():
         ("dashboard", lambda: url_for("dashboard")),
         ("vendas", lambda: url_for("vendas")),
         ("financeiro", lambda: url_for("financeiro")),
+        ("funcionarios", lambda: url_for("employees.funcionarios_dashboard")),
         ("estoque", lambda: url_for("controle_estoque")),
         ("compras", lambda: url_for("estoque_entrada")),
         ("relatorios", lambda: url_for("relatorios")),
@@ -1523,6 +1532,16 @@ ENDPOINT_MODULE_MAP = {
     "dashboard": "dashboard",
     "vendas": "vendas",
     "financeiro": "financeiro",
+    "employees.funcionarios_dashboard": "funcionarios",
+    "employees.funcionarios": "funcionarios",
+    "employees.novo_funcionario": "funcionarios",
+    "employees.editar_funcionario": "funcionarios",
+    "employees.funcionarios_cargos": "funcionarios",
+    "employees.funcionarios_departamentos": "funcionarios",
+    "employees.funcionarios_centros_custo": "funcionarios",
+    "employees.funcionarios_despesas": "funcionarios",
+    "employees.funcionarios_relatorios": "funcionarios",
+    "employees.funcionarios_relatorios_export": "funcionarios",
     "relatorios": "relatorios",
     "controle_estoque": "estoque",
     "estoque_ajuste": "estoque",
@@ -2306,6 +2325,7 @@ FINANCIAL_SOURCE_LABELS = {
     "manual": "Lançamento manual",
     "xml_import": "Importação XML",
     "internal_adjustment": "Ajuste interno",
+    "employee_expense": "Despesa de funcionário",
 }
 
 
@@ -2323,6 +2343,8 @@ def _normalize_financial_source(raw_source):
         "importacao_xml": "xml_import",
         "xml": "xml_import",
         "ajuste_interno": "internal_adjustment",
+        "despesa_funcionario": "employee_expense",
+        "funcionario": "employee_expense",
     }
     source = aliases.get(source, source)
     if source not in FINANCIAL_SOURCE_LABELS:
@@ -2331,7 +2353,7 @@ def _normalize_financial_source(raw_source):
 
 
 def _is_auto_financial_source(source):
-    return _normalize_financial_source(source) in {"sale", "purchase", "purchase_order", "xml_import", "recurring_expense", "recurrence"}
+    return _normalize_financial_source(source) in {"sale", "purchase", "purchase_order", "xml_import", "recurring_expense", "recurrence", "employee_expense"}
 
 
 def _effective_financial_status(status, due_date):
