@@ -1305,6 +1305,7 @@ body.theme-dark input[type="email"],
 body.theme-dark input[type="password"],
 body.theme-dark input[type="number"],
 body.theme-dark input[type="date"],
+body.theme-dark input[type="month"],
 body.theme-dark input[type="time"],
 body.theme-dark input[type="search"],
 body.theme-dark select,
@@ -1312,6 +1313,7 @@ body.theme-dark textarea {
   background-color: #1e293b;
   color: #f1f5f9;
   border-color: #334155;
+  color-scheme: dark;
 }
 
 body.theme-dark input:focus,
@@ -1334,6 +1336,13 @@ body.theme-dark input:-webkit-autofill:focus {
   -webkit-text-fill-color: #f1f5f9;
   -webkit-box-shadow: 0 0 0 1000px #1e293b inset;
   box-shadow: 0 0 0 1000px #1e293b inset;
+}
+
+body.theme-dark input[type="month"]::-webkit-calendar-picker-indicator,
+body.theme-dark input[type="date"]::-webkit-calendar-picker-indicator,
+body.theme-dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.15);
+  opacity: 0.95;
 }
 
 /* Placeholders */
