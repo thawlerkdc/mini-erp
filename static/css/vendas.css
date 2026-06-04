@@ -1281,3 +1281,119 @@ body.theme-dark .sales-toolbar-pdv.active:focus-visible {
     flex: 1;
   }
 }
+
+/* ===== ATALHOS TOOLTIP ===== */
+.sales-shortcuts-tooltip-wrap {
+  position: relative;
+  display: inline-block;
+}
+.sales-shortcuts-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  background: rgba(15, 23, 42, 0.97);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  padding: 12px 14px;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+}
+.sales-shortcuts-tooltip-wrap:hover .sales-shortcuts-tooltip,
+.sales-shortcuts-tooltip-wrap:focus-within .sales-shortcuts-tooltip {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+}
+.sales-shortcuts-tooltip strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #f8fafc;
+  font-size: 0.85rem;
+}
+.sales-shortcuts-tooltip ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+.sales-shortcuts-tooltip li {
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sales-shortcuts-tooltip kbd {
+  background: rgba(51, 65, 85, 0.9);
+  border: 1px solid rgba(148,163,184,0.4);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: #93c5fd;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.sales-shortcuts-list kbd {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148,163,184,0.35);
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: #93c5fd;
+}
+
+/* ===== CANCELAR VENDA BUTTON ===== */
+.sale-cancel-btn {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #fca5a5 !important;
+}
+.sale-cancel-btn:hover {
+  background: rgba(153, 27, 27, 0.22) !important;
+  border-color: rgba(239, 68, 68, 0.7) !important;
+}
+
+/* ===== NF HELP ICON ===== */
+.nf-help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(147, 197, 253, 0.12);
+  color: #93c5fd;
+  font-size: 0.8rem;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+/* ===== PAYMENT RECEIVED PLACEHOLDER ===== */
+#payment-received-input::placeholder {
+  color: rgba(148, 163, 184, 0.5);
+  font-size: 0.88rem;
+}
+
+[data-theme="light"] .sales-shortcuts-tooltip {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+  box-shadow: var(--card-shadow);
+}
+[data-theme="light"] .sales-shortcuts-tooltip strong,
+[data-theme="light"] .sales-shortcuts-tooltip li {
+  color: var(--text-primary);
+}
+[data-theme="light"] .sales-shortcuts-tooltip kbd,
+[data-theme="light"] .sales-shortcuts-list kbd {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--btn-primary-bg);
+}

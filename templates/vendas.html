@@ -17,8 +17,21 @@
                 <p>Adicione os produtos e ajuste as quantidades rapidamente.</p>
               </div>
               <div style="display:flex;gap:6px;align-items:center;">
-                <button type="button" class="outline-button sales-admin-link" id="sales-shortcuts-btn" onclick="openShortcutsModal()">&#9875; Atalhos</button>
-                <a class="outline-button sales-admin-link" href="{{ url_for('fechar_caixa') }}">&#9881; {{ t('close_cash') }}</a>
+                <div class="sales-shortcuts-tooltip-wrap" style="position:relative;display:inline-block;">
+                  <button type="button" class="outline-button sales-admin-link" id="sales-shortcuts-btn" onclick="openShortcutsModal()" aria-label="Atalhos do PDV">&#9875; Atalhos</button>
+                  <div class="sales-shortcuts-tooltip" role="tooltip" aria-hidden="true">
+                    <strong>Atalhos do PDV</strong>
+                    <ul>
+                      <li><kbd>F2</kbd> Buscar produto</li>
+                      <li><kbd>Enter</kbd> Adicionar produto</li>
+                      <li><kbd>Del</kbd> Remover item selecionado</li>
+                      <li><kbd>Ctrl+1..4</kbd> Trocar pagamento</li>
+                      <li><kbd>Ctrl+Enter</kbd> Finalizar venda</li>
+                      <li><kbd>Alt+N</kbd> Novo cliente</li>
+                    </ul>
+                  </div>
+                </div>
+                <button type="button" class="outline-button sales-admin-link" onclick="openCaixaCloseModal()">&#9881; {{ t('close_cash') }}</button>
               </div>
             </div>
 
@@ -107,7 +120,11 @@
                   <select name="client_id" id="sale-client-select">
                     <option value="">{{ t('no_client') }}</option>
                     {% for client in clients %}
-                      <option value="{{ client['id'] }}">{{ client['name'] }}</option>
+                      <option value="{{ client['id'] }}"
+                              data-cpf="{{ client['cpf'] or '' }}"
+                              data-phone="{{ client['phone'] or '' }}"
+                              data-email="{{ client['email'] or '' }}"
+                              data-name="{{ (client['name'] or '')|lower }}">{{ client['name'] }}</option>
                     {% endfor %}
                   </select>
                 </div>
@@ -124,9 +141,10 @@
                 </div>
               </div>
               {% if nf_enabled_for_account %}
-              <div class="param-check-row" style="margin-top:8px;">
+              <div class="param-check-row" style="margin-top:8px;display:flex;align-items:center;gap:8px;">
                 <input type="checkbox" id="emitir-nota-toggle">
-                <label for="emitir-nota-toggle">Emitir nota fiscal?</label>
+                <label for="emitir-nota-toggle" style="font-weight:600;">Emitir Nota Fiscal (NF-e)</label>
+                <span class="nf-help-icon" title="Ao marcar esta opção, a NF-e será enviada à SEFAZ após confirmar a venda. Após emissão, use o botão Visualizar DANFE para imprimir." style="cursor:help;color:#93c5fd;font-size:1rem;">&#9432;</span>
               </div>
               {% endif %}
             </div>
@@ -169,7 +187,7 @@
             <div class="sales-summary-grid" id="payment-actions-row">
               <div id="payment-received-row" class="field-group">
                 <label>{{ t('payment_received') }}</label>
-                <input name="payment_received" type="number" step="0.01" value="0.00" oninput="updateTotals()">
+                <input name="payment_received" id="payment-received-input" type="number" step="0.01" value="0.00" placeholder="Digite o valor recebido" onfocus="onReceivedFocus(this)" onblur="onReceivedBlur(this)" oninput="updateTotals()">
               </div>
             </div>
 
@@ -203,11 +221,12 @@
           </div>
 
           <div class="sales-actions-stack">
-            <a class="outline-button sale-report-btn" href="{{ url_for('relatorios', section='vendas_periodo') }}">Imprimir orçamento</a>
-            <button type="button" class="outline-button sale-report-btn" onclick="window.print()">Imprimir recibo</button>
+            <button type="button" class="outline-button sale-report-btn" onclick="openBudgetPrint()">&#128196; Imprimir orçamento</button>
+            <button type="button" class="outline-button sale-report-btn" onclick="window.print()">&#128203; Imprimir recibo</button>
             {% if nf_enabled_for_account %}
-            <button type="button" class="outline-button sale-report-btn" onclick="printLatestDanfe()">Imprimir nota</button>
+            <button type="button" class="outline-button sale-report-btn" id="btn-visualizar-danfe" onclick="openDanfeModal()">&#128195; Visualizar DANFE</button>
             {% endif %}
+            <button type="button" class="outline-button sale-report-btn sale-cancel-btn" onclick="openCancelSaleModal()">&#10006; Cancelar venda</button>
           </div>
         </aside>
       </form>
@@ -258,19 +277,85 @@
 
   <div id="sales-shortcuts-modal" class="pix-modal" style="display:none">
     <div class="pix-modal-content sales-shortcuts-modal-content">
-      <h3>Atalhos do PDV</h3>
-      <p>Use estes atalhos para vender mais rapido:</p>
+      <h3>&#9875; Atalhos do PDV</h3>
+      <p>Use estes atalhos para agilizar suas vendas:</p>
       <ul class="sales-shortcuts-list">
-        <li><strong>F2</strong> - foca a busca de produto</li>
-        <li><strong>Enter</strong> - adiciona produto selecionado</li>
-        <li><strong>Del</strong> - remove item selecionado</li>
-        <li><strong>Ctrl + 1/2/3/4</strong> - Dinheiro/Pix/Debito/Credito</li>
-        <li><strong>Ctrl + Shift + D</strong> - alterna Único/Dividido</li>
-        <li><strong>Ctrl + Enter</strong> - finalizar venda</li>
-        <li><strong>Alt + N</strong> - novo cliente</li>
+        <li><kbd>F2</kbd> — Foca a busca de produto</li>
+        <li><kbd>Enter</kbd> — Adiciona produto selecionado</li>
+        <li><kbd>Del</kbd> — Remove item selecionado</li>
+        <li><kbd>Ctrl + 1</kbd> — Dinheiro</li>
+        <li><kbd>Ctrl + 2</kbd> — Pix</li>
+        <li><kbd>Ctrl + 3</kbd> — Débito</li>
+        <li><kbd>Ctrl + 4</kbd> — Crédito</li>
+        <li><kbd>Ctrl + Shift + D</kbd> — Alterna Único / Dividido</li>
+        <li><kbd>Ctrl + Enter</kbd> — Finalizar venda</li>
+        <li><kbd>Alt + N</kbd> — Novo cliente</li>
+        <li><kbd>?</kbd> — Exibir atalhos</li>
       </ul>
       <div class="pix-modal-actions">
         <button type="button" class="btn-add" onclick="closeShortcutsModal()">Entendi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Visualizar DANFE -->
+  <div id="danfe-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content" style="max-width:480px;">
+      <h3>&#128195; Nota Fiscal (DANFE)</h3>
+      <div id="danfe-modal-body">
+        <p style="color:#6b7280;">Verificando status da nota fiscal...</p>
+      </div>
+      <div class="pix-modal-actions" id="danfe-modal-actions">
+        <button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Fechar Caixa - Confirmação -->
+  <div id="caixa-close-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content" style="max-width:500px;">
+      <h3>&#9881; Fechar Caixa</h3>
+      <p style="color:#6b7280;margin-bottom:16px;">Confira o resumo do dia antes de confirmar o fechamento:</p>
+      <div id="caixa-summary-body" style="margin-bottom:16px;">
+        <p style="color:#6b7280;text-align:center;">Carregando totais...</p>
+      </div>
+      <div class="pix-modal-actions">
+        <a id="caixa-close-confirm-btn" href="{{ url_for('fechar_caixa') }}" class="btn-add">&#10003; Confirmar Fechamento</a>
+        <button type="button" class="btn-cancel" onclick="closeCaixaCloseModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Cancelar Venda -->
+  <div id="cancel-sale-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content" style="max-width:640px;width:95%;">
+      <h3>&#10006; Cancelar Venda</h3>
+      <p style="color:#6b7280;margin-bottom:16px;">Pesquise a venda pelo número, cliente ou data:</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" id="cancel-sale-search-input" placeholder="Nº venda, nome do cliente ou data (DD/MM)..."
+               style="flex:1;min-height:40px;border-radius:10px;background:rgba(15,23,42,0.74);border:1px solid rgba(148,163,184,0.24);color:#f8fafc;padding:0 12px;font-size:0.95rem;"
+               oninput="debounceCancelSearch(this.value)">
+        <button type="button" class="btn-add" style="padding:0 18px;min-height:40px;" onclick="searchSalesToCancel()">Buscar</button>
+      </div>
+      <div id="cancel-sale-results" style="max-height:280px;overflow-y:auto;margin-bottom:16px;"></div>
+      <div id="cancel-sale-reason-wrap" style="display:none;margin-bottom:12px;">
+        <label style="display:block;font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#cbd5e1;margin-bottom:6px;">Motivo do cancelamento <span style="color:#f87171;">*</span></label>
+        <textarea id="cancel-sale-reason" rows="3" placeholder="Descreva o motivo do cancelamento..."
+                  style="width:100%;border-radius:10px;background:rgba(15,23,42,0.74);border:1px solid rgba(148,163,184,0.24);color:#f8fafc;padding:10px 12px;font-size:0.9rem;resize:vertical;"></textarea>
+        <div id="cancel-sale-nf-warn" style="display:none;margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;font-size:0.88rem;">
+          <strong>&#9888; Esta venda possui NF-e.</strong> Deseja também cancelar a nota fiscal na SEFAZ?
+          <div style="margin-top:8px;display:flex;gap:8px;">
+            <button type="button" class="btn-add" style="padding:4px 14px;font-size:0.85rem;" onclick="setCancelWithNF(true)">Sim, cancelar NF-e</button>
+            <button type="button" class="outline-button" style="padding:4px 14px;font-size:0.85rem;" onclick="setCancelWithNF(false)">Não, só a venda</button>
+          </div>
+        </div>
+        <div class="pix-modal-actions" style="margin-top:12px;">
+          <button type="button" class="btn-add" id="btn-confirm-cancel-sale" onclick="confirmCancelSale()" style="background:linear-gradient(135deg,#ef4444,#dc2626);">&#10006; Confirmar Cancelamento</button>
+          <button type="button" class="btn-cancel" onclick="closeCancelSaleModal()">Voltar</button>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <button type="button" class="btn-cancel" onclick="closeCancelSaleModal()">Fechar</button>
       </div>
     </div>
   </div>
@@ -283,6 +368,7 @@
     var CARD_SETTINGS = {{ card_settings_json|safe }};
     var PAYMENT_UI_SETTINGS = {{ payment_ui_settings_json|safe }};
     var SALES_RULES = {{ (sales_rules_json or '{}')|safe }};
+    var LAST_SALE_ID = {{ last_sale_id or 0 }};
     var PIX_QR_INSTANCE = null;
     var SALE_ROW_TEMPLATE_HTML = '';
     var SALE_PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%231e293b'/%3E%3Cstop offset='100%25' stop-color='%230f172a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='20' fill='url(%23g)'/%3E%3Cpath d='M28 77l17-18 14 15 17-24 16 27H28z' fill='%235f7ea0' opacity='.9'/%3E%3Ccircle cx='45' cy='42' r='9' fill='%2393c5fd'/%3E%3C/svg%3E";
@@ -334,11 +420,325 @@
     }
 
     function printLatestDanfe() {
+      openDanfeModal();
+    }
+
+    function openBudgetPrint() {
+      window.open("{{ url_for('relatorios', section='vendas_periodo') }}", '_blank', 'noopener,noreferrer');
+    }
+
+    /* ===== DANFE Modal ===== */
+    function openDanfeModal() {
       if (!SALES_RULES.nf_enabled) {
         alert('Emissão de nota fiscal está desabilitada para esta conta.');
         return;
       }
-      alert('Após emitir uma venda com nota fiscal, utilize o endpoint /api/v1/nfe para obter o DANFE.');
+      var modal = document.getElementById('danfe-modal');
+      var body = document.getElementById('danfe-modal-body');
+      var actions = document.getElementById('danfe-modal-actions');
+      modal.style.display = 'flex';
+
+      var saleId = LAST_SALE_ID;
+      if (!saleId || saleId <= 0) {
+        // Try to get from localStorage or show message
+        var stored = localStorage.getItem('mini_erp_last_sale_id');
+        if (stored) saleId = parseInt(stored, 10) || 0;
+      }
+
+      if (!saleId || saleId <= 0) {
+        body.innerHTML = '<p style="color:#f87171;">Nenhuma venda recente encontrada nesta sessão.<br>Finalize uma venda com nota fiscal primeiro.</p>';
+        actions.innerHTML = '<button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>';
+        return;
+      }
+
+      body.innerHTML = '<p style="color:#6b7280;">Verificando status da nota #' + saleId + '...</p>';
+      actions.innerHTML = '<button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>';
+
+      fetch('/nfe/status?sale_id=' + saleId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok && data.status && data.status.toLowerCase() === 'emitida') {
+            body.innerHTML =
+              '<div style="padding:12px;border-radius:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);margin-bottom:12px;">' +
+              '<p style="color:#4ade80;font-weight:700;margin:0 0 6px;">&#10003; Nota Fiscal Emitida</p>' +
+              '<p style="color:#cbd5e1;margin:0;font-size:0.9rem;">Venda #' + saleId + (data.invoice_key ? '<br>Chave: <small style="word-break:break-all;">' + data.invoice_key + '</small>' : '') + '</p>' +
+              '</div>' +
+              '<p style="color:#94a3b8;font-size:0.88rem;">Clique em <strong>Abrir DANFE</strong> para visualizar ou imprimir a nota fiscal.</p>';
+            actions.innerHTML =
+              '<button type="button" class="btn-add" onclick="openDanfePdf(' + saleId + ')">&#128195; Abrir DANFE</button>' +
+              '<button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>';
+          } else if (data.ok) {
+            var st = (data.status || 'pendente').toUpperCase();
+            body.innerHTML =
+              '<div style="padding:12px;border-radius:10px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);margin-bottom:12px;">' +
+              '<p style="color:#fbbf24;font-weight:700;margin:0 0 6px;">&#9888; Nota ainda não emitida — Status: ' + st + '</p>' +
+              '<p style="color:#cbd5e1;margin:0;font-size:0.9rem;">A nota fiscal da venda #' + saleId + ' ainda não foi autorizada pela SEFAZ.</p>' +
+              '</div>' +
+              '<p style="color:#94a3b8;font-size:0.88rem;">Clique em <strong>Emitir agora</strong> para tentar transmitir a NF-e.</p>';
+            actions.innerHTML =
+              '<button type="button" class="btn-add" onclick="emitDanfeNow(' + saleId + ')">&#8635; Emitir agora</button>' +
+              '<button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>';
+          } else {
+            body.innerHTML =
+              '<div style="padding:12px;border-radius:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);margin-bottom:12px;">' +
+              '<p style="color:#f87171;font-weight:700;margin:0 0 6px;">Nota fiscal ainda não emitida</p>' +
+              '<p style="color:#cbd5e1;margin:0;font-size:0.9rem;">' + (data.error || 'Venda sem nota fiscal associada.') + '</p>' +
+              '</div>' +
+              '<p style="color:#94a3b8;font-size:0.88rem;">Use o botão <strong>Emitir Nota Fiscal (NF-e)</strong> ao fechar a próxima venda.</p>';
+            actions.innerHTML = '<button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>';
+          }
+        })
+        .catch(function() {
+          body.innerHTML = '<p style="color:#f87171;">Erro de comunicação ao verificar a nota. Tente novamente.</p>';
+          actions.innerHTML = '<button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>';
+        });
+    }
+
+    function closeDanfeModal() {
+      document.getElementById('danfe-modal').style.display = 'none';
+    }
+
+    function openDanfePdf(saleId) {
+      window.open('/api/v1/nfe/' + saleId + '/danfe', '_blank', 'noopener,noreferrer');
+    }
+
+    function emitDanfeNow(saleId) {
+      var body = document.getElementById('danfe-modal-body');
+      var actions = document.getElementById('danfe-modal-actions');
+      body.innerHTML = '<p style="color:#6b7280;">Enviando nota para a SEFAZ...</p>';
+      actions.innerHTML = '<button type="button" class="btn-cancel" disabled>Fechar</button>';
+      fetch('/nfe/emitir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sale_id: saleId })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok && data.status && data.status.toLowerCase() === 'emitida') {
+          body.innerHTML =
+            '<p style="color:#4ade80;font-weight:700;">&#10003; Nota emitida com sucesso!</p>';
+          actions.innerHTML =
+            '<button type="button" class="btn-add" onclick="openDanfePdf(' + saleId + ')">&#128195; Abrir DANFE</button>' +
+            '<button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>';
+        } else {
+          body.innerHTML =
+            '<p style="color:#fbbf24;">&#9888; ' + (data.message || data.error || 'Nota ficou pendente. Verifique os Parâmetros fiscais.') + '</p>';
+          actions.innerHTML = '<button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>';
+        }
+      })
+      .catch(function() {
+        body.innerHTML = '<p style="color:#f87171;">Erro de comunicação. Tente novamente.</p>';
+        actions.innerHTML = '<button type="button" class="btn-cancel" onclick="closeDanfeModal()">Fechar</button>';
+      });
+    }
+
+    /* ===== Fechar Caixa Modal ===== */
+    function openCaixaCloseModal() {
+      var modal = document.getElementById('caixa-close-modal');
+      var summaryBody = document.getElementById('caixa-summary-body');
+      modal.style.display = 'flex';
+      summaryBody.innerHTML = '<p style="color:#6b7280;text-align:center;">Carregando totais...</p>';
+
+      fetch('/api/v1/caixa/summary')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok) {
+            var html = '<table style="width:100%;border-collapse:collapse;">';
+            html += '<tr style="border-bottom:1px solid rgba(148,163,184,0.2);"><th style="text-align:left;padding:8px 4px;color:#94a3b8;font-size:0.8rem;text-transform:uppercase;">Forma</th><th style="text-align:right;padding:8px 4px;color:#94a3b8;font-size:0.8rem;text-transform:uppercase;">Total</th></tr>';
+            var methods = data.by_method || {};
+            Object.keys(methods).sort().forEach(function(method) {
+              html += '<tr style="border-bottom:1px solid rgba(148,163,184,0.08);"><td style="padding:8px 4px;color:#e2e8f0;">' + method + '</td><td style="text-align:right;padding:8px 4px;color:#60a5fa;font-weight:700;">R$ ' + formatCurrency(methods[method]) + '</td></tr>';
+            });
+            html += '<tr><td style="padding:10px 4px;font-weight:800;color:#f8fafc;">Total do dia</td><td style="text-align:right;padding:10px 4px;font-weight:800;color:#4ade80;font-size:1.1rem;">R$ ' + formatCurrency(data.total_day || 0) + '</td></tr>';
+            html += '</table>';
+            html += '<p style="color:#94a3b8;font-size:0.82rem;margin-top:10px;"><strong>' + (data.sale_count || 0) + '</strong> vendas hoje. Ticket médio: <strong>R$ ' + formatCurrency(data.avg_ticket || 0) + '</strong></p>';
+            if (data.pending_nf_count > 0) {
+              html += '<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;font-size:0.88rem;"><strong>&#9888; ' + data.pending_nf_count + ' nota(s) fiscal(is) pendente(s).</strong> Verifique antes de fechar.</div>';
+            }
+            summaryBody.innerHTML = html;
+          } else {
+            summaryBody.innerHTML = '<p style="color:#f87171;">Não foi possível carregar os totais. Prossiga com cautela.</p>';
+          }
+        })
+        .catch(function() {
+          summaryBody.innerHTML = '<p style="color:#f87171;">Erro ao consultar totais. Prossiga com cautela.</p>';
+        });
+    }
+
+    function closeCaixaCloseModal() {
+      document.getElementById('caixa-close-modal').style.display = 'none';
+    }
+
+    /* ===== Cancelar Venda Modal ===== */
+    var _cancelSaleId = null;
+    var _cancelWithNF = false;
+    var _cancelSearchTimer = null;
+
+    function openCancelSaleModal() {
+      document.getElementById('cancel-sale-modal').style.display = 'flex';
+      document.getElementById('cancel-sale-results').innerHTML = '';
+      document.getElementById('cancel-sale-reason-wrap').style.display = 'none';
+      document.getElementById('cancel-sale-search-input').value = '';
+      document.getElementById('cancel-sale-search-input').focus();
+      _cancelSaleId = null;
+      _cancelWithNF = false;
+    }
+
+    function closeCancelSaleModal() {
+      document.getElementById('cancel-sale-modal').style.display = 'none';
+    }
+
+    function debounceCancelSearch(value) {
+      clearTimeout(_cancelSearchTimer);
+      if (!value || value.trim().length < 2) return;
+      _cancelSearchTimer = setTimeout(function() { searchSalesToCancel(); }, 400);
+    }
+
+    function searchSalesToCancel() {
+      var q = (document.getElementById('cancel-sale-search-input').value || '').trim();
+      var resultsEl = document.getElementById('cancel-sale-results');
+      if (!q) return;
+      resultsEl.innerHTML = '<p style="color:#6b7280;font-size:0.9rem;">Buscando...</p>';
+      fetch('/api/v1/vendas/search?q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.ok || !data.items || !data.items.length) {
+            resultsEl.innerHTML = '<p style="color:#6b7280;font-size:0.9rem;padding:8px 0;">Nenhuma venda encontrada.</p>';
+            return;
+          }
+          var html = '<table style="width:100%;border-collapse:collapse;font-size:0.88rem;">';
+          html += '<tr style="border-bottom:1px solid rgba(148,163,184,0.2);"><th style="text-align:left;padding:6px 4px;color:#94a3b8;">Venda</th><th style="text-align:left;padding:6px 4px;color:#94a3b8;">Cliente</th><th style="text-align:left;padding:6px 4px;color:#94a3b8;">Data</th><th style="text-align:right;padding:6px 4px;color:#94a3b8;">Total</th><th style="text-align:left;padding:6px 4px;color:#94a3b8;">Pagamento</th><th style="text-align:center;padding:6px 4px;color:#94a3b8;">Status</th><th></th></tr>';
+          data.items.forEach(function(sale) {
+            var statusColor = sale.status === 'cancelada' ? '#f87171' : '#4ade80';
+            var canCancel = sale.status !== 'cancelada';
+            html += '<tr style="border-bottom:1px solid rgba(148,163,184,0.08);">' +
+              '<td style="padding:7px 4px;color:#e2e8f0;font-weight:700;">#' + sale.id + '</td>' +
+              '<td style="padding:7px 4px;color:#e2e8f0;">' + (sale.client_name || '—') + '</td>' +
+              '<td style="padding:7px 4px;color:#cbd5e1;">' + (sale.date || '—') + '</td>' +
+              '<td style="padding:7px 4px;text-align:right;color:#60a5fa;font-weight:600;">R$ ' + formatCurrency(sale.total || 0) + '</td>' +
+              '<td style="padding:7px 4px;color:#cbd5e1;">' + (sale.payment_method || '—') + '</td>' +
+              '<td style="padding:7px 4px;text-align:center;"><span style="color:' + statusColor + ';font-weight:700;">' + (sale.status || 'ativa').toUpperCase() + '</span></td>' +
+              '<td style="padding:7px 4px;">' + (canCancel ? '<button type="button" class="outline-button" style="padding:3px 10px;font-size:0.8rem;" onclick="selectSaleToCancel(' + sale.id + ',' + (sale.has_nfe ? 'true' : 'false') + ')">Selecionar</button>' : '') + '</td>' +
+              '</tr>';
+          });
+          html += '</table>';
+          resultsEl.innerHTML = html;
+        })
+        .catch(function() {
+          resultsEl.innerHTML = '<p style="color:#f87171;font-size:0.9rem;">Erro ao buscar vendas.</p>';
+        });
+    }
+
+    function selectSaleToCancel(saleId, hasNFe) {
+      _cancelSaleId = saleId;
+      _cancelWithNF = false;
+      var wrap = document.getElementById('cancel-sale-reason-wrap');
+      wrap.style.display = '';
+      document.getElementById('cancel-sale-reason').value = '';
+      var nfWarn = document.getElementById('cancel-sale-nf-warn');
+      if (hasNFe) {
+        nfWarn.style.display = '';
+      } else {
+        nfWarn.style.display = 'none';
+        _cancelWithNF = false;
+      }
+      wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById('cancel-sale-reason').focus();
+    }
+
+    function setCancelWithNF(value) {
+      _cancelWithNF = !!value;
+      var nfWarn = document.getElementById('cancel-sale-nf-warn');
+      nfWarn.innerHTML = '<strong>&#10003; ' + (value ? 'Cancelar NF-e também' : 'Só cancelar a venda') + '</strong> — selecionado.';
+    }
+
+    function confirmCancelSale() {
+      if (!_cancelSaleId) return;
+      var reason = (document.getElementById('cancel-sale-reason').value || '').trim();
+      if (!reason) {
+        document.getElementById('cancel-sale-reason').style.border = '2px solid #f87171';
+        document.getElementById('cancel-sale-reason').focus();
+        return;
+      }
+      document.getElementById('cancel-sale-reason').style.border = '';
+      var btn = document.getElementById('btn-confirm-cancel-sale');
+      if (btn) { btn.disabled = true; btn.textContent = 'Cancelando...'; }
+
+      fetch('/api/v1/vendas/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sale_id: _cancelSaleId, reason: reason, cancel_nfe: _cancelWithNF })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          closeCancelSaleModal();
+          showInlineFeedback('Venda #' + _cancelSaleId + ' cancelada com sucesso.');
+          _cancelSaleId = null;
+        } else {
+          if (btn) { btn.disabled = false; btn.textContent = '✖ Confirmar Cancelamento'; }
+          alert('Erro ao cancelar: ' + (data.error || 'Tente novamente.'));
+        }
+      })
+      .catch(function() {
+        if (btn) { btn.disabled = false; btn.textContent = '✖ Confirmar Cancelamento'; }
+        alert('Erro de comunicação. Tente novamente.');
+      });
+    }
+
+    /* ===== Valor recebido auto-clear ===== */
+    function onReceivedFocus(input) {
+      if (parseNumber(input.value) === 0) {
+        input.value = '';
+      } else {
+        input.select();
+      }
+    }
+
+    function onReceivedBlur(input) {
+      if (!input.value || input.value.trim() === '') {
+        input.value = '0.00';
+        updateTotals();
+      }
+    }
+
+    /* ===== Client TomSelect ===== */
+    function initClientCombobox(selectEl) {
+      if (!selectEl || typeof TomSelect === 'undefined' || selectEl.tomselect) return;
+      new TomSelect(selectEl, {
+        create: false,
+        allowEmptyOption: true,
+        maxOptions: 300,
+        searchField: ['text', 'data-name', 'data-cpf', 'data-phone', 'data-email'],
+        placeholder: 'Buscar cliente por nome, CPF ou telefone...',
+        render: {
+          option: function(data, escape) {
+            if (!data.value) return '<div class="option">' + escape(data.text) + '</div>';
+            var cpf = data['data-cpf'] || '';
+            var phone = data['data-phone'] || '';
+            var meta = [cpf, phone].filter(Boolean).join(' · ');
+            return '<div class="option">' +
+              '<strong>' + escape(data.text) + '</strong>' +
+              (meta ? '<small style="display:block;color:#94a3b8;font-size:0.8rem;">' + escape(meta) + '</small>' : '') +
+              '</div>';
+          }
+        },
+        score: function(search) {
+          var score = this.getScoreFunction(search);
+          return function(item) {
+            var nameScore = score(item);
+            var cpf = (item['data-cpf'] || '').toLowerCase();
+            var phone = (item['data-phone'] || '').toLowerCase();
+            var email = (item['data-email'] || '').toLowerCase();
+            var q = search.toLowerCase();
+            var bonus = 0;
+            if (cpf.includes(q)) bonus = 1;
+            else if (phone.includes(q)) bonus = 0.9;
+            else if (email.includes(q)) bonus = 0.8;
+            return nameScore + bonus;
+          };
+        }
+      });
     }
 
     function getSelectedPaymentMethod() {
@@ -1953,6 +2353,12 @@
     applySalesRules();
     setSelectedPaymentMethod('Dinheiro');
     initProductCombobox(getPickerSelect());
+    initClientCombobox(document.getElementById('sale-client-select'));
+
+    // Store last sale ID in localStorage for DANFE button
+    if (LAST_SALE_ID && LAST_SALE_ID > 0) {
+      try { localStorage.setItem('mini_erp_last_sale_id', String(LAST_SALE_ID)); } catch(e) {}
+    }
     let pickerSelect = getPickerSelect();
     if (pickerSelect && !pickerSelect.tomselect) {
       pickerSelect.addEventListener('change', function() {

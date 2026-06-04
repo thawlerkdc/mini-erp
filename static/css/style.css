@@ -2564,6 +2564,29 @@ body.theme-dark .user-menu-theme.active {
   box-shadow: var(--card-shadow);
 }
 
+a.dashboard-kpi-card-link {
+  display: block;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  position: relative;
+}
+a.dashboard-kpi-card-link:hover {
+  transform: translateY(-3px) scale(1.015);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.25);
+  filter: brightness(1.06);
+}
+a.dashboard-kpi-card-link:active {
+  transform: translateY(-1px) scale(1.005);
+}
+
+.dashboard-kpi-cta {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.7;
+  letter-spacing: 0.02em;
+}
+
 .dashboard-kpi-card.tone-success {
   background: linear-gradient(135deg, #2f9d57, #48b56f);
 }

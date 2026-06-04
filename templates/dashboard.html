@@ -18,7 +18,11 @@
     <section class="dashboard-kpi-grid" id="dashboard-kpi-grid">
       {% for kpi in dashboard_kpis %}
         {% set delta_positive = ((kpi.delta >= 0) and not kpi.invert_delta) or ((kpi.delta <= 0) and kpi.invert_delta) %}
+        {% if kpi.link %}
+        <a href="{{ kpi.link }}" class="dashboard-kpi-card tone-{{ kpi.card_tone }} dashboard-kpi-card-link" title="Ver detalhes: {{ kpi.title }}" style="text-decoration:none;">
+        {% else %}
         <article class="dashboard-kpi-card tone-{{ kpi.card_tone }}">
+        {% endif %}
           <div class="dashboard-kpi-head">
             <span class="dashboard-kpi-title">{{ kpi.title }}</span>
             <span class="dashboard-kpi-icon" aria-hidden="true">{{ kpi.icon }}</span>
@@ -32,7 +36,14 @@
               {{ '%.1f'|format(kpi.delta|abs) }}% {{ kpi.delta_prefix }}
             </div>
           {% endif %}
+          {% if kpi.link %}
+          <div class="dashboard-kpi-cta">Ver detalhes →</div>
+          {% endif %}
+        {% if kpi.link %}
+        </a>
+        {% else %}
         </article>
+        {% endif %}
       {% endfor %}
     </section>
 

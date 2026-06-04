@@ -4361,6 +4361,7 @@ def dashboard():
                 "icon": "↗",
                 "static_badge": False,
                 "invert_delta": False,
+                "link": url_for("relatorios", section="vendas_periodo"),
             },
             {
                 "title": "Despesas",
@@ -4371,6 +4372,7 @@ def dashboard():
                 "icon": "↘",
                 "static_badge": False,
                 "invert_delta": True,
+                "link": url_for("financeiro") + "#a-pagar",
             },
             {
                 "title": "Lucro (DRE)",
@@ -4381,6 +4383,7 @@ def dashboard():
                 "icon": "≈",
                 "static_badge": False,
                 "invert_delta": False,
+                "link": url_for("relatorios"),
             },
             {
                 "title": "Estoque critico",
@@ -4391,6 +4394,7 @@ def dashboard():
                 "icon": "!",
                 "static_badge": True,
                 "invert_delta": False,
+                "link": url_for("controle_estoque"),
             },
         ]
     except Exception as exc:
@@ -5661,9 +5665,11 @@ def vendas():
         ).fetchall()
 
         conn.close()
+        session['last_sale_id'] = sale_id
         return redirect(url_for("vendas"))
 
     conn.close()
+    last_sale_id = session.pop('last_sale_id', None)
     return render_template(
         "vendas.html",
         title=translate("menu_sales"),
@@ -5675,6 +5681,7 @@ def vendas():
         payment_ui_settings_json=payment_ui_settings_json,
         sales_rules_json=sales_rules_json,
         nf_enabled_for_account=nf_enabled_for_account,
+        last_sale_id=last_sale_id,
     )
 
 
@@ -6255,6 +6262,199 @@ def nfe_status_internal():
         conn.close()
 
 
+@app.route("/api/v1/caixa/summary", methods=["GET"])
+def api_caixa_summary():
+    """Retorna totais do dia por forma de pagamento para o modal de fechamento de caixa."""
+    if not session.get("user"):
+        return jsonify({"ok": False, "error": "Não autenticado."}), 401
+    account_id = get_current_account_id()
+    if not account_id:
+        return jsonify({"ok": False, "error": "Conta inválida."}), 400
+    conn = get_tenant_connection()
+    try:
+        today = datetime.now().strftime("%Y-%m-%d")
+        sales_today = conn.execute(
+            "SELECT payment_method, total, nf_requested, fiscal_status FROM sales WHERE account_id = %s AND date LIKE %s AND COALESCE(status, 'ativa') != 'cancelada'",
+            (account_id, f"{today}%"),
+        ).fetchall()
+        by_method: dict = {}
+        for sale in sales_today:
+            method = (sale["payment_method"] or "N/A").split(" | ")[0].split(" R$")[0].strip()
+            by_method[method] = by_method.get(method, 0.0) + float(sale["total"] or 0)
+        total_day = sum(by_method.values())
+        sale_count = len(sales_today)
+        avg_ticket = total_day / sale_count if sale_count > 0 else 0
+        pending_nf_count = sum(
+            1 for s in sales_today
+            if s.get("nf_requested") == 1 and (s.get("fiscal_status") or "") in ("pendente", "erro")
+        )
+        return jsonify({
+            "ok": True,
+            "by_method": {k: round(v, 2) for k, v in sorted(by_method.items())},
+            "total_day": round(total_day, 2),
+            "sale_count": sale_count,
+            "avg_ticket": round(avg_ticket, 2),
+            "pending_nf_count": pending_nf_count,
+        })
+    except Exception as exc:
+        logger.exception("Falha em api_caixa_summary: %s", exc)
+        return jsonify({"ok": False, "error": "Falha ao consultar totais."}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/v1/vendas/search", methods=["GET"])
+def api_vendas_search():
+    """Busca vendas para o modal de cancelamento."""
+    if not session.get("user"):
+        return jsonify({"ok": False, "error": "Não autenticado."}), 401
+    account_id = get_current_account_id()
+    if not account_id:
+        return jsonify({"ok": False, "error": "Conta inválida."}), 400
+    q = (request.args.get("q") or "").strip()
+    if not q:
+        return jsonify({"ok": True, "items": []})
+    conn = get_tenant_connection()
+    try:
+        # Detect if query looks like a sale ID number
+        sale_id_filter = None
+        clean_q = q.lstrip("#").strip()
+        if clean_q.isdigit():
+            sale_id_filter = int(clean_q)
+
+        rows = conn.execute(
+            "SELECT s.id, s.date, s.total, s.payment_method, COALESCE(s.status, 'ativa') AS status, "
+            "       c.name AS client_name, "
+            "       CASE WHEN sfd.id IS NOT NULL THEN 1 ELSE 0 END AS has_nfe "
+            "FROM sales s "
+            "LEFT JOIN clients c ON c.id = s.client_id "
+            "LEFT JOIN sale_fiscal_documents sfd ON sfd.sale_id = s.id AND sfd.account_id = s.account_id "
+            "WHERE s.account_id = %s "
+            "  AND (%s OR s.id = %s OR LOWER(c.name) LIKE %s OR TO_CHAR(s.date::date, 'DD/MM') LIKE %s OR TO_CHAR(s.date::date, 'DD/MM/YYYY') LIKE %s) "
+            "ORDER BY s.id DESC LIMIT 30",
+            (
+                account_id,
+                sale_id_filter is None,
+                sale_id_filter or 0,
+                f"%{q.lower()}%",
+                f"%{q}%",
+                f"%{q}%",
+            ),
+        ).fetchall()
+        items = []
+        for row in rows:
+            items.append({
+                "id": int(row["id"]),
+                "date": (row["date"] or "")[:16],
+                "total": float(row["total"] or 0),
+                "payment_method": row["payment_method"] or "",
+                "status": row["status"] or "ativa",
+                "client_name": row["client_name"] or "",
+                "has_nfe": bool(row["has_nfe"]),
+            })
+        return jsonify({"ok": True, "items": items})
+    except Exception as exc:
+        logger.exception("Falha em api_vendas_search: %s", exc)
+        return jsonify({"ok": False, "error": "Falha ao buscar vendas."}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/v1/vendas/cancel", methods=["POST"])
+def api_vendas_cancel():
+    """Cancela uma venda e opcionalmente a NF-e associada."""
+    if not session.get("user"):
+        return jsonify({"ok": False, "error": "Não autenticado."}), 401
+    account_id = get_current_account_id()
+    if not account_id:
+        return jsonify({"ok": False, "error": "Conta inválida."}), 400
+
+    payload = request.get_json(silent=True) or {}
+    sale_id = _safe_int(payload.get("sale_id"), 0)
+    reason = (payload.get("reason") or "").strip()
+    cancel_nfe = bool(payload.get("cancel_nfe", False))
+
+    if sale_id <= 0:
+        return jsonify({"ok": False, "error": "Informe um sale_id válido."}), 400
+    if not reason:
+        return jsonify({"ok": False, "error": "Motivo do cancelamento é obrigatório."}), 400
+
+    conn = get_tenant_connection()
+    try:
+        sale = conn.execute(
+            "SELECT id, total, COALESCE(status, 'ativa') AS status FROM sales WHERE id = %s AND account_id = %s LIMIT 1",
+            (sale_id, account_id),
+        ).fetchone()
+        if not sale:
+            return jsonify({"ok": False, "error": "Venda não encontrada."}), 404
+        if sale["status"] == "cancelada":
+            return jsonify({"ok": False, "error": "Esta venda já está cancelada."}), 409
+
+        # Mark sale as cancelled
+        conn.execute(
+            "UPDATE sales SET status = 'cancelada', cancel_reason = %s, cancelled_at = %s, cancelled_by = %s WHERE id = %s AND account_id = %s",
+            (reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("user"), sale_id, account_id),
+        )
+
+        # Reverse stock movements
+        sale_items = conn.execute(
+            "SELECT product_id, quantity FROM sale_items WHERE sale_id = %s", (sale_id,)
+        ).fetchall()
+        cancel_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for item in sale_items:
+            conn.execute(
+                "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
+                (item["quantity"], item["product_id"], account_id),
+            )
+            conn.execute(
+                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (account_id, item["product_id"], item["quantity"], "cancel", cancel_date, f"Cancelamento venda #{sale_id}: {reason[:80]}", get_current_user_id(), session.get("user_name") or session.get("user")),
+            )
+
+        # Update financial entry
+        conn.execute(
+            "UPDATE financial_entries SET status = 'cancelado', notes = %s WHERE account_id = %s AND source = 'sale' AND source_ref = %s",
+            (f"Venda cancelada: {reason[:120]}", account_id, str(sale_id)),
+        )
+
+        conn.commit()
+
+        log_audit_event(
+            account_id=account_id,
+            user=session.get("user"),
+            action="cancelar_venda",
+            entity="sale",
+            entity_id=sale_id,
+            details={"reason": reason, "cancel_nfe": cancel_nfe, "total": float(sale["total"] or 0)},
+        )
+
+        nfe_result = None
+        if cancel_nfe:
+            try:
+                doc = conn.execute(
+                    "SELECT invoice_key FROM sale_fiscal_documents WHERE sale_id = %s AND account_id = %s LIMIT 1",
+                    (sale_id, account_id),
+                ).fetchone()
+                if doc and doc.get("invoice_key"):
+                    nfe_result = {"attempted": True, "invoice_key": doc["invoice_key"]}
+                    # NF-e cancellation via SEFAZ requires specific protocol; mark as pending cancellation
+                    conn.execute(
+                        "UPDATE sale_fiscal_documents SET status = 'cancelamento_pendente' WHERE sale_id = %s AND account_id = %s",
+                        (sale_id, account_id),
+                    )
+                    conn.commit()
+            except Exception as nfe_exc:
+                logger.exception("Falha ao tentar cancelar NF-e da venda %s: %s", sale_id, nfe_exc)
+
+        return jsonify({"ok": True, "sale_id": sale_id, "nfe_result": nfe_result})
+    except Exception as exc:
+        conn.rollback()
+        logger.exception("Falha em api_vendas_cancel: %s", exc)
+        return jsonify({"ok": False, "error": "Falha ao cancelar a venda."}), 500
+    finally:
+        conn.close()
+
+
 @app.route("/fechar_caixa")
 def fechar_caixa():
     if not session.get("user"):
@@ -6272,11 +6472,11 @@ def fechar_caixa():
     clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     today = datetime.now().strftime("%Y-%m-%d")
     sales_today = conn.execute(
-        "SELECT id, date, payment_method, total, nf_requested, fiscal_status FROM sales WHERE account_id = %s AND date LIKE %s ORDER BY date ASC",
+        "SELECT id, date, payment_method, total, nf_requested, fiscal_status FROM sales WHERE account_id = %s AND date LIKE %s AND COALESCE(status, 'ativa') != 'cancelada' ORDER BY date ASC",
         (account_id, f"{today}%"),
     ).fetchall()
     cash_total = conn.execute(
-        "SELECT COALESCE(SUM(total), 0) FROM sales WHERE account_id = %s AND date LIKE %s AND payment_method = %s",
+        "SELECT COALESCE(SUM(total), 0) FROM sales WHERE account_id = %s AND date LIKE %s AND payment_method = %s AND COALESCE(status, 'ativa') != 'cancelada'",
         (account_id, f"{today}%", "Dinheiro"),
     ).fetchone()[0]
     total_day = sum(float(sale["total"] or 0) for sale in sales_today)

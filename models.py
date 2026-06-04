@@ -622,6 +622,12 @@ _TENANT_MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_employee_salary_history_account ON employee_salary_history (account_id, employee_id, created_at)",
     "CREATE INDEX IF NOT EXISTS idx_employee_documents_account_employee ON employee_documents (account_id, employee_id, created_at)",
     "CREATE INDEX IF NOT EXISTS idx_employees_salary_review ON employees (account_id, salary_review_date)",
+    # Cancellation support for sales
+    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ativa'",
+    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS cancel_reason TEXT",
+    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS cancelled_at TEXT",
+    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS cancelled_by TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_sales_account_status ON sales (account_id, status)",
 ]
 
 ADMIN_USER = ("admin", "admin123", "admin@kdcsystems.local", 1)
