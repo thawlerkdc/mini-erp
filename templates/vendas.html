@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260607pdv15') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260607pdv16') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -615,7 +615,11 @@
       fetch('/api/v1/vendas/search?q=' + encodeURIComponent(q))
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          if (!data.ok || !data.items || !data.items.length) {
+          if (!data.ok) {
+            resultsEl.innerHTML = '<p style="color:#f87171;font-size:0.9rem;padding:8px 0;">' + (data.error || 'Erro ao buscar vendas.') + '</p>';
+            return;
+          }
+          if (!data.items || !data.items.length) {
             resultsEl.innerHTML = '<p style="color:#6b7280;font-size:0.9rem;padding:8px 0;">Nenhuma venda encontrada.</p>';
             return;
           }

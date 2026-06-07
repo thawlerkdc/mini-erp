@@ -282,6 +282,8 @@
     #sale-client-select-ts-control .item,
     #sale-client-select-ts-control input {
       color: #f8fafc !important;
+      font-weight: 700;
+      text-shadow: none;
     }
     #sale-client-select-ts-dropdown,
     #sale-client-select-ts-dropdown .ts-dropdown-content {
@@ -306,6 +308,10 @@
     }
     #sale-client-select-ts-dropdown .option small {
       color: #93c5fd !important;
+    }
+    #sale-client-select-ts-dropdown .option.active small,
+    #sale-client-select-ts-dropdown .option:hover small {
+      color: #dbeafe !important;
     }
     .sales-summary-card .ts-dropdown,
     .sales-summary-card .ts-dropdown .ts-dropdown-content {
@@ -953,9 +959,14 @@
       border-color: var(--input-focus-border);
     }
     [data-theme="light"] .sales-method-card.active {
-      background: var(--sidebar-item-active-bg);
-      border-color: var(--input-focus-border);
-      box-shadow: 0 0 0 1px var(--input-focus-border) inset, 0 4px 12px rgba(11, 74, 130, 0.14);
+      background: linear-gradient(135deg, #0b4a82, #1d4ed8) !important;
+      border-color: #0b4a82 !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 0 1px rgba(191, 219, 254, 0.55) inset, 0 8px 18px rgba(11, 74, 130, 0.26);
+    }
+    [data-theme="light"] .sales-method-card.active strong,
+    [data-theme="light"] .sales-method-card.active .sales-method-icon {
+      color: #ffffff !important;
     }
     [data-theme="light"] .multi-payment-block {
       background: var(--bg-secondary);
@@ -1436,9 +1447,10 @@ body.theme-dark .sales-toolbar-pdv.active:focus-visible {
 }
 
 [data-theme="light"] .sales-shortcuts-tooltip {
-  background: var(--card-bg);
-  border-color: var(--card-border);
-  box-shadow: var(--card-shadow);
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.2) !important;
+  z-index: 12000;
 }
 [data-theme="light"] .sales-summary-card .ts-dropdown,
 [data-theme="light"] .sales-summary-card .ts-dropdown .ts-dropdown-content {
@@ -1452,7 +1464,8 @@ body.theme-dark .sales-toolbar-pdv.active:focus-visible {
 }
 [data-theme="light"] #sale-client-select-ts-control .item,
 [data-theme="light"] #sale-client-select-ts-control input {
-  color: var(--text-primary) !important;
+  color: #0f172a !important;
+  font-weight: 700;
 }
 [data-theme="light"] #sale-client-select-ts-dropdown,
 [data-theme="light"] #sale-client-select-ts-dropdown .ts-dropdown-content {
@@ -1463,12 +1476,20 @@ body.theme-dark .sales-toolbar-pdv.active:focus-visible {
 }
 [data-theme="light"] #sale-client-select-ts-dropdown .option {
   background: #ffffff !important;
-  color: var(--text-primary) !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] #sale-client-select-ts-dropdown .option small {
+  color: #64748b !important;
+  font-weight: 600;
 }
 [data-theme="light"] #sale-client-select-ts-dropdown .option.active,
 [data-theme="light"] #sale-client-select-ts-dropdown .option:hover {
-  background: rgba(11, 74, 130, 0.13) !important;
+  background: #dbeafe !important;
   color: #0f172a !important;
+}
+[data-theme="light"] #sale-client-select-ts-dropdown .option.active small,
+[data-theme="light"] #sale-client-select-ts-dropdown .option:hover small {
+  color: #334155 !important;
 }
 [data-theme="light"] .sales-summary-card .ts-dropdown .option {
   color: var(--text-primary) !important;
