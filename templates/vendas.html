@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260607pdv14') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260607pdv15') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -274,6 +274,17 @@
     </div>
   </div>
 
+  <div id="cash-validation-modal" class="pix-modal" style="display:none">
+    <div class="pix-modal-content" style="max-width:460px;">
+      <h3 id="cash-validation-title">Atenção no valor recebido</h3>
+      <p id="cash-validation-message" style="margin-bottom:14px;"></p>
+      <div class="pix-modal-actions" id="cash-validation-actions">
+        <button type="button" class="btn-confirm" id="cash-validation-confirm-btn">Confirmar</button>
+        <button type="button" class="btn-cancel" id="cash-validation-cancel-btn">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="sales-shortcuts-modal" class="pix-modal" style="display:none">
     <div class="pix-modal-content sales-shortcuts-modal-content">
       <h3>&#9875; Atalhos do PDV</h3>
@@ -380,9 +391,12 @@
     var PAYMENT_METHOD_OPTIONS = ['Dinheiro', 'Pix', 'Debito', 'Crédito'];
     var SAVE_DRAFT_DEBOUNCE_MS = 250;
     var NO_CLIENT_BYPASS = false;
+    var CASH_VALIDATION_BYPASS = false;
     var saleDraftTimer = null;
     var restoringSaleDraft = false;
     var SALE_SUBMITTING = false;
+    var _cashValidationOnConfirm = null;
+    var _cashValidationOnCancel = null;
 
     function applySalesRules() {
       let allowDiscount = SALES_RULES.allow_discount !== false;
@@ -701,6 +715,54 @@
       }
     }
 
+    function closeCashValidationModal() {
+      var modal = document.getElementById('cash-validation-modal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      _cashValidationOnConfirm = null;
+      _cashValidationOnCancel = null;
+    }
+
+    function openCashValidationModal(options) {
+      var modal = document.getElementById('cash-validation-modal');
+      var titleEl = document.getElementById('cash-validation-title');
+      var messageEl = document.getElementById('cash-validation-message');
+      var confirmBtn = document.getElementById('cash-validation-confirm-btn');
+      var cancelBtn = document.getElementById('cash-validation-cancel-btn');
+      if (!modal || !titleEl || !messageEl || !confirmBtn || !cancelBtn) return;
+
+      titleEl.textContent = options.title || 'Atenção';
+      messageEl.textContent = options.message || '';
+      confirmBtn.textContent = options.confirmText || 'Entendi';
+      cancelBtn.textContent = options.cancelText || 'Cancelar';
+      cancelBtn.style.display = options.showCancel === false ? 'none' : '';
+
+      _cashValidationOnConfirm = typeof options.onConfirm === 'function' ? options.onConfirm : null;
+      _cashValidationOnCancel = typeof options.onCancel === 'function' ? options.onCancel : null;
+
+      modal.style.display = 'flex';
+      confirmBtn.focus();
+    }
+
+    function setupCashValidationModalEvents() {
+      var confirmBtn = document.getElementById('cash-validation-confirm-btn');
+      var cancelBtn = document.getElementById('cash-validation-cancel-btn');
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+          var cb = _cashValidationOnConfirm;
+          closeCashValidationModal();
+          if (cb) cb();
+        });
+      }
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+          var cb = _cashValidationOnCancel;
+          closeCashValidationModal();
+          if (cb) cb();
+        });
+      }
+    }
+
     /* ===== Client TomSelect ===== */
     function initClientCombobox(selectEl) {
       if (!selectEl || typeof TomSelect === 'undefined' || selectEl.tomselect) return;
@@ -708,8 +770,19 @@
         create: false,
         allowEmptyOption: true,
         maxOptions: 300,
+        dropdownParent: 'body',
         searchField: ['text', 'name', 'cpf', 'phone', 'email'],
         placeholder: 'Buscar cliente por nome, CPF ou telefone...',
+        onInitialize: function() {
+          var self = this;
+          Array.prototype.slice.call(selectEl.options || []).forEach(function(opt) {
+            if (!opt || !opt.value || !self.options[opt.value]) return;
+            self.options[opt.value].name = (opt.dataset.name || opt.text || '').toLowerCase();
+            self.options[opt.value].cpf = opt.dataset.cpf || '';
+            self.options[opt.value].phone = opt.dataset.phone || '';
+            self.options[opt.value].email = (opt.dataset.email || '').toLowerCase();
+          });
+        },
         render: {
           option: function(data, escape) {
             if (!data.value) return '<div class="option">' + escape(data.text) + '</div>';
@@ -1913,6 +1986,21 @@
           document.getElementById('no-client-confirm-btn').click();
         }
       }
+
+      var cashValidationModal = document.getElementById('cash-validation-modal');
+      if (cashValidationModal && cashValidationModal.style.display === 'flex') {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          var cancelCb = _cashValidationOnCancel;
+          closeCashValidationModal();
+          if (cancelCb) cancelCb();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          var confirmCb = _cashValidationOnConfirm;
+          closeCashValidationModal();
+          if (confirmCb) confirmCb();
+        }
+      }
     });
 
     function confirmClearSaleData() {
@@ -1940,11 +2028,39 @@
       var receivedInput = document.querySelector('input[name="payment_received"]');
       var received = parseNumber(receivedInput ? receivedInput.value : 0);
       if ((received + 0.001) < orderTotal) {
-        showInlineFeedback('Valor recebido em dinheiro não pode ser menor que o total da venda.');
-        if (receivedInput) {
-          receivedInput.focus();
-          receivedInput.select();
-        }
+        openCashValidationModal({
+          title: 'Valor recebido insuficiente',
+          message: 'O valor recebido em dinheiro não pode ser menor que o total da venda.',
+          confirmText: 'Entendi',
+          showCancel: false,
+          onConfirm: function() {
+            if (receivedInput) {
+              receivedInput.focus();
+              receivedInput.select();
+            }
+          }
+        });
+        return false;
+      }
+      var difference = received - orderTotal;
+      if (difference >= 200 && !CASH_VALIDATION_BYPASS) {
+        openCashValidationModal({
+          title: 'Confirmar valor recebido',
+          message: 'O valor recebido está R$ ' + formatCurrency(difference) + ' acima do total da venda. Deseja continuar assim?',
+          confirmText: 'Confirmar valor',
+          cancelText: 'Revisar valor',
+          showCancel: true,
+          onConfirm: function() {
+            CASH_VALIDATION_BYPASS = true;
+            document.getElementById('sale-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+          },
+          onCancel: function() {
+            if (receivedInput) {
+              receivedInput.focus();
+              receivedInput.select();
+            }
+          }
+        });
         return false;
       }
       return true;
@@ -2345,6 +2461,7 @@
         SALE_SUBMITTING = false;
         return;
       }
+      CASH_VALIDATION_BYPASS = false;
 
       if (!shouldOpenPixModal()) {
         SALE_SUBMITTING = true;
@@ -2374,6 +2491,7 @@
     setSelectedPaymentMethod('Dinheiro');
     initProductCombobox(getPickerSelect());
     initClientCombobox(document.getElementById('sale-client-select'));
+    setupCashValidationModalEvents();
 
     // Store last sale ID in localStorage for DANFE button
     if (LAST_SALE_ID && LAST_SALE_ID > 0) {
