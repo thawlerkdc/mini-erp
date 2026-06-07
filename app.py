@@ -1703,6 +1703,8 @@ SETTINGS_DEFAULTS = {
     "solicitar_nota_por_padrao": "0",
     "permitir_desconto": "1",
     "permitir_juros": "1",
+    "cancel_sale_permission_scope": "admin_only",
+    "cancel_sale_password_hash": "",
     "plan_requires_nf_feature": "0",
     "api_key_hash": "",
     "api_key_last4": "",
@@ -2027,6 +2029,12 @@ def _is_nf_enabled_for_account(account_id, settings):
 def _hash_api_key(raw_api_key):
     secret = (os.environ.get("API_KEY_SIGNING_SECRET") or app.secret_key or "kdc_api_secret").encode("utf-8")
     return hmac.new(secret, (raw_api_key or "").encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _hash_cancel_sale_password(account_id, raw_password):
+    scope_secret = (os.environ.get("CANCEL_SALE_PASSWORD_SECRET") or app.secret_key or "kdc_cancel_sale_secret").encode("utf-8")
+    payload = f"{account_id}:{(raw_password or '').strip()}".encode("utf-8")
+    return hmac.new(scope_secret, payload, hashlib.sha256).hexdigest()
 
 
 def _generate_new_api_key_for_account(account_id):
@@ -2874,6 +2882,13 @@ def save_account_settings(account_id, form_data):
 
     keys = list(SETTINGS_DEFAULTS.keys())
     current_settings = get_account_settings(account_id)
+    cancel_scope = (form_data.get("cancel_sale_permission_scope") or current_settings.get("cancel_sale_permission_scope") or "admin_only").strip().lower()
+    if cancel_scope not in {"admin_only", "admin_and_staff"}:
+        cancel_scope = "admin_only"
+    cancel_password_input = (form_data.get("cancel_sale_password") or "").strip()
+    cancel_password_hash = current_settings.get("cancel_sale_password_hash") or ""
+    if cancel_password_input:
+        cancel_password_hash = _hash_cancel_sale_password(account_id, cancel_password_input)
     smtp_password_input = (form_data.get("smtp_password") or "").strip()
     smtp_password_value = smtp_password_input or (current_settings.get("smtp_password") or "")
     pix_key_type, pix_key_value = _sanitize_pix_key(form_data.get("pix_key_type"), form_data.get("pix_key_value"))
@@ -2943,6 +2958,8 @@ def save_account_settings(account_id, form_data):
         "solicitar_nota_por_padrao": _normalize_yes_no(form_data.get("solicitar_nota_por_padrao")),
         "permitir_desconto": _normalize_yes_no(form_data.get("permitir_desconto"), default=True),
         "permitir_juros": _normalize_yes_no(form_data.get("permitir_juros"), default=True),
+        "cancel_sale_permission_scope": cancel_scope,
+        "cancel_sale_password_hash": cancel_password_hash,
         "plan_requires_nf_feature": _normalize_yes_no(form_data.get("plan_requires_nf_feature")),
         "api_key_hash": (form_data.get("api_key_hash") or current_settings.get("api_key_hash") or "").strip(),
         "api_key_last4": (form_data.get("api_key_last4") or current_settings.get("api_key_last4") or "").strip(),
@@ -5283,6 +5300,7 @@ def vendas():
         return render_template("placeholder.html", title=translate("menu_sales"))
     pix_code = None
     cash_summary = None
+    sale_completed = request.args.get("sale_completed") == "1"
     settings = get_account_settings(account_id)
     nf_enabled_for_account = _is_nf_enabled_for_account(account_id, settings)
     card_settings_json = json.dumps({
@@ -5306,6 +5324,8 @@ def vendas():
             "allow_interest": settings.get("permitir_juros", "1") == "1",
             "print_receipt": settings.get("imprimir_recibo", "1") == "1",
             "print_note": nf_enabled_for_account and settings.get("imprimir_nota") == "1",
+            "cancel_scope": settings.get("cancel_sale_permission_scope", "admin_only"),
+            "cancel_password_enabled": bool((settings.get("cancel_sale_password_hash") or "").strip()),
         },
         ensure_ascii=False,
     )
@@ -5671,7 +5691,7 @@ def vendas():
 
         conn.close()
         session['last_sale_id'] = sale_id
-        return redirect(url_for("vendas"))
+        return redirect(url_for("vendas", sale_completed=1))
 
     conn.close()
     last_sale_id = session.pop('last_sale_id', None)
@@ -5686,6 +5706,7 @@ def vendas():
         payment_ui_settings_json=payment_ui_settings_json,
         sales_rules_json=sales_rules_json,
         nf_enabled_for_account=nf_enabled_for_account,
+        sale_completed=sale_completed,
         last_sale_id=last_sale_id,
     )
 
@@ -6415,17 +6436,34 @@ def api_vendas_search():
             "ORDER BY s.id DESC LIMIT 100",
             tuple(params),
         ).fetchall()
+        def _normalize_sale_date(raw_value):
+            value = str(raw_value or "").strip()
+            if not value:
+                return "", None
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y"):
+                try:
+                    dt = datetime.strptime(value[:19] if fmt.startswith("%Y") else value[:19], fmt)
+                    return dt.strftime("%d/%m/%Y %H:%M") if "H" in fmt else dt.strftime("%d/%m/%Y"), dt.date()
+                except Exception:
+                    continue
+            if len(value) >= 10 and value[4] == "-":
+                return value[8:10] + "/" + value[5:7] + "/" + value[0:4], None
+            return value, None
+
         items = []
+        today_date = datetime.now().date()
         for row in rows:
             row_date = row["date"]
+            display_date, parsed_date = _normalize_sale_date(row_date)
             items.append({
                 "id": int(row["id"]),
-                "date": str(row_date or "")[:16],
+                "date": display_date,
                 "total": float(row["total"] or 0),
                 "payment_method": row["payment_method"] or "",
                 "status": row["status"] or "ativa",
                 "client_name": row["client_name"] or "",
                 "has_nfe": bool(row["has_nfe"]),
+                "is_previous_day": bool(parsed_date and parsed_date < today_date),
             })
         return jsonify({"ok": True, "items": items})
     except Exception as exc:
@@ -6448,6 +6486,7 @@ def api_vendas_cancel():
     sale_id = _safe_int(payload.get("sale_id"), 0)
     reason = (payload.get("reason") or "").strip()
     cancel_nfe = bool(payload.get("cancel_nfe", False))
+    cancel_password = (payload.get("cancel_password") or "").strip()
 
     if sale_id <= 0:
         return jsonify({"ok": False, "error": "Informe um sale_id válido."}), 400
@@ -6456,14 +6495,38 @@ def api_vendas_cancel():
 
     conn = get_tenant_connection()
     try:
+        settings = get_account_settings(account_id)
+        cancel_scope = (settings.get("cancel_sale_permission_scope") or "admin_only").strip().lower()
+        if cancel_scope not in {"admin_only", "admin_and_staff"}:
+            cancel_scope = "admin_only"
+        is_admin_user = bool(session.get("is_admin")) or (session.get("role") in {"owner", "admin"})
+        if cancel_scope == "admin_only" and not is_admin_user:
+            return jsonify({"ok": False, "error": "Somente administradores podem cancelar vendas nesta conta."}), 403
+
         sale = conn.execute(
-            "SELECT id, total, COALESCE(status, 'ativa') AS status FROM sales WHERE id = %s AND account_id = %s LIMIT 1",
+            "SELECT id, total, date, COALESCE(status, 'ativa') AS status FROM sales WHERE id = %s AND account_id = %s LIMIT 1",
             (sale_id, account_id),
         ).fetchone()
         if not sale:
             return jsonify({"ok": False, "error": "Venda não encontrada."}), 404
         if sale["status"] == "cancelada":
             return jsonify({"ok": False, "error": "Esta venda já está cancelada."}), 409
+
+        sale_date_str = str(sale.get("date") or "").strip()
+        parsed_sale_date = None
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y"):
+            try:
+                parsed_sale_date = datetime.strptime(sale_date_str[:19] if fmt.startswith("%Y") else sale_date_str[:19], fmt).date()
+                break
+            except Exception:
+                continue
+        if parsed_sale_date and parsed_sale_date < datetime.now().date():
+            expected_hash = (settings.get("cancel_sale_password_hash") or "").strip()
+            if not expected_hash:
+                return jsonify({"ok": False, "error": "Esta conta exige senha para cancelar vendas de dias anteriores. Cadastre a senha nos Parâmetros."}), 403
+            informed_hash = _hash_cancel_sale_password(account_id, cancel_password)
+            if not cancel_password or not hmac.compare_digest(informed_hash, expected_hash):
+                return jsonify({"ok": False, "error": "Senha de cancelamento inválida para venda de data anterior."}), 403
 
         # Mark sale as cancelled
         conn.execute(
@@ -6611,43 +6674,50 @@ def fechar_caixa():
             "allow_interest": settings.get("permitir_juros", "1") == "1",
             "print_receipt": settings.get("imprimir_recibo", "1") == "1",
             "print_note": nf_enabled_for_account and settings.get("imprimir_nota") == "1",
+            "cancel_scope": settings.get("cancel_sale_permission_scope", "admin_only"),
+            "cancel_password_enabled": bool((settings.get("cancel_sale_password_hash") or "").strip()),
         },
         ensure_ascii=False,
     )
 
     if recipients:
-        lines = [
-            f"{sale['date']} | Venda #{sale['id']} | {sale['payment_method'] or 'N/A'} | R$ {float(sale['total'] or 0):.2f}"
-            for sale in sales_today
-        ]
+        try:
+            lines = [
+                f"{sale['date']} | Venda #{sale['id']} | {sale['payment_method'] or 'N/A'} | R$ {float(sale['total'] or 0):.2f}"
+                for sale in sales_today
+            ]
 
-        totals_by_method = {}
-        for sale in sales_today:
-            method = sale["payment_method"] or "N/A"
-            totals_by_method[method] = totals_by_method.get(method, 0.0) + float(sale["total"] or 0)
+            totals_by_method = {}
+            for sale in sales_today:
+                method = sale["payment_method"] or "N/A"
+                totals_by_method[method] = totals_by_method.get(method, 0.0) + float(sale["total"] or 0)
 
-        method_lines = [
-            f"- {method}: R$ {amount:.2f}"
-            for method, amount in sorted(totals_by_method.items(), key=lambda row: row[0])
-        ]
+            method_lines = [
+                f"- {method}: R$ {amount:.2f}"
+                for method, amount in sorted(totals_by_method.items(), key=lambda row: row[0])
+            ]
 
-        body = (
-            f"Fechamento de caixa - {today}\n\n"
-            "Vendas do dia:\n"
-            + ("\n".join(lines) if lines else "Nenhuma venda registrada hoje.")
-            + "\n\nTotalizador final:\n"
-            + ("\n".join(method_lines) if method_lines else "- Nenhuma venda no período")
-            + f"\n- Total em dinheiro: R$ {cash_total:.2f}"
-            + f"\n- Total geral do dia: R$ {total_day:.2f}"
-            + f"\n- Quantidade de vendas: {len(sales_today)}"
-        )
-        email_sent, email_error = send_email_with_settings(
-            account_id,
-            recipients,
-            f"Fechamento de caixa - {today}",
-            body,
-            audit_payload={"email_action": "cash_close_report", "report_date": today},
-        )
+            body = (
+                f"Fechamento de caixa - {today}\n\n"
+                "Vendas do dia:\n"
+                + ("\n".join(lines) if lines else "Nenhuma venda registrada hoje.")
+                + "\n\nTotalizador final:\n"
+                + ("\n".join(method_lines) if method_lines else "- Nenhuma venda no período")
+                + f"\n- Total em dinheiro: R$ {cash_total:.2f}"
+                + f"\n- Total geral do dia: R$ {total_day:.2f}"
+                + f"\n- Quantidade de vendas: {len(sales_today)}"
+            )
+            email_sent, email_error = send_email_with_settings(
+                account_id,
+                recipients,
+                f"Fechamento de caixa - {today}",
+                body,
+                audit_payload={"email_action": "cash_close_report", "report_date": today},
+            )
+        except Exception as exc:
+            logger.exception("Falha ao consolidar/enviar fechamento de caixa: %s", exc)
+            email_sent = False
+            email_error = "Fechamento concluído sem envio de e-mail (erro ao gerar relatório)."
 
     conn.close()
     cash_summary = f"{translate('cash_total_message')} {cash_total:.2f}. Total geral do dia: {total_day:.2f}. "
@@ -6679,6 +6749,7 @@ def fechar_caixa():
         }),
         sales_rules_json=sales_rules_json,
         nf_enabled_for_account=nf_enabled_for_account,
+        sale_completed=False,
         sales_today=[dict(s) for s in sales_today],
     )
 

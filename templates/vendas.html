@@ -342,16 +342,22 @@
       <h3>&#10006; Cancelar Venda</h3>
       <p style="color:#6b7280;margin-bottom:16px;">Pesquise a venda pelo número, cliente ou data:</p>
       <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <input type="text" id="cancel-sale-search-input" placeholder="Nº venda, nome do cliente ou data (DD/MM)..."
+        <input type="text" id="cancel-sale-search-input" placeholder="Nº venda, nome do cliente ou data (DD/MM/AAAA)..."
                style="flex:1;min-height:40px;border-radius:10px;background:rgba(15,23,42,0.74);border:1px solid rgba(148,163,184,0.24);color:#f8fafc;padding:0 12px;font-size:0.95rem;"
                oninput="debounceCancelSearch(this.value)">
         <button type="button" class="btn-add" style="padding:0 18px;min-height:40px;" onclick="searchSalesToCancel()">Buscar</button>
       </div>
+      <div id="cancel-sale-feedback" class="sales-inline-feedback" style="display:none;margin-bottom:12px;"></div>
       <div id="cancel-sale-results" style="max-height:280px;overflow-y:auto;margin-bottom:16px;"></div>
       <div id="cancel-sale-reason-wrap" style="display:none;margin-bottom:12px;">
         <label style="display:block;font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#cbd5e1;margin-bottom:6px;">Motivo do cancelamento <span style="color:#f87171;">*</span></label>
         <textarea id="cancel-sale-reason" rows="3" placeholder="Descreva o motivo do cancelamento..."
                   style="width:100%;border-radius:10px;background:rgba(15,23,42,0.74);border:1px solid rgba(148,163,184,0.24);color:#f8fafc;padding:10px 12px;font-size:0.9rem;resize:vertical;"></textarea>
+        <div id="cancel-sale-password-wrap" style="display:none;margin-top:10px;">
+          <label style="display:block;font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#cbd5e1;margin-bottom:6px;">Senha de cancelamento</label>
+          <input type="password" id="cancel-sale-password" placeholder="Informe a senha para cancelar venda de data anterior"
+                 style="width:100%;min-height:40px;border-radius:10px;background:rgba(15,23,42,0.74);border:1px solid rgba(148,163,184,0.24);color:#f8fafc;padding:0 12px;font-size:0.92rem;">
+        </div>
         <div id="cancel-sale-nf-warn" style="display:none;margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;font-size:0.88rem;">
           <strong>&#9888; Esta venda possui NF-e.</strong> Deseja também cancelar a nota fiscal na SEFAZ?
           <div style="margin-top:8px;display:flex;gap:8px;">
@@ -379,6 +385,7 @@
     var PAYMENT_UI_SETTINGS = {{ payment_ui_settings_json|safe }};
     var SALES_RULES = {{ (sales_rules_json or '{}')|safe }};
     var LAST_SALE_ID = {{ last_sale_id or 0 }};
+    var SALE_COMPLETED = {{ 1 if sale_completed else 0 }};
     var PIX_QR_INSTANCE = null;
     var SALE_ROW_TEMPLATE_HTML = '';
     var SALE_PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%231e293b'/%3E%3Cstop offset='100%25' stop-color='%230f172a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='20' fill='url(%23g)'/%3E%3Cpath d='M28 77l17-18 14 15 17-24 16 27H28z' fill='%235f7ea0' opacity='.9'/%3E%3Ccircle cx='45' cy='42' r='9' fill='%2393c5fd'/%3E%3C/svg%3E";
@@ -586,15 +593,27 @@
     var _cancelSaleId = null;
     var _cancelWithNF = false;
     var _cancelSearchTimer = null;
+    var _cancelNeedsPassword = false;
+
+    function showCancelSaleFeedback(message) {
+      var feedback = document.getElementById('cancel-sale-feedback');
+      if (!feedback) return;
+      feedback.textContent = message || '';
+      feedback.style.display = message ? '' : 'none';
+    }
 
     function openCancelSaleModal() {
       document.getElementById('cancel-sale-modal').style.display = 'flex';
       document.getElementById('cancel-sale-results').innerHTML = '';
       document.getElementById('cancel-sale-reason-wrap').style.display = 'none';
       document.getElementById('cancel-sale-search-input').value = '';
+      document.getElementById('cancel-sale-password').value = '';
+      document.getElementById('cancel-sale-password-wrap').style.display = 'none';
+      showCancelSaleFeedback('');
       document.getElementById('cancel-sale-search-input').focus();
       _cancelSaleId = null;
       _cancelWithNF = false;
+      _cancelNeedsPassword = false;
     }
 
     function closeCancelSaleModal() {
@@ -610,6 +629,7 @@
     function searchSalesToCancel() {
       var q = (document.getElementById('cancel-sale-search-input').value || '').trim();
       var resultsEl = document.getElementById('cancel-sale-results');
+      showCancelSaleFeedback('');
       if (!q) return;
       resultsEl.innerHTML = '<p style="color:#6b7280;font-size:0.9rem;">Buscando...</p>';
       fetch('/api/v1/vendas/search?q=' + encodeURIComponent(q))
@@ -635,23 +655,27 @@
               '<td style="padding:7px 4px;text-align:right;color:#60a5fa;font-weight:600;">R$ ' + formatCurrency(sale.total || 0) + '</td>' +
               '<td style="padding:7px 4px;color:#cbd5e1;">' + (sale.payment_method || '—') + '</td>' +
               '<td style="padding:7px 4px;text-align:center;"><span style="color:' + statusColor + ';font-weight:700;">' + (sale.status || 'ativa').toUpperCase() + '</span></td>' +
-              '<td style="padding:7px 4px;">' + (canCancel ? '<button type="button" class="outline-button" style="padding:3px 10px;font-size:0.8rem;" onclick="selectSaleToCancel(' + sale.id + ',' + (sale.has_nfe ? 'true' : 'false') + ')">Selecionar</button>' : '') + '</td>' +
+              '<td style="padding:7px 4px;">' + (canCancel ? '<button type="button" class="outline-button" style="padding:3px 10px;font-size:0.8rem;" onclick="selectSaleToCancel(' + sale.id + ',' + (sale.has_nfe ? 'true' : 'false') + ',' + (sale.is_previous_day ? 'true' : 'false') + ')">Selecionar</button>' : '') + '</td>' +
               '</tr>';
           });
           html += '</table>';
           resultsEl.innerHTML = html;
         })
         .catch(function() {
-          resultsEl.innerHTML = '<p style="color:#f87171;font-size:0.9rem;">Erro ao buscar vendas.</p>';
+          showCancelSaleFeedback('Falha ao buscar vendas. Tente novamente.');
+          resultsEl.innerHTML = '';
         });
     }
 
-    function selectSaleToCancel(saleId, hasNFe) {
+    function selectSaleToCancel(saleId, hasNFe, isPreviousDay) {
       _cancelSaleId = saleId;
       _cancelWithNF = false;
+      _cancelNeedsPassword = !!isPreviousDay;
       var wrap = document.getElementById('cancel-sale-reason-wrap');
       wrap.style.display = '';
       document.getElementById('cancel-sale-reason').value = '';
+      document.getElementById('cancel-sale-password').value = '';
+      document.getElementById('cancel-sale-password-wrap').style.display = _cancelNeedsPassword ? '' : 'none';
       var nfWarn = document.getElementById('cancel-sale-nf-warn');
       if (hasNFe) {
         nfWarn.style.display = '';
@@ -672,19 +696,28 @@
     function confirmCancelSale() {
       if (!_cancelSaleId) return;
       var reason = (document.getElementById('cancel-sale-reason').value || '').trim();
+      var cancelPassword = (document.getElementById('cancel-sale-password').value || '').trim();
       if (!reason) {
         document.getElementById('cancel-sale-reason').style.border = '2px solid #f87171';
         document.getElementById('cancel-sale-reason').focus();
         return;
       }
+      if (_cancelNeedsPassword && !cancelPassword) {
+        document.getElementById('cancel-sale-password').style.border = '2px solid #f87171';
+        document.getElementById('cancel-sale-password').focus();
+        showCancelSaleFeedback('Senha obrigatória para cancelar venda de data anterior.');
+        return;
+      }
       document.getElementById('cancel-sale-reason').style.border = '';
+      document.getElementById('cancel-sale-password').style.border = '';
+      showCancelSaleFeedback('');
       var btn = document.getElementById('btn-confirm-cancel-sale');
       if (btn) { btn.disabled = true; btn.textContent = 'Cancelando...'; }
 
       fetch('/api/v1/vendas/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sale_id: _cancelSaleId, reason: reason, cancel_nfe: _cancelWithNF })
+        body: JSON.stringify({ sale_id: _cancelSaleId, reason: reason, cancel_nfe: _cancelWithNF, cancel_password: cancelPassword })
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
@@ -694,12 +727,12 @@
           _cancelSaleId = null;
         } else {
           if (btn) { btn.disabled = false; btn.textContent = '✖ Confirmar Cancelamento'; }
-          alert('Erro ao cancelar: ' + (data.error || 'Tente novamente.'));
+          showCancelSaleFeedback(data.error || 'Falha ao cancelar a venda.');
         }
       })
       .catch(function() {
         if (btn) { btn.disabled = false; btn.textContent = '✖ Confirmar Cancelamento'; }
-        alert('Erro de comunicação. Tente novamente.');
+        showCancelSaleFeedback('Erro de comunicação ao cancelar venda.');
       });
     }
 
@@ -2553,6 +2586,9 @@
     updateEmptyState();
     bindPixCopyActions();
     restoreSaleDraft();
+    if (SALE_COMPLETED) {
+      clearSaleData();
+    }
   </script>
 
   {% if nf_enabled_for_account and sales_today is defined %}

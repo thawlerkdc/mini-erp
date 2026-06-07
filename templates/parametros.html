@@ -61,6 +61,20 @@
           <label for="permitir_juros">Permitir juros/acréscimo na venda</label>
         </div>
 
+        <h4 class="param-subtitle">Cancelamento de venda</h4>
+        <label>Quem pode cancelar venda</label>
+        <select name="cancel_sale_permission_scope">
+          <option value="admin_only" {% if settings.get('cancel_sale_permission_scope', 'admin_only') == 'admin_only' %}selected{% endif %}>Somente administrador da conta</option>
+          <option value="admin_and_staff" {% if settings.get('cancel_sale_permission_scope') == 'admin_and_staff' %}selected{% endif %}>Administrador e funcionários</option>
+        </select>
+        <label>Senha para cancelamento de venda anterior (opcional)</label>
+        <input type="password" name="cancel_sale_password" value="" autocomplete="new-password" placeholder="Se preenchida, será exigida para cancelar vendas de dias anteriores">
+        {% if settings.get('cancel_sale_password_hash') %}
+          <p class="param-hint-small">Senha de cancelamento já cadastrada. Preencha novamente apenas para atualizar.</p>
+        {% else %}
+          <p class="param-hint-small">Nenhuma senha cadastrada. Sem senha, somente vendas do dia poderão ser canceladas.</p>
+        {% endif %}
+
         <div class="param-check-row">
           <input type="checkbox" name="solicitar_nota_por_padrao" id="solicitar_nota_por_padrao" {% if settings.get('solicitar_nota_por_padrao') == '1' %}checked{% endif %}>
           <label for="solicitar_nota_por_padrao">Quando NF estiver ativa, iniciar venda com "Emitir nota?" marcado</label>
