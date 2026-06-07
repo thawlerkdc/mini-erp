@@ -245,19 +245,26 @@
           var deltaPositive = ((Number(kpi.delta || 0) >= 0) && !kpi.invert_delta) || ((Number(kpi.delta || 0) <= 0) && kpi.invert_delta);
           var trendClass = deltaPositive ? 'trend-positive' : 'trend-negative';
           var trendArrow = deltaPositive ? '↑' : '↓';
+          var hasLink = !!(kpi && kpi.link);
+          var openTag = hasLink
+            ? '<a href="' + escapeHtml(kpi.link) + '" class="dashboard-kpi-card tone-' + escapeHtml(kpi.card_tone) + ' dashboard-kpi-card-link" title="Ver detalhes: ' + escapeHtml(kpi.title) + '" style="text-decoration:none;">'
+            : '<article class="dashboard-kpi-card tone-' + escapeHtml(kpi.card_tone) + '">';
+          var closeTag = hasLink ? '</a>' : '</article>';
           var trendHtml = kpi.static_badge
             ? '<div class="dashboard-kpi-trend trend-warning">' + escapeHtml(kpi.delta_prefix) + '</div>'
             : '<div class="dashboard-kpi-trend ' + trendClass + '">' + trendArrow + ' ' + Math.abs(Number(kpi.delta || 0)).toFixed(1) + '% ' + escapeHtml(kpi.delta_prefix) + '</div>';
+          var ctaHtml = hasLink ? '<div class="dashboard-kpi-cta">Ver detalhes →</div>' : '';
 
           return '' +
-            '<article class="dashboard-kpi-card tone-' + escapeHtml(kpi.card_tone) + '">' +
+            openTag +
               '<div class="dashboard-kpi-head">' +
                 '<span class="dashboard-kpi-title">' + escapeHtml(kpi.title) + '</span>' +
                 '<span class="dashboard-kpi-icon" aria-hidden="true">' + escapeHtml(kpi.icon) + '</span>' +
               '</div>' +
               '<div class="dashboard-kpi-value">' + escapeHtml(kpi.value) + '</div>' +
               trendHtml +
-            '</article>';
+              ctaHtml +
+            closeTag;
         }).join('');
       }
 

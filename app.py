@@ -5410,6 +5410,11 @@ def vendas():
             if payment_method == "Crédito":
                 payment_method = f"Crédito ({max(1, installments_single)}x)"
 
+        if payment_method == "Dinheiro" and (payment_received + 0.001) < total:
+            flash("Valor recebido em dinheiro não pode ser menor que o total da venda.", "error")
+            conn.close()
+            return redirect(url_for("vendas"))
+
         has_pix_in_sale = payment_method.startswith("Pix") or any(part["method"] == "Pix" for part in payment_parts)
         if has_pix_in_sale and request.form.get("pix_confirmed") != "1":
             flash("Confirme o recebimento via Pix para concluir a venda.", "error")
@@ -6273,20 +6278,35 @@ def api_caixa_summary():
     conn = get_tenant_connection()
     try:
         today = datetime.now().strftime("%Y-%m-%d")
+
+        def _row_get(row, key, default=None):
+            if row is None:
+                return default
+            if isinstance(row, dict):
+                return row.get(key, default)
+            try:
+                return row[key]
+            except Exception:
+                return default
+
         sales_today = conn.execute(
-            "SELECT payment_method, total, nf_requested, fiscal_status FROM sales WHERE account_id = %s AND date LIKE %s AND COALESCE(status, 'ativa') != 'cancelada'",
-            (account_id, f"{today}%"),
+            "SELECT payment_method, total, nf_requested, fiscal_status "
+            "FROM sales "
+            "WHERE account_id = %s "
+            "  AND LEFT(COALESCE(date, ''), 10) = %s "
+            "  AND COALESCE(status, 'concluida') <> 'cancelada'",
+            (account_id, today),
         ).fetchall()
-        by_method: dict = {}
+        by_method = {}
         for sale in sales_today:
-            method = (sale["payment_method"] or "N/A").split(" | ")[0].split(" R$")[0].strip()
-            by_method[method] = by_method.get(method, 0.0) + float(sale["total"] or 0)
+            method = (_row_get(sale, "payment_method", "N/A") or "N/A").split(" | ")[0].split(" R$")[0].strip()
+            by_method[method] = by_method.get(method, 0.0) + float(_row_get(sale, "total", 0) or 0)
         total_day = sum(by_method.values())
         sale_count = len(sales_today)
         avg_ticket = total_day / sale_count if sale_count > 0 else 0
         pending_nf_count = sum(
             1 for s in sales_today
-            if s.get("nf_requested") == 1 and (s.get("fiscal_status") or "") in ("pendente", "erro")
+            if int(_row_get(s, "nf_requested", 0) or 0) == 1 and str(_row_get(s, "fiscal_status", "") or "").strip().lower() in ("pendente", "erro")
         )
         return jsonify({
             "ok": True,
@@ -6316,11 +6336,16 @@ def api_vendas_search():
         return jsonify({"ok": True, "items": []})
     conn = get_tenant_connection()
     try:
-        # Detect if query looks like a sale ID number
         sale_id_filter = None
         clean_q = q.lstrip("#").strip()
         if clean_q.isdigit():
             sale_id_filter = int(clean_q)
+        q_lower = q.lower()
+        q_digits = "".join(ch for ch in q if ch.isdigit())
+        q_date = q.replace("-", "/")
+
+        if sale_id_filter is None and len(q_lower) < 2:
+            return jsonify({"ok": True, "items": []})
 
         rows = conn.execute(
             "SELECT s.id, s.date, s.total, s.payment_method, COALESCE(s.status, 'ativa') AS status, "
@@ -6330,22 +6355,32 @@ def api_vendas_search():
             "LEFT JOIN clients c ON c.id = s.client_id "
             "LEFT JOIN sale_fiscal_documents sfd ON sfd.sale_id = s.id AND sfd.account_id = s.account_id "
             "WHERE s.account_id = %s "
-            "  AND (%s OR s.id = %s OR LOWER(c.name) LIKE %s OR TO_CHAR(s.date::date, 'DD/MM') LIKE %s OR TO_CHAR(s.date::date, 'DD/MM/YYYY') LIKE %s) "
+            "  AND ((%s > 0 AND s.id = %s) "
+            "       OR LOWER(COALESCE(c.name, '')) LIKE %s "
+            "       OR COALESCE(c.cpf, '') LIKE %s "
+            "       OR COALESCE(c.phone, '') LIKE %s "
+            "       OR LOWER(COALESCE(c.email, '')) LIKE %s "
+            "       OR REPLACE(LEFT(COALESCE(s.date, ''), 10), '-', '/') LIKE %s "
+            "       OR COALESCE(s.date, '') LIKE %s) "
             "ORDER BY s.id DESC LIMIT 30",
             (
                 account_id,
-                sale_id_filter is None,
                 sale_id_filter or 0,
-                f"%{q.lower()}%",
-                f"%{q}%",
+                sale_id_filter or 0,
+                f"%{q_lower}%",
+                f"%{q_digits or q}%",
+                f"%{q_digits or q}%",
+                f"%{q_lower}%",
+                f"%{q_date}%",
                 f"%{q}%",
             ),
         ).fetchall()
         items = []
         for row in rows:
+            row_date = row["date"]
             items.append({
                 "id": int(row["id"]),
-                "date": (row["date"] or "")[:16],
+                "date": str(row_date or "")[:16],
                 "total": float(row["total"] or 0),
                 "payment_method": row["payment_method"] or "",
                 "status": row["status"] or "ativa",
@@ -6472,12 +6507,22 @@ def fechar_caixa():
     clients = conn.execute("SELECT * FROM clients WHERE account_id = %s ORDER BY name", (account_id,)).fetchall()
     today = datetime.now().strftime("%Y-%m-%d")
     sales_today = conn.execute(
-        "SELECT id, date, payment_method, total, nf_requested, fiscal_status FROM sales WHERE account_id = %s AND date LIKE %s AND COALESCE(status, 'ativa') != 'cancelada' ORDER BY date ASC",
-        (account_id, f"{today}%"),
+        "SELECT id, date, payment_method, total, nf_requested, fiscal_status "
+        "FROM sales "
+        "WHERE account_id = %s "
+        "  AND LEFT(COALESCE(date, ''), 10) = %s "
+        "  AND COALESCE(status, 'concluida') <> 'cancelada' "
+        "ORDER BY date ASC",
+        (account_id, today),
     ).fetchall()
     cash_total = conn.execute(
-        "SELECT COALESCE(SUM(total), 0) FROM sales WHERE account_id = %s AND date LIKE %s AND payment_method = %s AND COALESCE(status, 'ativa') != 'cancelada'",
-        (account_id, f"{today}%", "Dinheiro"),
+        "SELECT COALESCE(SUM(total), 0) "
+        "FROM sales "
+        "WHERE account_id = %s "
+        "  AND LEFT(COALESCE(date, ''), 10) = %s "
+        "  AND payment_method = %s "
+        "  AND COALESCE(status, 'concluida') <> 'cancelada'",
+        (account_id, today, "Dinheiro"),
     ).fetchone()[0]
     total_day = sum(float(sale["total"] or 0) for sale in sales_today)
     recipients = get_primary_notification_recipients(account_id)

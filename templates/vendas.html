@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260502pdv13') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/vendas.css', v='20260607pdv14') }}">
 
   <div class="sales-shell">
     <div class="form-card sale-card">
@@ -56,7 +56,6 @@
               </div>
               <button type="button" class="outline-button sales-toolbar-pdv" id="sales-sidebar-toggle">Modo PDV</button>
             </div>
-            <p class="sales-shortcut-hint">Atalhos: Enter adiciona produto, F2 foca busca, Del remove item, Ctrl+1..4 troca pagamento, Ctrl+Shift+D alterna Único/Dividido.</p>
             <div id="sales-inline-feedback" class="sales-inline-feedback" style="display:none;"></div>
 
             <div class="sale-items" id="sale-items"></div>
@@ -320,7 +319,7 @@
         <p style="color:#6b7280;text-align:center;">Carregando totais...</p>
       </div>
       <div class="pix-modal-actions">
-        <a id="caixa-close-confirm-btn" href="{{ url_for('fechar_caixa') }}" class="btn-add">&#10003; Confirmar Fechamento</a>
+        <a id="caixa-close-confirm-btn" href="{{ url_for('fechar_caixa') }}" class="btn-confirm">&#10003; Confirmar Fechamento</a>
         <button type="button" class="btn-cancel" onclick="closeCaixaCloseModal()">Cancelar</button>
       </div>
     </div>
@@ -709,14 +708,15 @@
         create: false,
         allowEmptyOption: true,
         maxOptions: 300,
-        searchField: ['text', 'data-name', 'data-cpf', 'data-phone', 'data-email'],
+        searchField: ['text', 'name', 'cpf', 'phone', 'email'],
         placeholder: 'Buscar cliente por nome, CPF ou telefone...',
         render: {
           option: function(data, escape) {
             if (!data.value) return '<div class="option">' + escape(data.text) + '</div>';
-            var cpf = data['data-cpf'] || '';
-            var phone = data['data-phone'] || '';
-            var meta = [cpf, phone].filter(Boolean).join(' · ');
+            var cpf = data.cpf || '';
+            var phone = data.phone || '';
+            var email = data.email || '';
+            var meta = [cpf, phone, email].filter(Boolean).join(' · ');
             return '<div class="option">' +
               '<strong>' + escape(data.text) + '</strong>' +
               (meta ? '<small style="display:block;color:#94a3b8;font-size:0.8rem;">' + escape(meta) + '</small>' : '') +
@@ -727,9 +727,9 @@
           var score = this.getScoreFunction(search);
           return function(item) {
             var nameScore = score(item);
-            var cpf = (item['data-cpf'] || '').toLowerCase();
-            var phone = (item['data-phone'] || '').toLowerCase();
-            var email = (item['data-email'] || '').toLowerCase();
+              var cpf = (item.cpf || '').toLowerCase();
+              var phone = (item.phone || '').toLowerCase();
+              var email = (item.email || '').toLowerCase();
             var q = search.toLowerCase();
             var bonus = 0;
             if (cpf.includes(q)) bonus = 1;
@@ -1430,13 +1430,6 @@
       modal.style.display = 'none';
     }
 
-    function maybeShowShortcutsHint() {
-      if (localStorage.getItem(SALES_SHORTCUTS_SEEN_KEY) === '1') return;
-      window.setTimeout(function() {
-        openShortcutsModal();
-      }, 800);
-    }
-
     function toggleSplitPayment(forceOpen) {
       if (forceOpen === true) {
         setPaymentMode(true);
@@ -1936,6 +1929,27 @@
       document.getElementById('order-change').innerText = 'R$ ' + formatCurrency(change);
     }
 
+    function validateCashReceivedBeforeSubmit() {
+      if (PAYMENT_UI_SETTINGS.allow_multi && SPLIT_PAYMENT_EXPANDED && document.querySelectorAll('#payment-rows .payment-row').length > 0) {
+        return true;
+      }
+      if (getSelectedPaymentMethod() !== 'Dinheiro') {
+        return true;
+      }
+      var orderTotal = getOrderTotal();
+      var receivedInput = document.querySelector('input[name="payment_received"]');
+      var received = parseNumber(receivedInput ? receivedInput.value : 0);
+      if ((received + 0.001) < orderTotal) {
+        showInlineFeedback('Valor recebido em dinheiro não pode ser menor que o total da venda.');
+        if (receivedInput) {
+          receivedInput.focus();
+          receivedInput.select();
+        }
+        return false;
+      }
+      return true;
+    }
+
     function pixCrc16(payload) {
       let polinomio = 0x1021;
       let resultado = 0xFFFF;
@@ -2326,6 +2340,12 @@
       }
       NO_CLIENT_BYPASS = false;
 
+      if (!validateCashReceivedBeforeSubmit()) {
+        event.preventDefault();
+        SALE_SUBMITTING = false;
+        return;
+      }
+
       if (!shouldOpenPixModal()) {
         SALE_SUBMITTING = true;
         clearSaleDraft();
@@ -2411,7 +2431,6 @@
     updateEmptyState();
     bindPixCopyActions();
     restoreSaleDraft();
-    maybeShowShortcutsHint();
   </script>
 
   {% if nf_enabled_for_account and sales_today is defined %}
