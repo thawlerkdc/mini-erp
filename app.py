@@ -6280,6 +6280,13 @@ def api_caixa_summary():
         today_iso = datetime.now().strftime("%Y-%m-%d")
         today_br = datetime.now().strftime("%d/%m/%Y")
 
+        def _column_exists(table_name, column_name):
+            row = conn.execute(
+                "SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = %s LIMIT 1",
+                (table_name, column_name),
+            ).fetchone()
+            return bool(row)
+
         def _row_get(row, key, default=None):
             if row is None:
                 return default
@@ -6290,28 +6297,22 @@ def api_caixa_summary():
             except Exception:
                 return default
 
-        sales_today = []
-        try:
-            sales_today = conn.execute(
-                "SELECT payment_method, total, nf_requested, fiscal_status "
-                "FROM sales "
-                "WHERE account_id = %s "
-                "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
-                "  AND COALESCE(status, 'concluida') <> 'cancelada'",
-                (account_id, today_iso, f"{today_iso}%", f"{today_br}%"),
-            ).fetchall()
-        except Exception as exc:
-            msg = str(exc).lower()
-            if "column" in msg and "status" in msg and "sales" in msg:
-                sales_today = conn.execute(
-                    "SELECT payment_method, total, nf_requested, fiscal_status "
-                    "FROM sales "
-                    "WHERE account_id = %s "
-                    "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s)",
-                    (account_id, today_iso, f"{today_iso}%", f"{today_br}%"),
-                ).fetchall()
-            else:
-                raise
+        has_status = _column_exists("sales", "status")
+        has_nf_requested = _column_exists("sales", "nf_requested")
+        has_fiscal_status = _column_exists("sales", "fiscal_status")
+
+        status_sql = "COALESCE(status, 'concluida') <> 'cancelada'" if has_status else "1=1"
+        nf_requested_sql = "COALESCE(nf_requested, 0) AS nf_requested" if has_nf_requested else "0 AS nf_requested"
+        fiscal_status_sql = "COALESCE(fiscal_status, '') AS fiscal_status" if has_fiscal_status else "'' AS fiscal_status"
+
+        sales_today = conn.execute(
+            "SELECT payment_method, total, " + nf_requested_sql + ", " + fiscal_status_sql + " "
+            "FROM sales "
+            "WHERE account_id = %s "
+            "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
+            "  AND " + status_sql,
+            (account_id, today_iso, f"{today_iso}%", f"{today_br}%"),
+        ).fetchall()
         by_method = {}
         for sale in sales_today:
             method = (_row_get(sale, "payment_method", "N/A") or "N/A").split(" | ")[0].split(" R$")[0].strip()
@@ -6351,6 +6352,20 @@ def api_vendas_search():
         return jsonify({"ok": True, "items": []})
     conn = get_tenant_connection()
     try:
+        def _column_exists(table_name, column_name):
+            row = conn.execute(
+                "SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = %s LIMIT 1",
+                (table_name, column_name),
+            ).fetchone()
+            return bool(row)
+
+        has_sales_status = _column_exists("sales", "status")
+        has_client_name = _column_exists("clients", "name")
+        has_client_cpf = _column_exists("clients", "cpf")
+        has_client_phone = _column_exists("clients", "phone")
+        has_client_email = _column_exists("clients", "email")
+        has_sale_fiscal_docs = bool(conn.execute("SELECT to_regclass('sale_fiscal_documents')").fetchone()[0])
+
         sale_id_filter = None
         clean_q = q.lstrip("#").strip()
         if clean_q.isdigit():
@@ -6362,47 +6377,44 @@ def api_vendas_search():
         if sale_id_filter is None and len(q_lower) < 2:
             return jsonify({"ok": True, "items": []})
 
-        params = (
-            account_id,
-            sale_id_filter or 0,
-            sale_id_filter or 0,
-            f"%{q_lower}%",
-            f"%{q_digits or q}%",
-            f"%{q_digits or q}%",
-            f"%{q_lower}%",
-            f"%{q_date}%",
-            f"%{q}%",
-        )
-        def _run_search_query(include_status=True, include_fiscal_join=True):
-            status_sql = "COALESCE(s.status, 'ativa')" if include_status else "'ativa'"
-            fiscal_select = "CASE WHEN sfd.id IS NOT NULL THEN 1 ELSE 0 END" if include_fiscal_join else "0"
-            fiscal_join = "LEFT JOIN sale_fiscal_documents sfd ON sfd.sale_id = s.id AND sfd.account_id = s.account_id " if include_fiscal_join else ""
-            return conn.execute(
-                "SELECT s.id, s.date, s.total, s.payment_method, " + status_sql + " AS status, "
-                "       c.name AS client_name, "
-                "       " + fiscal_select + " AS has_nfe "
-                "FROM sales s "
-                "LEFT JOIN clients c ON c.id = s.client_id "
-                + fiscal_join +
-                "WHERE s.account_id = %s "
-                "  AND ((%s > 0 AND s.id = %s) "
-                "       OR LOWER(COALESCE(c.name, '')) LIKE %s "
-                "       OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.cpf, ''), '.', ''), '-', ''), '/', ''), ' ', '') LIKE %s "
-                "       OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.phone, ''), '(', ''), ')', ''), '-', ''), ' ', ''), '+', ''), '.', '') LIKE %s "
-                "       OR LOWER(COALESCE(c.email, '')) LIKE %s "
-                "       OR REPLACE(LEFT(COALESCE(s.date, ''), 10), '-', '/') LIKE %s "
-                "       OR COALESCE(s.date, '') LIKE %s) "
-                "ORDER BY s.id DESC LIMIT 100",
-                params,
-            ).fetchall()
+        status_sql = "COALESCE(s.status, 'ativa')" if has_sales_status else "'ativa'"
+        client_name_sql = "COALESCE(c.name, '')" if has_client_name else "''"
+        fiscal_select = "CASE WHEN sfd.id IS NOT NULL THEN 1 ELSE 0 END" if has_sale_fiscal_docs else "0"
+        fiscal_join = "LEFT JOIN sale_fiscal_documents sfd ON sfd.sale_id = s.id AND sfd.account_id = s.account_id " if has_sale_fiscal_docs else ""
 
-        try:
-            rows = _run_search_query(include_status=True, include_fiscal_join=True)
-        except Exception as exc:
-            msg = str(exc).lower()
-            missing_status = "column" in msg and "status" in msg and "sales" in msg
-            missing_fiscal = "sale_fiscal_documents" in msg or "relation" in msg and "sfd" in msg
-            rows = _run_search_query(include_status=not missing_status, include_fiscal_join=not missing_fiscal)
+        where_parts = ["(%s > 0 AND s.id = %s)"]
+        params = [account_id, sale_id_filter or 0, sale_id_filter or 0]
+
+        if has_client_name:
+            where_parts.append("LOWER(COALESCE(c.name, '')) LIKE %s")
+            params.append(f"%{q_lower}%")
+        if has_client_cpf:
+            where_parts.append("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.cpf, ''), '.', ''), '-', ''), '/', ''), ' ', '') LIKE %s")
+            params.append(f"%{q_digits or q}%")
+        if has_client_phone:
+            where_parts.append("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.phone, ''), '(', ''), ')', ''), '-', ''), ' ', ''), '+', ''), '.', '') LIKE %s")
+            params.append(f"%{q_digits or q}%")
+        if has_client_email:
+            where_parts.append("LOWER(COALESCE(c.email, '')) LIKE %s")
+            params.append(f"%{q_lower}%")
+
+        where_parts.append("REPLACE(LEFT(COALESCE(s.date, ''), 10), '-', '/') LIKE %s")
+        params.append(f"%{q_date}%")
+        where_parts.append("COALESCE(s.date, '') LIKE %s")
+        params.append(f"%{q}%")
+
+        rows = conn.execute(
+            "SELECT s.id, s.date, s.total, s.payment_method, " + status_sql + " AS status, "
+            "       " + client_name_sql + " AS client_name, "
+            "       " + fiscal_select + " AS has_nfe "
+            "FROM sales s "
+            "LEFT JOIN clients c ON c.id = s.client_id "
+            + fiscal_join +
+            "WHERE s.account_id = %s "
+            "  AND (" + " OR ".join(where_parts) + ") "
+            "ORDER BY s.id DESC LIMIT 100",
+            tuple(params),
+        ).fetchall()
         items = []
         for row in rows:
             row_date = row["date"]
