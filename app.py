@@ -1786,6 +1786,9 @@ def _clamp_percent(raw, default="0"):
 
 def _safe_float(raw, default=0.0):
     try:
+        if isinstance(raw, str):
+            normalized = raw.strip().replace(",", ".")
+            return float(normalized)
         return float(raw)
     except (TypeError, ValueError):
         return default
@@ -5306,8 +5309,8 @@ def vendas():
     card_settings_json = json.dumps({
         "credit_enabled": settings.get("card_credit_surcharge_enabled") == "1",
         "debit_enabled": settings.get("card_debit_surcharge_enabled") == "1",
-        "debit_rate": float(settings.get("card_debit_rate") or 0),
-        "credit_rates": {str(i): float(settings.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
+        "debit_rate": _safe_float(settings.get("card_debit_rate") or 0),
+        "credit_rates": {str(i): _safe_float(settings.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
     })
     payment_ui_settings_json = json.dumps({
         "allow_multi": settings.get("allow_multi_payment_sale") == "1",
@@ -6394,6 +6397,14 @@ def api_vendas_search():
         q_lower = q.lower()
         q_digits = "".join(ch for ch in q if ch.isdigit())
         q_date = q.replace("-", "/")
+        q_date_iso = None
+        try:
+            q_date_iso = datetime.strptime(q, "%d/%m/%Y").strftime("%Y-%m-%d")
+        except Exception:
+            try:
+                q_date_iso = datetime.strptime(q, "%Y-%m-%d").strftime("%Y-%m-%d")
+            except Exception:
+                q_date_iso = None
 
         if sale_id_filter is None and len(q_lower) < 2:
             return jsonify({"ok": True, "items": []})
@@ -6423,6 +6434,11 @@ def api_vendas_search():
         params.append(f"%{q_date}%")
         where_parts.append("COALESCE(s.date, '') LIKE %s")
         params.append(f"%{q}%")
+        if q_date_iso:
+            where_parts.append("LEFT(COALESCE(s.date, ''), 10) = %s")
+            params.append(q_date_iso)
+            where_parts.append("COALESCE(s.date, '') LIKE %s")
+            params.append(f"{q_date_iso}%")
 
         rows = conn.execute(
             "SELECT s.id, s.date, s.total, s.payment_method, " + status_sql + " AS status, "
@@ -6495,6 +6511,13 @@ def api_vendas_cancel():
 
     conn = get_tenant_connection()
     try:
+        def _column_exists(table_name, column_name):
+            row = conn.execute(
+                "SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = %s LIMIT 1",
+                (table_name, column_name),
+            ).fetchone()
+            return bool(row)
+
         settings = get_account_settings(account_id)
         cancel_scope = (settings.get("cancel_sale_permission_scope") or "admin_only").strip().lower()
         if cancel_scope not in {"admin_only", "admin_and_staff"}:
@@ -6503,8 +6526,19 @@ def api_vendas_cancel():
         if cancel_scope == "admin_only" and not is_admin_user:
             return jsonify({"ok": False, "error": "Somente administradores podem cancelar vendas nesta conta."}), 403
 
+        has_sales_status = _column_exists("sales", "status")
+        has_cancel_reason = _column_exists("sales", "cancel_reason")
+        has_cancelled_at = _column_exists("sales", "cancelled_at")
+        has_cancelled_by = _column_exists("sales", "cancelled_by")
+        has_stock_created_by_user_id = _column_exists("stock_movements", "created_by_user_id")
+        has_stock_created_by_user_name = _column_exists("stock_movements", "created_by_user_name")
+        has_fe_status = _column_exists("financial_entries", "status")
+        has_fe_notes = _column_exists("financial_entries", "notes")
+
+        status_select = "COALESCE(status, 'ativa') AS status" if has_sales_status else "'ativa' AS status"
+
         sale = conn.execute(
-            "SELECT id, total, date, COALESCE(status, 'ativa') AS status FROM sales WHERE id = %s AND account_id = %s LIMIT 1",
+            "SELECT id, total, date, " + status_select + " FROM sales WHERE id = %s AND account_id = %s LIMIT 1",
             (sale_id, account_id),
         ).fetchone()
         if not sale:
@@ -6528,10 +6562,28 @@ def api_vendas_cancel():
             if not cancel_password or not hmac.compare_digest(informed_hash, expected_hash):
                 return jsonify({"ok": False, "error": "Senha de cancelamento inválida para venda de data anterior."}), 403
 
-        # Mark sale as cancelled
+        # Mark sale as cancelled using only columns available in the tenant schema.
+        set_parts = []
+        set_values = []
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if has_sales_status:
+            set_parts.append("status = 'cancelada'")
+        if has_cancel_reason:
+            set_parts.append("cancel_reason = %s")
+            set_values.append(reason)
+        if has_cancelled_at:
+            set_parts.append("cancelled_at = %s")
+            set_values.append(now_str)
+        if has_cancelled_by:
+            set_parts.append("cancelled_by = %s")
+            set_values.append(session.get("user"))
+
+        if not set_parts:
+            return jsonify({"ok": False, "error": "Estrutura de vendas incompatível para cancelamento nesta conta."}), 500
+
         conn.execute(
-            "UPDATE sales SET status = 'cancelada', cancel_reason = %s, cancelled_at = %s, cancelled_by = %s WHERE id = %s AND account_id = %s",
-            (reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("user"), sale_id, account_id),
+            "UPDATE sales SET " + ", ".join(set_parts) + " WHERE id = %s AND account_id = %s",
+            tuple(set_values + [sale_id, account_id]),
         )
 
         # Reverse stock movements
@@ -6544,16 +6596,30 @@ def api_vendas_cancel():
                 "UPDATE products SET stock = stock + %s WHERE id = %s AND account_id = %s",
                 (item["quantity"], item["product_id"], account_id),
             )
-            conn.execute(
-                "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                (account_id, item["product_id"], item["quantity"], "cancel", cancel_date, f"Cancelamento venda #{sale_id}: {reason[:80]}", get_current_user_id(), session.get("user_name") or session.get("user")),
-            )
+            if has_stock_created_by_user_id and has_stock_created_by_user_name:
+                conn.execute(
+                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes, created_by_user_id, created_by_user_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (account_id, item["product_id"], item["quantity"], "cancel", cancel_date, f"Cancelamento venda #{sale_id}: {reason[:80]}", get_current_user_id(), session.get("user_name") or session.get("user")),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO stock_movements (account_id, product_id, quantity, movement_type, date, notes) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (account_id, item["product_id"], item["quantity"], "cancel", cancel_date, f"Cancelamento venda #{sale_id}: {reason[:80]}"),
+                )
 
         # Update financial entry
-        conn.execute(
-            "UPDATE financial_entries SET status = 'cancelado', notes = %s WHERE account_id = %s AND source = 'sale' AND source_ref = %s",
-            (f"Venda cancelada: {reason[:120]}", account_id, str(sale_id)),
-        )
+        fe_set_parts = []
+        fe_values = []
+        if has_fe_status:
+            fe_set_parts.append("status = 'cancelado'")
+        if has_fe_notes:
+            fe_set_parts.append("notes = %s")
+            fe_values.append(f"Venda cancelada: {reason[:120]}")
+        if fe_set_parts:
+            conn.execute(
+                "UPDATE financial_entries SET " + ", ".join(fe_set_parts) + " WHERE account_id = %s AND source = 'sale' AND source_ref = %s",
+                tuple(fe_values + [account_id, str(sale_id)]),
+            )
 
         conn.commit()
 
@@ -6611,46 +6677,39 @@ def fechar_caixa():
     today_iso = datetime.now().strftime("%Y-%m-%d")
     today_br = datetime.now().strftime("%d/%m/%Y")
     today = today_iso
-    try:
-        sales_today = conn.execute(
-            "SELECT id, date, payment_method, total, nf_requested, fiscal_status "
-            "FROM sales "
-            "WHERE account_id = %s "
-            "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
-            "  AND COALESCE(status, 'concluida') <> 'cancelada' "
-            "ORDER BY date ASC",
-            (account_id, today_iso, f"{today_iso}%", f"{today_br}%"),
-        ).fetchall()
-        cash_row = conn.execute(
-            "SELECT COALESCE(SUM(total), 0) AS amount "
-            "FROM sales "
-            "WHERE account_id = %s "
-            "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
-            "  AND payment_method = %s "
-            "  AND COALESCE(status, 'concluida') <> 'cancelada'",
-            (account_id, today_iso, f"{today_iso}%", f"{today_br}%", "Dinheiro"),
+    def _column_exists(table_name, column_name):
+        row = conn.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = %s LIMIT 1",
+            (table_name, column_name),
         ).fetchone()
-    except Exception as exc:
-        msg = str(exc).lower()
-        if "column" in msg and "status" in msg and "sales" in msg:
-            sales_today = conn.execute(
-                "SELECT id, date, payment_method, total, nf_requested, fiscal_status "
-                "FROM sales "
-                "WHERE account_id = %s "
-                "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
-                "ORDER BY date ASC",
-                (account_id, today_iso, f"{today_iso}%", f"{today_br}%"),
-            ).fetchall()
-            cash_row = conn.execute(
-                "SELECT COALESCE(SUM(total), 0) AS amount "
-                "FROM sales "
-                "WHERE account_id = %s "
-                "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
-                "  AND payment_method = %s",
-                (account_id, today_iso, f"{today_iso}%", f"{today_br}%", "Dinheiro"),
-            ).fetchone()
-        else:
-            raise
+        return bool(row)
+
+    has_status = _column_exists("sales", "status")
+    has_nf_requested = _column_exists("sales", "nf_requested")
+    has_fiscal_status = _column_exists("sales", "fiscal_status")
+
+    status_filter = "COALESCE(status, 'concluida') <> 'cancelada'" if has_status else "1=1"
+    nf_requested_select = "COALESCE(nf_requested, 0) AS nf_requested" if has_nf_requested else "0 AS nf_requested"
+    fiscal_status_select = "COALESCE(fiscal_status, '') AS fiscal_status" if has_fiscal_status else "'' AS fiscal_status"
+
+    sales_today = conn.execute(
+        "SELECT id, date, payment_method, total, " + nf_requested_select + ", " + fiscal_status_select + " "
+        "FROM sales "
+        "WHERE account_id = %s "
+        "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
+        "  AND " + status_filter + " "
+        "ORDER BY date ASC",
+        (account_id, today_iso, f"{today_iso}%", f"{today_br}%"),
+    ).fetchall()
+    cash_row = conn.execute(
+        "SELECT COALESCE(SUM(total), 0) AS amount "
+        "FROM sales "
+        "WHERE account_id = %s "
+        "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
+        "  AND payment_method = %s "
+        "  AND " + status_filter,
+        (account_id, today_iso, f"{today_iso}%", f"{today_br}%", "Dinheiro"),
+    ).fetchone()
     cash_total = 0.0
     if cash_row is not None:
         try:
@@ -6737,8 +6796,8 @@ def fechar_caixa():
         card_settings_json=json.dumps({
             "credit_enabled": settings.get("card_credit_surcharge_enabled") == "1",
             "debit_enabled": settings.get("card_debit_surcharge_enabled") == "1",
-            "debit_rate": float(settings.get("card_debit_rate") or 0),
-            "credit_rates": {str(i): float(settings.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
+            "debit_rate": _safe_float(settings.get("card_debit_rate") or 0),
+            "credit_rates": {str(i): _safe_float(settings.get(f"card_credit_rate_{i}") or 0) for i in range(1, 13)},
         }),
         payment_ui_settings_json=json.dumps({
             "allow_multi": settings.get("allow_multi_payment_sale") == "1",
