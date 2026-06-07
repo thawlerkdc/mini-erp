@@ -6324,16 +6324,19 @@ def api_caixa_summary():
         has_status = _column_exists("sales", "status")
         has_nf_requested = _column_exists("sales", "nf_requested")
         has_fiscal_status = _column_exists("sales", "fiscal_status")
+        has_sales_cancellations_table = bool(conn.execute("SELECT to_regclass('sales_cancellations')").fetchone()[0])
 
-        status_sql = "COALESCE(status, 'concluida') <> 'cancelada'" if has_status else "1=1"
+        status_sql = "COALESCE(s.status, 'concluida') <> 'cancelada'" if has_status else ("sc.sale_id IS NULL" if has_sales_cancellations_table else "1=1")
         nf_requested_sql = "COALESCE(nf_requested, 0) AS nf_requested" if has_nf_requested else "0 AS nf_requested"
         fiscal_status_sql = "COALESCE(fiscal_status, '') AS fiscal_status" if has_fiscal_status else "'' AS fiscal_status"
+        cancel_join = "LEFT JOIN sales_cancellations sc ON sc.sale_id = s.id AND sc.account_id = s.account_id " if (not has_status and has_sales_cancellations_table) else ""
 
         sales_today = conn.execute(
-            "SELECT payment_method, total, " + nf_requested_sql + ", " + fiscal_status_sql + " "
-            "FROM sales "
-            "WHERE account_id = %s "
-            "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
+            "SELECT s.payment_method, s.total, " + nf_requested_sql + ", " + fiscal_status_sql + " "
+            "FROM sales s "
+            + cancel_join +
+            "WHERE s.account_id = %s "
+            "  AND (LEFT(COALESCE(s.date, ''), 10) = %s OR COALESCE(s.date, '') LIKE %s OR COALESCE(s.date, '') LIKE %s) "
             "  AND " + status_sql,
             (account_id, today_iso, f"{today_iso}%", f"{today_br}%"),
         ).fetchall()
@@ -6389,6 +6392,7 @@ def api_vendas_search():
         has_client_phone = _column_exists("clients", "phone")
         has_client_email = _column_exists("clients", "email")
         has_sale_fiscal_docs = bool(conn.execute("SELECT to_regclass('sale_fiscal_documents')").fetchone()[0])
+        has_sales_cancellations_table = bool(conn.execute("SELECT to_regclass('sales_cancellations')").fetchone()[0])
 
         sale_id_filter = None
         clean_q = q.lstrip("#").strip()
@@ -6409,9 +6413,10 @@ def api_vendas_search():
         if sale_id_filter is None and len(q_lower) < 2:
             return jsonify({"ok": True, "items": []})
 
-        status_sql = "COALESCE(s.status, 'ativa')" if has_sales_status else "'ativa'"
+        status_sql = "COALESCE(s.status, 'ativa')" if has_sales_status else ("CASE WHEN sc.sale_id IS NOT NULL THEN 'cancelada' ELSE 'ativa' END" if has_sales_cancellations_table else "'ativa'")
         client_name_sql = "COALESCE(c.name, '')" if has_client_name else "''"
         fiscal_select = "CASE WHEN sfd.id IS NOT NULL THEN 1 ELSE 0 END" if has_sale_fiscal_docs else "0"
+        cancel_join = "LEFT JOIN sales_cancellations sc ON sc.sale_id = s.id AND sc.account_id = s.account_id " if (not has_sales_status and has_sales_cancellations_table) else ""
         fiscal_join = "LEFT JOIN sale_fiscal_documents sfd ON sfd.sale_id = s.id AND sfd.account_id = s.account_id " if has_sale_fiscal_docs else ""
 
         where_parts = ["(%s > 0 AND s.id = %s)"]
@@ -6446,6 +6451,7 @@ def api_vendas_search():
             "       " + fiscal_select + " AS has_nfe "
             "FROM sales s "
             "LEFT JOIN clients c ON c.id = s.client_id "
+            + cancel_join +
             + fiscal_join +
             "WHERE s.account_id = %s "
             "  AND (" + " OR ".join(where_parts) + ") "
@@ -6534,6 +6540,23 @@ def api_vendas_cancel():
         has_stock_created_by_user_name = _column_exists("stock_movements", "created_by_user_name")
         has_fe_status = _column_exists("financial_entries", "status")
         has_fe_notes = _column_exists("financial_entries", "notes")
+        has_sales_cancellations_table = bool(conn.execute("SELECT to_regclass('sales_cancellations')").fetchone()[0])
+
+        if not has_sales_cancellations_table:
+            try:
+                conn.execute(
+                    "CREATE TABLE IF NOT EXISTS sales_cancellations ("
+                    "account_id INTEGER NOT NULL, "
+                    "sale_id INTEGER NOT NULL, "
+                    "reason TEXT, "
+                    "cancelled_at TEXT, "
+                    "cancelled_by TEXT, "
+                    "PRIMARY KEY (account_id, sale_id)"
+                    ")"
+                )
+                has_sales_cancellations_table = True
+            except Exception as table_exc:
+                logger.exception("Falha ao criar tabela sales_cancellations: %s", table_exc)
 
         status_select = "COALESCE(status, 'ativa') AS status" if has_sales_status else "'ativa' AS status"
 
@@ -6543,6 +6566,13 @@ def api_vendas_cancel():
         ).fetchone()
         if not sale:
             return jsonify({"ok": False, "error": "Venda não encontrada."}), 404
+        if has_sales_cancellations_table:
+            cancelled_registry = conn.execute(
+                "SELECT 1 FROM sales_cancellations WHERE account_id = %s AND sale_id = %s LIMIT 1",
+                (account_id, sale_id),
+            ).fetchone()
+            if cancelled_registry:
+                return jsonify({"ok": False, "error": "Esta venda já está cancelada."}), 409
         if sale["status"] == "cancelada":
             return jsonify({"ok": False, "error": "Esta venda já está cancelada."}), 409
 
@@ -6578,13 +6608,22 @@ def api_vendas_cancel():
             set_parts.append("cancelled_by = %s")
             set_values.append(session.get("user"))
 
-        if not set_parts:
-            return jsonify({"ok": False, "error": "Estrutura de vendas incompatível para cancelamento nesta conta."}), 500
+        if set_parts:
+            conn.execute(
+                "UPDATE sales SET " + ", ".join(set_parts) + " WHERE id = %s AND account_id = %s",
+                tuple(set_values + [sale_id, account_id]),
+            )
 
-        conn.execute(
-            "UPDATE sales SET " + ", ".join(set_parts) + " WHERE id = %s AND account_id = %s",
-            tuple(set_values + [sale_id, account_id]),
-        )
+        if has_sales_cancellations_table:
+            conn.execute(
+                "INSERT INTO sales_cancellations (account_id, sale_id, reason, cancelled_at, cancelled_by) "
+                "VALUES (%s, %s, %s, %s, %s) "
+                "ON CONFLICT (account_id, sale_id) DO UPDATE SET "
+                "reason = EXCLUDED.reason, cancelled_at = EXCLUDED.cancelled_at, cancelled_by = EXCLUDED.cancelled_by",
+                (account_id, sale_id, reason, now_str, session.get("user")),
+            )
+        elif not set_parts:
+            return jsonify({"ok": False, "error": "Não foi possível concluir o cancelamento nesta conta agora. Tente novamente em instantes ou contate o suporte."}), 503
 
         # Reverse stock movements
         sale_items = conn.execute(
@@ -6687,16 +6726,19 @@ def fechar_caixa():
     has_status = _column_exists("sales", "status")
     has_nf_requested = _column_exists("sales", "nf_requested")
     has_fiscal_status = _column_exists("sales", "fiscal_status")
+    has_sales_cancellations_table = bool(conn.execute("SELECT to_regclass('sales_cancellations')").fetchone()[0])
 
-    status_filter = "COALESCE(status, 'concluida') <> 'cancelada'" if has_status else "1=1"
+    status_filter = "COALESCE(s.status, 'concluida') <> 'cancelada'" if has_status else ("sc.sale_id IS NULL" if has_sales_cancellations_table else "1=1")
     nf_requested_select = "COALESCE(nf_requested, 0) AS nf_requested" if has_nf_requested else "0 AS nf_requested"
     fiscal_status_select = "COALESCE(fiscal_status, '') AS fiscal_status" if has_fiscal_status else "'' AS fiscal_status"
+    cancel_join = "LEFT JOIN sales_cancellations sc ON sc.sale_id = s.id AND sc.account_id = s.account_id " if (not has_status and has_sales_cancellations_table) else ""
 
     sales_today = conn.execute(
-        "SELECT id, date, payment_method, total, " + nf_requested_select + ", " + fiscal_status_select + " "
-        "FROM sales "
-        "WHERE account_id = %s "
-        "  AND (LEFT(COALESCE(date, ''), 10) = %s OR COALESCE(date, '') LIKE %s OR COALESCE(date, '') LIKE %s) "
+        "SELECT s.id, s.date, s.payment_method, s.total, " + nf_requested_select + ", " + fiscal_status_select + " "
+        "FROM sales s "
+        + cancel_join +
+        "WHERE s.account_id = %s "
+        "  AND (LEFT(COALESCE(s.date, ''), 10) = %s OR COALESCE(s.date, '') LIKE %s OR COALESCE(s.date, '') LIKE %s) "
         "  AND " + status_filter + " "
         "ORDER BY date ASC",
         (account_id, today_iso, f"{today_iso}%", f"{today_br}%"),
