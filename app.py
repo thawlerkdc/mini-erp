@@ -6556,6 +6556,8 @@ def api_vendas_cancel():
         return jsonify({"ok": False, "error": "Motivo do cancelamento é obrigatório."}), 400
 
     conn = get_tenant_connection()
+    cancellation_committed = False
+    nfe_result = None
     try:
         def _column_exists(table_name, column_name):
             row = conn.execute(
@@ -6701,17 +6703,20 @@ def api_vendas_cancel():
             )
 
         conn.commit()
+        cancellation_committed = True
 
-        log_audit_event(
-            account_id=account_id,
-            user=session.get("user"),
-            action="cancelar_venda",
-            entity="sale",
-            entity_id=sale_id,
-            details={"reason": reason, "cancel_nfe": cancel_nfe, "total": float(sale["total"] or 0)},
-        )
+        try:
+            log_audit_event(
+                account_id=account_id,
+                user=session.get("user"),
+                action="cancelar_venda",
+                entity="sale",
+                entity_id=sale_id,
+                details={"reason": reason, "cancel_nfe": cancel_nfe, "total": float(sale["total"] or 0)},
+            )
+        except Exception as audit_exc:
+            logger.exception("Falha ao registrar auditoria do cancelamento da venda %s: %s", sale_id, audit_exc)
 
-        nfe_result = None
         if cancel_nfe:
             try:
                 doc = conn.execute(
@@ -6731,7 +6736,11 @@ def api_vendas_cancel():
 
         return jsonify({"ok": True, "sale_id": sale_id, "nfe_result": nfe_result})
     except Exception as exc:
-        conn.rollback()
+        if not cancellation_committed:
+            conn.rollback()
+        else:
+            logger.exception("Falha apos commit em api_vendas_cancel (venda %s): %s", sale_id, exc)
+            return jsonify({"ok": True, "sale_id": sale_id, "nfe_result": nfe_result, "warning": "Venda cancelada com sucesso, mas houve uma falha ao finalizar etapas complementares."})
         logger.exception("Falha em api_vendas_cancel: %s", exc)
         return jsonify({"ok": False, "error": "Falha ao cancelar a venda."}), 500
     finally:
