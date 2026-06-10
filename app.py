@@ -6392,6 +6392,9 @@ def api_vendas_search():
         has_client_phone = _column_exists("clients", "phone")
         has_client_email = _column_exists("clients", "email")
         has_sale_fiscal_docs = bool(conn.execute("SELECT to_regclass('sale_fiscal_documents')").fetchone()[0])
+        has_sfd_invoice_key = has_sale_fiscal_docs and _column_exists("sale_fiscal_documents", "invoice_key")
+        has_sfd_provider_reference = has_sale_fiscal_docs and _column_exists("sale_fiscal_documents", "provider_reference")
+        has_sfd_status = has_sale_fiscal_docs and _column_exists("sale_fiscal_documents", "status")
         has_sales_cancellations_table = bool(conn.execute("SELECT to_regclass('sales_cancellations')").fetchone()[0])
 
         sale_id_filter = None
@@ -6415,8 +6418,12 @@ def api_vendas_search():
 
         status_sql = "COALESCE(s.status, 'ativa')" if has_sales_status else ("CASE WHEN sc.sale_id IS NOT NULL THEN 'cancelada' ELSE 'ativa' END" if has_sales_cancellations_table else "'ativa'")
         client_name_sql = "COALESCE(c.name, '')" if has_client_name else "''"
-        fiscal_select = "CASE WHEN sfd.id IS NOT NULL THEN 1 ELSE 0 END" if has_sale_fiscal_docs else "0"
-        fiscal_meta_select = "COALESCE(sfd.invoice_key, '') AS invoice_key, COALESCE(sfd.provider_reference, '') AS provider_reference" if has_sale_fiscal_docs else "'' AS invoice_key, '' AS provider_reference"
+        fiscal_select = "CASE WHEN sfd.sale_id IS NOT NULL THEN 1 ELSE 0 END" if has_sale_fiscal_docs else "0"
+        fiscal_meta_select = (
+            ("COALESCE(sfd.invoice_key, '') AS invoice_key" if has_sfd_invoice_key else "'' AS invoice_key")
+            + ", "
+            + ("COALESCE(sfd.provider_reference, '') AS provider_reference" if has_sfd_provider_reference else "'' AS provider_reference")
+        )
         cancel_join = "LEFT JOIN sales_cancellations sc ON sc.sale_id = s.id AND sc.account_id = s.account_id " if (not has_sales_status and has_sales_cancellations_table) else ""
         fiscal_join = "LEFT JOIN sale_fiscal_documents sfd ON sfd.sale_id = s.id AND sfd.account_id = s.account_id " if has_sale_fiscal_docs else ""
 
@@ -6445,18 +6452,26 @@ def api_vendas_search():
         )
         params.append(f"%{q_lower}%")
 
-        if has_sale_fiscal_docs:
+        fiscal_search_parts = []
+        if has_sfd_invoice_key:
+            fiscal_search_parts.append("LOWER(COALESCE(sfd2.invoice_key, '')) LIKE %s")
+            params.append(f"%{q_lower}%")
+        if has_sfd_provider_reference:
+            fiscal_search_parts.append("LOWER(COALESCE(sfd2.provider_reference, '')) LIKE %s")
+            params.append(f"%{q_lower}%")
+        if has_sfd_status:
+            fiscal_search_parts.append("LOWER(COALESCE(sfd2.status, '')) LIKE %s")
+            params.append(f"%{q_lower}%")
+
+        if has_sale_fiscal_docs and fiscal_search_parts:
             where_parts.append(
                 "EXISTS ("
                 "SELECT 1 FROM sale_fiscal_documents sfd2 "
                 "WHERE sfd2.sale_id = s.id AND sfd2.account_id = s.account_id AND ("
-                "LOWER(COALESCE(sfd2.invoice_key, '')) LIKE %s OR "
-                "LOWER(COALESCE(sfd2.provider_reference, '')) LIKE %s OR "
-                "LOWER(COALESCE(sfd2.status, '')) LIKE %s"
+                + " OR ".join(fiscal_search_parts) +
                 ")"
                 ")"
             )
-            params.extend([f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%"])
 
         where_parts.append("REPLACE(LEFT(COALESCE(s.date, ''), 10), '-', '/') LIKE %s")
         params.append(f"%{q_date}%")
@@ -6475,8 +6490,7 @@ def api_vendas_search():
             "       " + fiscal_meta_select + " "
             "FROM sales s "
             "LEFT JOIN clients c ON c.id = s.client_id "
-            + cancel_join +
-            + fiscal_join +
+            + cancel_join + fiscal_join +
             "WHERE s.account_id = %s "
             "  AND (" + " OR ".join(where_parts) + ") "
             "ORDER BY s.id DESC LIMIT 100",
