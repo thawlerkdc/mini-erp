@@ -6416,6 +6416,7 @@ def api_vendas_search():
         status_sql = "COALESCE(s.status, 'ativa')" if has_sales_status else ("CASE WHEN sc.sale_id IS NOT NULL THEN 'cancelada' ELSE 'ativa' END" if has_sales_cancellations_table else "'ativa'")
         client_name_sql = "COALESCE(c.name, '')" if has_client_name else "''"
         fiscal_select = "CASE WHEN sfd.id IS NOT NULL THEN 1 ELSE 0 END" if has_sale_fiscal_docs else "0"
+        fiscal_meta_select = "COALESCE(sfd.invoice_key, '') AS invoice_key, COALESCE(sfd.provider_reference, '') AS provider_reference" if has_sale_fiscal_docs else "'' AS invoice_key, '' AS provider_reference"
         cancel_join = "LEFT JOIN sales_cancellations sc ON sc.sale_id = s.id AND sc.account_id = s.account_id " if (not has_sales_status and has_sales_cancellations_table) else ""
         fiscal_join = "LEFT JOIN sale_fiscal_documents sfd ON sfd.sale_id = s.id AND sfd.account_id = s.account_id " if has_sale_fiscal_docs else ""
 
@@ -6435,6 +6436,28 @@ def api_vendas_search():
             where_parts.append("LOWER(COALESCE(c.email, '')) LIKE %s")
             params.append(f"%{q_lower}%")
 
+        where_parts.append(
+            "EXISTS ("
+            "SELECT 1 FROM sale_items si "
+            "LEFT JOIN products p ON p.id = si.product_id "
+            "WHERE si.sale_id = s.id AND LOWER(COALESCE(p.name, '')) LIKE %s"
+            ")"
+        )
+        params.append(f"%{q_lower}%")
+
+        if has_sale_fiscal_docs:
+            where_parts.append(
+                "EXISTS ("
+                "SELECT 1 FROM sale_fiscal_documents sfd2 "
+                "WHERE sfd2.sale_id = s.id AND sfd2.account_id = s.account_id AND ("
+                "LOWER(COALESCE(sfd2.invoice_key, '')) LIKE %s OR "
+                "LOWER(COALESCE(sfd2.provider_reference, '')) LIKE %s OR "
+                "LOWER(COALESCE(sfd2.status, '')) LIKE %s"
+                ")"
+                ")"
+            )
+            params.extend([f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%"])
+
         where_parts.append("REPLACE(LEFT(COALESCE(s.date, ''), 10), '-', '/') LIKE %s")
         params.append(f"%{q_date}%")
         where_parts.append("COALESCE(s.date, '') LIKE %s")
@@ -6448,7 +6471,8 @@ def api_vendas_search():
         rows = conn.execute(
             "SELECT s.id, s.date, s.total, s.payment_method, " + status_sql + " AS status, "
             "       " + client_name_sql + " AS client_name, "
-            "       " + fiscal_select + " AS has_nfe "
+            "       " + fiscal_select + " AS has_nfe, "
+            "       " + fiscal_meta_select + " "
             "FROM sales s "
             "LEFT JOIN clients c ON c.id = s.client_id "
             + cancel_join +
@@ -6485,6 +6509,8 @@ def api_vendas_search():
                 "status": row["status"] or "ativa",
                 "client_name": row["client_name"] or "",
                 "has_nfe": bool(row["has_nfe"]),
+                "invoice_key": row["invoice_key"] or "",
+                "provider_reference": row["provider_reference"] or "",
                 "is_previous_day": bool(parsed_date and parsed_date < today_date),
             })
         return jsonify({"ok": True, "items": items})
