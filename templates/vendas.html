@@ -369,6 +369,7 @@
           <button type="button" class="btn-add" id="btn-confirm-cancel-sale" onclick="confirmCancelSale()" style="background:linear-gradient(135deg,#ef4444,#dc2626);">&#10006; Confirmar Cancelamento</button>
           <button type="button" class="btn-cancel" onclick="closeCancelSaleModal()">Voltar</button>
         </div>
+        <div id="cancel-sale-action-feedback" class="sales-inline-feedback" style="display:none;margin-top:10px;"></div>
       </div>
       <div style="text-align:right;">
         <button type="button" class="btn-cancel" onclick="closeCancelSaleModal()">Fechar</button>
@@ -602,6 +603,16 @@
       feedback.style.display = message ? '' : 'none';
     }
 
+    function showCancelSaleActionFeedback(message, isError) {
+      var feedback = document.getElementById('cancel-sale-action-feedback');
+      if (!feedback) return;
+      feedback.textContent = message || '';
+      feedback.style.display = message ? '' : 'none';
+      feedback.style.color = isError ? '#fecaca' : '#bbf7d0';
+      feedback.style.background = isError ? 'rgba(127,29,29,0.35)' : 'rgba(21,128,61,0.28)';
+      feedback.style.border = isError ? '1px solid rgba(248,113,113,0.45)' : '1px solid rgba(74,222,128,0.45)';
+    }
+
     function openCancelSaleModal() {
       document.getElementById('cancel-sale-modal').style.display = 'flex';
       document.getElementById('cancel-sale-results').innerHTML = '';
@@ -610,6 +621,7 @@
       document.getElementById('cancel-sale-password').value = '';
       document.getElementById('cancel-sale-password-wrap').style.display = 'none';
       showCancelSaleFeedback('');
+      showCancelSaleActionFeedback('', false);
       document.getElementById('cancel-sale-search-input').focus();
       _cancelSaleId = null;
       _cancelWithNF = false;
@@ -676,6 +688,7 @@
       document.getElementById('cancel-sale-reason').value = '';
       document.getElementById('cancel-sale-password').value = '';
       document.getElementById('cancel-sale-password-wrap').style.display = _cancelNeedsPassword ? '' : 'none';
+      showCancelSaleActionFeedback('', false);
       var nfWarn = document.getElementById('cancel-sale-nf-warn');
       if (hasNFe) {
         nfWarn.style.display = '';
@@ -711,6 +724,7 @@
       document.getElementById('cancel-sale-reason').style.border = '';
       document.getElementById('cancel-sale-password').style.border = '';
       showCancelSaleFeedback('');
+      showCancelSaleActionFeedback('', false);
       var btn = document.getElementById('btn-confirm-cancel-sale');
       if (btn) { btn.disabled = true; btn.textContent = 'Cancelando...'; }
 
@@ -722,16 +736,22 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.ok) {
-          closeCancelSaleModal();
-          showInlineFeedback('Venda #' + _cancelSaleId + ' cancelada com sucesso.');
+          if (btn) { btn.disabled = false; btn.textContent = '✖ Confirmar Cancelamento'; }
+          showCancelSaleActionFeedback('Venda #' + _cancelSaleId + ' cancelada com sucesso.', false);
+          showCancelSaleFeedback('');
+          document.getElementById('cancel-sale-reason-wrap').style.display = 'none';
+          document.getElementById('cancel-sale-results').scrollTop = 0;
+          searchSalesToCancel();
           _cancelSaleId = null;
         } else {
           if (btn) { btn.disabled = false; btn.textContent = '✖ Confirmar Cancelamento'; }
+          showCancelSaleActionFeedback('', false);
           showCancelSaleFeedback(data.error || 'Falha ao cancelar a venda.');
         }
       })
       .catch(function() {
         if (btn) { btn.disabled = false; btn.textContent = '✖ Confirmar Cancelamento'; }
+        showCancelSaleActionFeedback('', false);
         showCancelSaleFeedback('Erro de comunicação ao cancelar venda.');
       });
     }
