@@ -40,7 +40,7 @@
               <td class="action-buttons">
                 <a href="{{ url_for('cadastro', entity='usuarios', edit_id=user['id']) }}" class="btn-edit">Editar</a>
                 {% if user['role'] != 'owner' %}
-                  <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='usuarios') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                  <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='usuarios') }}" data-app-delete-confirm="Tem certeza que deseja deletar este usuário?">
                     <input type="hidden" name="delete_id" value="{{ user['id'] }}">
                     <button type="submit" class="btn-delete">Deletar</button>
                   </form>
@@ -269,7 +269,7 @@
                 <td>$ {{ "%.2f"|format((product['price'] or 0) - (product['cost'] or 0)) }}</td>
                 <td class="action-buttons">
                   <a href="{{ url_for('cadastro', entity='produtos', edit_id=product['id']) }}" class="btn-edit">Editar</a>
-                  <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='produtos') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                  <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='produtos') }}" data-app-delete-confirm="Tem certeza que deseja deletar este produto?">
                     <input type="hidden" name="delete_id" value="{{ product['id'] }}">
                     <button type="submit" class="btn-delete">Deletar</button>
                   </form>
@@ -370,7 +370,7 @@
                   <span class="action-icon-btn action-icon-placeholder" aria-hidden="true"></span>
                 {% endif %}
                 <a href="{{ url_for('cadastro', entity='clientes', edit_id=client['id']) }}" class="btn-edit action-icon-btn action-edit" title="Editar" aria-label="Editar">&#9998;</a>
-                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='clientes') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='clientes') }}" data-app-delete-confirm="Tem certeza que deseja deletar este cliente?">
                   <input type="hidden" name="delete_id" value="{{ client['id'] }}">
                   <button type="submit" class="btn-delete action-icon-btn action-delete" title="Excluir" aria-label="Excluir">&#128465;</button>
                 </form>
@@ -488,7 +488,7 @@
                   <span class="action-icon-btn action-icon-placeholder" aria-hidden="true"></span>
                 {% endif %}
                 <a href="{{ url_for('cadastro', entity='fornecedores', edit_id=supplier['id']) }}" class="btn-edit action-icon-btn action-edit" title="Editar" aria-label="Editar">&#9998;</a>
-                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='fornecedores') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='fornecedores') }}" data-app-delete-confirm="Tem certeza que deseja deletar este fornecedor?">
                   <input type="hidden" name="delete_id" value="{{ supplier['id'] }}">
                   <button type="submit" class="btn-delete action-icon-btn action-delete" title="Excluir" aria-label="Excluir">&#128465;</button>
                 </form>
@@ -528,7 +528,7 @@
               <td>{{ item['name'] }}</td>
               <td class="action-buttons">
                 <a href="{{ url_for('cadastro', entity='categorias', edit_id=item['id']) }}" class="btn-edit">Editar</a>
-                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='categorias') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='categorias') }}" data-app-delete-confirm="Tem certeza que deseja deletar esta categoria?">
                   <input type="hidden" name="delete_id" value="{{ item['id'] }}">
                   <button type="submit" class="btn-delete">Deletar</button>
                 </form>
@@ -562,7 +562,7 @@
               <td>{{ item['name'] }}</td>
               <td class="action-buttons">
                 <a href="{{ url_for('cadastro', entity='unidades', edit_id=item['id']) }}" class="btn-edit">Editar</a>
-                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='unidades') }}" onsubmit="return confirm('Tem certeza que deseja deletar?');">
+                <form class="inline-form" method="post" action="{{ url_for('cadastro', entity='unidades') }}" data-app-delete-confirm="Tem certeza que deseja deletar esta unidade?">
                   <input type="hidden" name="delete_id" value="{{ item['id'] }}">
                   <button type="submit" class="btn-delete">Deletar</button>
                 </form>
@@ -576,6 +576,17 @@
     </div>
   {% endif %}
 
+  </div>
+
+  <div id="app-delete-confirm-modal" class="pix-modal" style="display:none;">
+    <div class="pix-modal-content" style="max-width:420px;width:94%;">
+      <h3>Confirmar exclusão</h3>
+      <p id="app-delete-confirm-message" style="color:#64748b;margin-bottom:14px;">Tem certeza que deseja deletar este registro?</p>
+      <div class="pix-modal-actions">
+        <button type="button" class="btn-delete" id="app-delete-confirm-yes">Deletar</button>
+        <button type="button" class="btn-cancel" id="app-delete-confirm-no">Cancelar</button>
+      </div>
+    </div>
   </div>
 
   <style>
@@ -610,6 +621,61 @@
   </style>
 
   <script>
+    let pendingDeleteForm = null;
+
+    function openAppDeleteConfirm(form) {
+      pendingDeleteForm = form;
+      const modal = document.getElementById('app-delete-confirm-modal');
+      const message = document.getElementById('app-delete-confirm-message');
+      if (message) {
+        message.textContent = form.getAttribute('data-app-delete-confirm') || 'Tem certeza que deseja deletar este registro?';
+      }
+      if (modal) {
+        modal.style.display = 'flex';
+      }
+    }
+
+    function closeAppDeleteConfirm() {
+      const modal = document.getElementById('app-delete-confirm-modal');
+      if (modal) {
+        modal.style.display = 'none';
+      }
+      pendingDeleteForm = null;
+    }
+
+    function bindAppDeleteConfirm() {
+      document.querySelectorAll('form[data-app-delete-confirm]').forEach((form) => {
+        if (form.dataset.confirmBound === '1') return;
+        form.dataset.confirmBound = '1';
+        form.addEventListener('submit', function(event) {
+          event.preventDefault();
+          openAppDeleteConfirm(form);
+        });
+      });
+
+      const yesBtn = document.getElementById('app-delete-confirm-yes');
+      const noBtn = document.getElementById('app-delete-confirm-no');
+
+      if (yesBtn && !yesBtn.dataset.confirmBound) {
+        yesBtn.dataset.confirmBound = '1';
+        yesBtn.addEventListener('click', function() {
+          if (pendingDeleteForm) {
+            const form = pendingDeleteForm;
+            pendingDeleteForm = null;
+            form.submit();
+          }
+          closeAppDeleteConfirm();
+        });
+      }
+
+      if (noBtn && !noBtn.dataset.confirmBound) {
+        noBtn.dataset.confirmBound = '1';
+        noBtn.addEventListener('click', function() {
+          closeAppDeleteConfirm();
+        });
+      }
+    }
+
     function toggleCategoryForm(id, button) {
       const el = document.getElementById(id);
       if (!el) return;
@@ -721,9 +787,12 @@
 
     document.addEventListener('keydown', function(event) {
       if (event.key === 'Escape') {
+        closeAppDeleteConfirm();
         closeAllInlineForms();
       }
     });
+
+    bindAppDeleteConfirm();
 
     function copyPhoneToWhatsapp(checkbox, scope) {
       const phone = document.querySelector('input[name="phone"]');

@@ -2317,6 +2317,27 @@ def _format_date_br(value):
     return text
 
 
+def _format_datetime_br(value):
+    if not value:
+        return "-"
+    if hasattr(value, "strftime"):
+        return value.strftime("%d/%m/%Y %H:%M")
+    text = str(value).strip()
+    if not text:
+        return "-"
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y"):
+        try:
+            dt = datetime.strptime(text[:19], fmt)
+            return dt.strftime("%d/%m/%Y %H:%M")
+        except Exception:
+            continue
+    if len(text) >= 16 and text[4] == "-" and text[7] == "-":
+        return f"{text[8:10]}/{text[5:7]}/{text[0:4]} {text[11:16]}"
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        return f"{text[8:10]}/{text[5:7]}/{text[0:4]}"
+    return text
+
+
 def _parse_iso_date(text):
     if not text:
         return None
@@ -4808,38 +4829,85 @@ def cadastro(entity):
             if request.form.get("delete_id"):
                 delete_id = request.form.get("delete_id")
                 if entity == "usuarios":
-                    conn.execute("DELETE FROM users WHERE id = %s AND account_id = %s AND role != 'owner'", (delete_id, account_id))
-                    conn.commit()
-                    flash("Registro deletado com sucesso", "success")
+                    cursor = conn.execute("DELETE FROM users WHERE id = %s AND account_id = %s AND role != 'owner'", (delete_id, account_id))
+                    if cursor.rowcount > 0:
+                        conn.commit()
+                        flash("Registro deletado com sucesso", "success")
+                    else:
+                        flash("Registro não encontrado para exclusão.", "error")
                 elif entity == "produtos":
-                    conn.execute("DELETE FROM products WHERE id = %s AND account_id = %s", (delete_id, account_id))
-                    conn.commit()
-                    flash("Registro deletado com sucesso", "success")
+                    used_in_sales = conn.execute(
+                        "SELECT COUNT(*) FROM sale_items si JOIN products p ON p.id = si.product_id WHERE p.id = %s AND p.account_id = %s",
+                        (delete_id, account_id),
+                    ).fetchone()[0]
+                    used_in_purchase_orders = conn.execute(
+                        "SELECT COUNT(*) FROM purchase_orders WHERE product_id = %s AND account_id = %s",
+                        (delete_id, account_id),
+                    ).fetchone()[0]
+                    if used_in_sales > 0 or used_in_purchase_orders > 0:
+                        flash("Não é possível deletar este produto porque ele já possui movimentações (vendas/ordens).", "error")
+                    else:
+                        cursor = conn.execute("DELETE FROM products WHERE id = %s AND account_id = %s", (delete_id, account_id))
+                        if cursor.rowcount > 0:
+                            conn.commit()
+                            flash("Registro deletado com sucesso", "success")
+                        else:
+                            flash("Produto não encontrado para exclusão.", "error")
                 elif entity == "clientes":
-                    conn.execute("DELETE FROM clients WHERE id = %s AND account_id = %s", (delete_id, account_id))
-                    conn.commit()
-                    flash("Registro deletado com sucesso", "success")
+                    used_in_sales = conn.execute(
+                        "SELECT COUNT(*) FROM sales WHERE client_id = %s AND account_id = %s",
+                        (delete_id, account_id),
+                    ).fetchone()[0]
+                    if used_in_sales > 0:
+                        flash("Não é possível deletar este cliente porque ele possui vendas vinculadas.", "error")
+                    else:
+                        cursor = conn.execute("DELETE FROM clients WHERE id = %s AND account_id = %s", (delete_id, account_id))
+                        if cursor.rowcount > 0:
+                            conn.commit()
+                            flash("Registro deletado com sucesso", "success")
+                        else:
+                            flash("Cliente não encontrado para exclusão.", "error")
                 elif entity == "fornecedores":
-                    conn.execute("DELETE FROM suppliers WHERE id = %s AND account_id = %s", (delete_id, account_id))
-                    conn.commit()
-                    flash("Registro deletado com sucesso", "success")
+                    used_in_products = conn.execute(
+                        "SELECT COUNT(*) FROM products WHERE supplier_id = %s AND account_id = %s",
+                        (delete_id, account_id),
+                    ).fetchone()[0]
+                    used_in_purchase_orders = conn.execute(
+                        "SELECT COUNT(*) FROM purchase_orders WHERE supplier_id = %s AND account_id = %s",
+                        (delete_id, account_id),
+                    ).fetchone()[0]
+                    if used_in_products > 0 or used_in_purchase_orders > 0:
+                        flash("Não é possível deletar este fornecedor porque ele está vinculado a produtos ou compras.", "error")
+                    else:
+                        cursor = conn.execute("DELETE FROM suppliers WHERE id = %s AND account_id = %s", (delete_id, account_id))
+                        if cursor.rowcount > 0:
+                            conn.commit()
+                            flash("Registro deletado com sucesso", "success")
+                        else:
+                            flash("Fornecedor não encontrado para exclusão.", "error")
                 elif entity == "categorias":
                     used_in_products = conn.execute("SELECT COUNT(*) FROM products WHERE category_id = %s AND account_id = %s", (delete_id, account_id)).fetchone()[0]
                     used_in_suppliers = conn.execute("SELECT COUNT(*) FROM suppliers WHERE category_id = %s AND account_id = %s", (delete_id, account_id)).fetchone()[0]
                     if used_in_products > 0 or used_in_suppliers > 0:
                         flash("Não é possível deletar esta categoria pois está sendo usada", "error")
                     else:
-                        conn.execute("DELETE FROM categories WHERE id = %s AND account_id = %s", (delete_id, account_id))
-                        conn.commit()
-                        flash("Registro deletado com sucesso", "success")
+                        cursor = conn.execute("DELETE FROM categories WHERE id = %s AND account_id = %s", (delete_id, account_id))
+                        if cursor.rowcount > 0:
+                            conn.commit()
+                            flash("Registro deletado com sucesso", "success")
+                        else:
+                            flash("Categoria não encontrada para exclusão.", "error")
                 elif entity == "unidades":
                     used_in_products = conn.execute("SELECT COUNT(*) FROM products WHERE unit_id = %s AND account_id = %s", (delete_id, account_id)).fetchone()[0]
                     if used_in_products > 0:
                         flash("Não é possível deletar esta unidade pois está sendo usada", "error")
                     else:
-                        conn.execute("DELETE FROM units WHERE id = %s AND account_id = %s", (delete_id, account_id))
-                        conn.commit()
-                        flash("Registro deletado com sucesso", "success")
+                        cursor = conn.execute("DELETE FROM units WHERE id = %s AND account_id = %s", (delete_id, account_id))
+                        if cursor.rowcount > 0:
+                            conn.commit()
+                            flash("Registro deletado com sucesso", "success")
+                        else:
+                            flash("Unidade não encontrada para exclusão.", "error")
                 conn.close()
                 return redirect(url_for("cadastro", entity=entity))
 
@@ -4892,6 +4960,7 @@ def cadastro(entity):
                         flash("Este login já existe", "error")
 
             elif entity == "produtos":
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 new_category_name = request.form.get("new_category_name")
                 new_unit_name = request.form.get("new_unit_name")
                 new_supplier_name = request.form.get("new_supplier_name")
@@ -4899,8 +4968,8 @@ def cadastro(entity):
                     new_category_id = None
                     try:
                         new_category_id = conn.execute(
-                            "INSERT INTO categories (account_id, name) VALUES (%s, %s) RETURNING id",
-                            (account_id, new_category_name.strip()),
+                            "INSERT INTO categories (account_id, name, created_at) VALUES (%s, %s, %s) RETURNING id",
+                            (account_id, new_category_name.strip(), now_str),
                         ).fetchone()[0]
                         conn.commit()
                         flash(translate("record_saved"), "success")
@@ -4917,8 +4986,8 @@ def cadastro(entity):
                     new_unit_id = None
                     try:
                         new_unit_id = conn.execute(
-                            "INSERT INTO units (account_id, name) VALUES (%s, %s) RETURNING id",
-                            (account_id, new_unit_name.strip()),
+                            "INSERT INTO units (account_id, name, created_at) VALUES (%s, %s, %s) RETURNING id",
+                            (account_id, new_unit_name.strip(), now_str),
                         ).fetchone()[0]
                         conn.commit()
                         flash(translate("record_saved"), "success")
@@ -4946,8 +5015,8 @@ def cadastro(entity):
                             supplier_cnpj = re.sub(r"\D", "", request.form.get("new_supplier_cnpj") or "")[:14]
                             supplier_phone = re.sub(r"\D", "", request.form.get("new_supplier_phone") or "")[:15] or None
                             conn.execute(
-                                "INSERT INTO suppliers (account_id, name, cnpj, phone, category_id) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-                                (account_id, supplier_name, supplier_cnpj, supplier_phone, new_supplier_category_id),
+                                "INSERT INTO suppliers (account_id, name, cnpj, phone, category_id, created_at) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                                (account_id, supplier_name, supplier_cnpj, supplier_phone, new_supplier_category_id, now_str),
                             )
                             new_supplier_id = conn.execute("SELECT CURRVAL(pg_get_serial_sequence('suppliers', 'id'))").fetchone()[0]
                             conn.commit()
@@ -5069,8 +5138,8 @@ def cadastro(entity):
                             )
                         else:
                             conn.execute(
-                                "INSERT INTO products (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date, image_url) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date, image_url),
+                                "INSERT INTO products (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date, image_url, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (account_id, name, product_code, category_id, unit_id, supplier_id, cost, price, margin_percent, unit_buy, conversion_factor, stock, stock_min, status, expiration_date, image_url, now_str),
                             )
                         conn.commit()
                         flash(translate("record_saved"), "success")
@@ -5080,6 +5149,7 @@ def cadastro(entity):
                     flash("Preencha todos os campos obrigatórios", "error")
 
             elif entity == "clientes":
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 name = request.form.get("name")
                 cpf = re.sub(r"\D", "", request.form.get("cpf") or "")[:11]
                 email = (request.form.get("email") or "").strip() or None
@@ -5109,8 +5179,8 @@ def cadastro(entity):
                         )
                     else:
                         conn.execute(
-                            "INSERT INTO clients (account_id, name, cpf, email, phone, whatsapp, birth_date, notes, street, number, complement, neighborhood, city, state, country, postal_code, gender) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (account_id, name, cpf, email, phone, whatsapp, birth_date, notes, street, number, complement, neighborhood, city, state, country, postal_code, gender),
+                            "INSERT INTO clients (account_id, name, cpf, email, phone, whatsapp, birth_date, notes, street, number, complement, neighborhood, city, state, country, postal_code, gender, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (account_id, name, cpf, email, phone, whatsapp, birth_date, notes, street, number, complement, neighborhood, city, state, country, postal_code, gender, now_str),
                         )
                     conn.commit()
                     flash(translate("record_saved"), "success")
@@ -5120,13 +5190,14 @@ def cadastro(entity):
                 flash("Nome é obrigatório", "error")
 
             elif entity == "fornecedores":
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 new_category_name = request.form.get("new_category_name")
                 if new_category_name:
                     new_category_id = None
                     try:
                         new_category_id = conn.execute(
-                            "INSERT INTO categories (account_id, name) VALUES (%s, %s) RETURNING id",
-                            (account_id, new_category_name.strip()),
+                            "INSERT INTO categories (account_id, name, created_at) VALUES (%s, %s, %s) RETURNING id",
+                            (account_id, new_category_name.strip(), now_str),
                         ).fetchone()[0]
                         conn.commit()
                         flash(translate("record_saved"), "success")
@@ -5164,8 +5235,8 @@ def cadastro(entity):
                             )
                         else:
                             conn.execute(
-                                "INSERT INTO suppliers (account_id, name, cnpj, email, phone, whatsapp, notes, street, number, complement, neighborhood, city, state, country, postal_code, category_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                (account_id, name, cnpj, email, phone, whatsapp, notes, street, number, complement, neighborhood, city, state, country, postal_code, category_id),
+                                "INSERT INTO suppliers (account_id, name, cnpj, email, phone, whatsapp, notes, street, number, complement, neighborhood, city, state, country, postal_code, category_id, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (account_id, name, cnpj, email, phone, whatsapp, notes, street, number, complement, neighborhood, city, state, country, postal_code, category_id, now_str),
                             )
                         conn.commit()
                         flash(translate("record_saved"), "success")
@@ -5175,6 +5246,7 @@ def cadastro(entity):
                     flash("Nome e Categoria são obrigatórios", "error")
 
             elif entity == "categorias":
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 name = request.form.get("name")
                 edit_id_form = request.form.get("edit_id")
                 if name:
@@ -5182,7 +5254,7 @@ def cadastro(entity):
                         if edit_id_form:
                             conn.execute("UPDATE categories SET name = %s WHERE id = %s AND account_id = %s", (name, edit_id_form, account_id))
                         else:
-                            conn.execute("INSERT INTO categories (account_id, name) VALUES (%s, %s)", (account_id, name))
+                            conn.execute("INSERT INTO categories (account_id, name, created_at) VALUES (%s, %s, %s)", (account_id, name, now_str))
                         conn.commit()
                         flash(translate("record_saved"), "success")
                         conn.close()
@@ -5194,6 +5266,7 @@ def cadastro(entity):
                     flash("Nome é obrigatório", "error")
 
             elif entity == "unidades":
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 name = request.form.get("name")
                 edit_id_form = request.form.get("edit_id")
                 if name:
@@ -5201,7 +5274,7 @@ def cadastro(entity):
                         if edit_id_form:
                             conn.execute("UPDATE units SET name = %s WHERE id = %s AND account_id = %s", (name, edit_id_form, account_id))
                         else:
-                            conn.execute("INSERT INTO units (account_id, name) VALUES (%s, %s)", (account_id, name))
+                            conn.execute("INSERT INTO units (account_id, name, created_at) VALUES (%s, %s, %s)", (account_id, name, now_str))
                         conn.commit()
                         flash(translate("record_saved"), "success")
                         conn.close()
@@ -7796,7 +7869,15 @@ def relatorios():
             return "status-yellow", "Confortável (20% a 50% acima)"
         return "status-green", "Estoque saudável"
 
+    def _column_exists(table_name, column_name):
+        row = conn.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = %s LIMIT 1",
+            (table_name, column_name),
+        ).fetchone()
+        return bool(row)
+
     if section == "fornecedores":
+        suppliers_has_created_at = _column_exists("suppliers", "created_at")
         section_title = translate("suppliers_report_card")
         report_options = [
             {
@@ -7813,6 +7894,11 @@ def relatorios():
                 "key": "supplier_sales_value",
                 "label": translate("supplier_sales_value"),
                 "description": translate("supplier_sales_value_desc"),
+            },
+            {
+                "key": "supplier_registry_history",
+                "label": "Fornecedores cadastrados",
+                "description": "Lista de fornecedores com data e hora de cadastro.",
             },
         ]
         if report == "supplier_by_category":
@@ -7869,7 +7955,21 @@ def relatorios():
                 + " GROUP BY sup.name ORDER BY total DESC",
                 tuple([translate("no_records_found"), *sales_params]),
             ).fetchall()
+        elif report == "supplier_registry_history":
+            report_title = "Fornecedores cadastrados"
+            report_description = "Data e hora em que cada fornecedor foi cadastrado."
+            report_headers = [translate("supplier_name"), translate("cnpj_label"), "Data/hora de cadastro"]
+            created_at_sql = "COALESCE(s.created_at, '') AS created_at" if suppliers_has_created_at else "'' AS created_at"
+            rows_raw = conn.execute(
+                "SELECT COALESCE(s.name, %s) AS name, COALESCE(s.cnpj, '-') AS cnpj, "
+                + created_at_sql + " "
+                "FROM suppliers s WHERE s.account_id = %s "
+                + ("ORDER BY s.created_at DESC, s.name ASC" if suppliers_has_created_at else "ORDER BY s.name ASC"),
+                (translate("no_records_found"), account_id),
+            ).fetchall()
+            report_rows = [(r["name"], r["cnpj"], _format_datetime_br(r["created_at"])) for r in rows_raw]
     elif section == "clientes":
+        clients_has_created_at = _column_exists("clients", "created_at")
         section_title = translate("clients_report_card")
         report_options = [
             {
@@ -7886,6 +7986,11 @@ def relatorios():
                 "key": "client_sales_value",
                 "label": translate("client_sales_value"),
                 "description": translate("client_sales_value_desc"),
+            },
+            {
+                "key": "client_registry_history",
+                "label": "Clientes cadastrados",
+                "description": "Lista de clientes com data e hora de cadastro.",
             },
         ]
         if report == "client_top_customers":
@@ -7941,7 +8046,21 @@ def relatorios():
                 + " GROUP BY c.name ORDER BY total DESC",
                 tuple([translate("no_records_found"), *sales_params]),
             ).fetchall()
+        elif report == "client_registry_history":
+            report_title = "Clientes cadastrados"
+            report_description = "Data e hora em que cada cliente foi cadastrado."
+            report_headers = [translate("client_name"), translate("cpf_label"), "Data/hora de cadastro"]
+            created_at_sql = "COALESCE(c.created_at, '') AS created_at" if clients_has_created_at else "'' AS created_at"
+            rows_raw = conn.execute(
+                "SELECT COALESCE(c.name, %s) AS name, COALESCE(c.cpf, '-') AS cpf, "
+                + created_at_sql + " "
+                "FROM clients c WHERE c.account_id = %s "
+                + ("ORDER BY c.created_at DESC, c.name ASC" if clients_has_created_at else "ORDER BY c.name ASC"),
+                (translate("no_records_found"), account_id),
+            ).fetchall()
+            report_rows = [(r["name"], r["cpf"], _format_datetime_br(r["created_at"])) for r in rows_raw]
     elif section == "produtos":
+        products_has_created_at = _column_exists("products", "created_at")
         section_title = translate("products_report_card")
         report_options = [
             {
@@ -7968,6 +8087,11 @@ def relatorios():
                 "key": "product_gender_share",
                 "label": translate("product_gender_share"),
                 "description": "Percentual de compras por gênero para cada produto.",
+            },
+            {
+                "key": "product_registry_history",
+                "label": "Produtos cadastrados",
+                "description": "Lista de produtos com data e hora de cadastro.",
             },
         ]
         if report == "product_margin_list":
@@ -8381,50 +8505,63 @@ def relatorios():
     sales_period_overview = {
         "sales_count": 0,
         "sales_total": 0.0,
-        "surcharge_total": 0.0,
-        "discount_total": 0.0,
-        "ticket_avg": 0.0,
-    }
-    sales_period_weekday_labels = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"]
-    sales_period_weekday_totals = [0.0] * 7
-    sales_period_weekday_qty = [0] * 7
-    sales_period_hour_labels = [f"{hour:02d}h" for hour in range(24)]
-    sales_period_hour_totals = [0.0] * 24
-    sales_period_hour_qty = [0] * 24
-    sales_period_month_labels = []
-    sales_period_month_totals = []
-    sales_period_heatmap_hours = [f"{hour:02d}h" for hour in range(8, 23)]
-    sales_period_heatmap = []
 
-    if section == "vendas_periodo":
-        try:
-            sales_period_kpi = conn.execute(
-                "SELECT COUNT(*) AS sales_count, "
-                "COALESCE(SUM(total), 0) AS sales_total, "
-                "COALESCE(SUM(surcharge), 0) AS surcharge_total, "
-                "COALESCE(SUM(discount), 0) AS discount_total "
-                "FROM sales s" + sales_where,
-                tuple(sales_params),
-            ).fetchone()
+            qty_male_total = 0.0
+            qty_female_total = 0.0
+            qty_na_total = 0.0
+            formatted_rows = []
+            for row in report_rows:
+                qty_male = float(row["qty_male"] or 0)
+                qty_female = float(row["qty_female"] or 0)
+                qty_na = float(row["qty_na"] or 0)
+                qty_total = qty_male + qty_female + qty_na
 
-            sales_count = int(sales_period_kpi["sales_count"] or 0)
-            sales_total = float(sales_period_kpi["sales_total"] or 0)
-            surcharge_total = float(sales_period_kpi["surcharge_total"] or 0)
-            discount_total = float(sales_period_kpi["discount_total"] or 0)
-            ticket_avg = (sales_total / sales_count) if sales_count > 0 else 0.0
+                qty_male_total += qty_male
+                qty_female_total += qty_female
+                qty_na_total += qty_na
 
-            sales_period_overview = {
-                "sales_count": sales_count,
-                "sales_total": sales_total,
-                "surcharge_total": surcharge_total,
-                "discount_total": discount_total,
-                "ticket_avg": ticket_avg,
+                male_pct = (qty_male / qty_total * 100) if qty_total > 0 else 0
+                female_pct = (qty_female / qty_total * 100) if qty_total > 0 else 0
+                na_pct = (qty_na / qty_total * 100) if qty_total > 0 else 0
+
+                formatted_rows.append(
+                    (
+                        row["product_name"],
+                        f"{qty_total:.2f}",
+                        f"{qty_male:.2f} ({male_pct:.1f}%)",
+                        f"{qty_female:.2f} ({female_pct:.1f}%)",
+                        f"{qty_na:.2f} ({na_pct:.1f}%)",
+                    )
+                )
+
+            overall_total = qty_male_total + qty_female_total + qty_na_total
+            overall_male_pct = (qty_male_total / overall_total * 100) if overall_total > 0 else 0
+            overall_female_pct = (qty_female_total / overall_total * 100) if overall_total > 0 else 0
+            overall_na_pct = (qty_na_total / overall_total * 100) if overall_total > 0 else 0
+
+            product_gender_overall = {
+                "male": qty_male_total,
+                "female": qty_female_total,
+                "na": qty_na_total,
+                "total": overall_total,
+                "male_pct": overall_male_pct,
+                "female_pct": overall_female_pct,
+                "na_pct": overall_na_pct,
             }
-
-            def parse_sale_datetime(raw_value):
-                if not raw_value:
-                    return None
-                if hasattr(raw_value, "year") and hasattr(raw_value, "month") and hasattr(raw_value, "day"):
+            report_rows = formatted_rows
+        elif report == "product_registry_history":
+            report_title = "Produtos cadastrados"
+            report_description = "Data e hora em que cada produto foi cadastrado."
+            report_headers = [translate("product_name"), "Status", "Data/hora de cadastro"]
+            created_at_sql = "COALESCE(p.created_at, '') AS created_at" if products_has_created_at else "'' AS created_at"
+            rows_raw = conn.execute(
+                "SELECT COALESCE(p.name, %s) AS name, COALESCE(p.status, 'ativo') AS status, "
+                + created_at_sql + " "
+                "FROM products p WHERE p.account_id = %s "
+                + ("ORDER BY p.created_at DESC, p.name ASC" if products_has_created_at else "ORDER BY p.name ASC"),
+                (translate("no_records_found"), account_id),
+            ).fetchall()
+            report_rows = [(r["name"], (r["status"] or "ativo").capitalize(), _format_datetime_br(r["created_at"])) for r in rows_raw]
                     if hasattr(raw_value, "hour"):
                         return raw_value
                     return datetime(raw_value.year, raw_value.month, raw_value.day, 0, 0, 0)
