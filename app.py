@@ -8505,63 +8505,50 @@ def relatorios():
     sales_period_overview = {
         "sales_count": 0,
         "sales_total": 0.0,
+        "surcharge_total": 0.0,
+        "discount_total": 0.0,
+        "ticket_avg": 0.0,
+    }
+    sales_period_weekday_labels = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"]
+    sales_period_weekday_totals = [0.0] * 7
+    sales_period_weekday_qty = [0] * 7
+    sales_period_hour_labels = [f"{hour:02d}h" for hour in range(24)]
+    sales_period_hour_totals = [0.0] * 24
+    sales_period_hour_qty = [0] * 24
+    sales_period_month_labels = []
+    sales_period_month_totals = []
+    sales_period_heatmap_hours = [f"{hour:02d}h" for hour in range(8, 23)]
+    sales_period_heatmap = []
 
-            qty_male_total = 0.0
-            qty_female_total = 0.0
-            qty_na_total = 0.0
-            formatted_rows = []
-            for row in report_rows:
-                qty_male = float(row["qty_male"] or 0)
-                qty_female = float(row["qty_female"] or 0)
-                qty_na = float(row["qty_na"] or 0)
-                qty_total = qty_male + qty_female + qty_na
+    if section == "vendas_periodo":
+        try:
+            sales_period_kpi = conn.execute(
+                "SELECT COUNT(*) AS sales_count, "
+                "COALESCE(SUM(total), 0) AS sales_total, "
+                "COALESCE(SUM(surcharge), 0) AS surcharge_total, "
+                "COALESCE(SUM(discount), 0) AS discount_total "
+                "FROM sales s" + sales_where,
+                tuple(sales_params),
+            ).fetchone()
 
-                qty_male_total += qty_male
-                qty_female_total += qty_female
-                qty_na_total += qty_na
+            sales_count = int(sales_period_kpi["sales_count"] or 0)
+            sales_total = float(sales_period_kpi["sales_total"] or 0)
+            surcharge_total = float(sales_period_kpi["surcharge_total"] or 0)
+            discount_total = float(sales_period_kpi["discount_total"] or 0)
+            ticket_avg = (sales_total / sales_count) if sales_count > 0 else 0.0
 
-                male_pct = (qty_male / qty_total * 100) if qty_total > 0 else 0
-                female_pct = (qty_female / qty_total * 100) if qty_total > 0 else 0
-                na_pct = (qty_na / qty_total * 100) if qty_total > 0 else 0
-
-                formatted_rows.append(
-                    (
-                        row["product_name"],
-                        f"{qty_total:.2f}",
-                        f"{qty_male:.2f} ({male_pct:.1f}%)",
-                        f"{qty_female:.2f} ({female_pct:.1f}%)",
-                        f"{qty_na:.2f} ({na_pct:.1f}%)",
-                    )
-                )
-
-            overall_total = qty_male_total + qty_female_total + qty_na_total
-            overall_male_pct = (qty_male_total / overall_total * 100) if overall_total > 0 else 0
-            overall_female_pct = (qty_female_total / overall_total * 100) if overall_total > 0 else 0
-            overall_na_pct = (qty_na_total / overall_total * 100) if overall_total > 0 else 0
-
-            product_gender_overall = {
-                "male": qty_male_total,
-                "female": qty_female_total,
-                "na": qty_na_total,
-                "total": overall_total,
-                "male_pct": overall_male_pct,
-                "female_pct": overall_female_pct,
-                "na_pct": overall_na_pct,
+            sales_period_overview = {
+                "sales_count": sales_count,
+                "sales_total": sales_total,
+                "surcharge_total": surcharge_total,
+                "discount_total": discount_total,
+                "ticket_avg": ticket_avg,
             }
-            report_rows = formatted_rows
-        elif report == "product_registry_history":
-            report_title = "Produtos cadastrados"
-            report_description = "Data e hora em que cada produto foi cadastrado."
-            report_headers = [translate("product_name"), "Status", "Data/hora de cadastro"]
-            created_at_sql = "COALESCE(p.created_at, '') AS created_at" if products_has_created_at else "'' AS created_at"
-            rows_raw = conn.execute(
-                "SELECT COALESCE(p.name, %s) AS name, COALESCE(p.status, 'ativo') AS status, "
-                + created_at_sql + " "
-                "FROM products p WHERE p.account_id = %s "
-                + ("ORDER BY p.created_at DESC, p.name ASC" if products_has_created_at else "ORDER BY p.name ASC"),
-                (translate("no_records_found"), account_id),
-            ).fetchall()
-            report_rows = [(r["name"], (r["status"] or "ativo").capitalize(), _format_datetime_br(r["created_at"])) for r in rows_raw]
+
+            def parse_sale_datetime(raw_value):
+                if not raw_value:
+                    return None
+                if hasattr(raw_value, "year") and hasattr(raw_value, "month") and hasattr(raw_value, "day"):
                     if hasattr(raw_value, "hour"):
                         return raw_value
                     return datetime(raw_value.year, raw_value.month, raw_value.day, 0, 0, 0)
